@@ -131,6 +131,7 @@ GameObject:
   - component: {fileID: 475}
   - component: {fileID: 476}
   - component: {fileID: 477}
+  - component: {fileID: 2000000001}
   m_Layer: 5
   m_Name: Canvas
   m_TagString: Untagged
@@ -2314,8 +2315,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ScratchCell
   scratchImage: {fileID: 1297185426}
-  brushRadius: 10
-  scratchPercentage: 99.8
 --- !u!1 &225
 GameObject:
   m_ObjectHideFlags: 0
@@ -2487,8 +2486,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ScratchCell
   scratchImage: {fileID: 1985418391}
-  brushRadius: 10
-  scratchPercentage: 99.8
 --- !u!1 &245
 GameObject:
   m_ObjectHideFlags: 0
@@ -2660,8 +2657,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ScratchCell
   scratchImage: {fileID: 1571713795}
-  brushRadius: 10
-  scratchPercentage: 99.8
 --- !u!1 &265
 GameObject:
   m_ObjectHideFlags: 0
@@ -2833,8 +2828,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ScratchCell
   scratchImage: {fileID: 996832735}
-  brushRadius: 10
-  scratchPercentage: 99.8
 --- !u!1 &285
 GameObject:
   m_ObjectHideFlags: 0
@@ -3006,8 +2999,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ScratchCell
   scratchImage: {fileID: 72679799}
-  brushRadius: 10
-  scratchPercentage: 99.8
 --- !u!1 &305
 GameObject:
   m_ObjectHideFlags: 0
@@ -3179,8 +3170,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ScratchCell
   scratchImage: {fileID: 612190714}
-  brushRadius: 10
-  scratchPercentage: 99.8
 --- !u!1 &325
 GameObject:
   m_ObjectHideFlags: 0
@@ -3352,8 +3341,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ScratchCell
   scratchImage: {fileID: 1089424337}
-  brushRadius: 10
-  scratchPercentage: 99.8
 --- !u!1 &345
 GameObject:
   m_ObjectHideFlags: 0
@@ -6692,8 +6679,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ScratchCell
   scratchImage: {fileID: 176}
-  brushRadius: 10
-  scratchPercentage: 99.8
 --- !u!1 &863787443
 GameObject:
   m_ObjectHideFlags: 0
@@ -7543,8 +7528,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ScratchCell
   scratchImage: {fileID: 196}
-  brushRadius: 10
-  scratchPercentage: 99.8
 --- !u!1 &1901890294
 GameObject:
   m_ObjectHideFlags: 0
@@ -7898,3 +7881,29 @@ SceneRoots:
   - {fileID: 102}
   - {fileID: 479}
   - {fileID: 348044551}
+--- !u!114 &2000000001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 101}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b1a4f6363e2c4091997d4a47c32ac3d1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ScratchCellManager
+  brushRadius: 10
+  scratchPercentage: 99.8
+  textureResolution: 128
+  coatingColor: {r: 1, g: 1, b: 1, a: 1}
+  cells:
+  - {fileID: 213}
+  - {fileID: 233}
+  - {fileID: 253}
+  - {fileID: 273}
+  - {fileID: 293}
+  - {fileID: 313}
+  - {fileID: 333}
+  - {fileID: 728009032}
+  - {fileID: 1806930331}
