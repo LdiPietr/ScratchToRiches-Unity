@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 
 /// <summary>
 /// M2: 20-second rounds and a maximum number of distinct scratchable cells.
@@ -19,11 +20,11 @@ public sealed class ScratchGameManager : MonoBehaviour
 
     [Header("Scene references")]
     [SerializeField] private ScratchCellManager cellManager;
-    [SerializeField] private Text timerValue;
-    [SerializeField] private Text scratchProgress;
-    [SerializeField] private Text boardSubtitle;
+    [SerializeField] private TMP_Text timerValue;
+    [SerializeField] private TMP_Text scratchProgress;
+    [SerializeField] private TMP_Text boardSubtitle;
     [SerializeField] private Button roundActionButton;
-    [SerializeField] private Text roundActionLabel;
+    [SerializeField] private TMP_Text roundActionLabel;
 
     private readonly HashSet<ScratchCell> selectedCells = new HashSet<ScratchCell>();
     private float timeRemaining;

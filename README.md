@@ -33,3 +33,17 @@ Il pulsante **Reset All Cells** è ora visibile direttamente nell'Inspector di `
 - Nessuna regressione nei test M1 e nessun errore di compilazione o Console relativo agli script.
 
 M3-M5 (simboli, premi, portafoglio, shop e upgrade) non sono implementate in questa milestone.
+
+## UI TextMeshPro - correzione M2
+
+La scena `Assets/Scenes/ScratchToRiches.unity` usa **TextMeshProUGUI** per tutti i testi (41 etichette legacy migrate, 9 simboli TMP esistenti conservati).
+Il font utilizzato è **LiberationSans SDF**, già presente in `Assets/TextMesh Pro/Resources/Fonts & Materials`.
+Il `ScratchGameManager` utilizza riferimenti `TMP_Text` per timer, progressi, sottotitolo e pulsante; i fileID serializzati delle etichette sono stati mantenuti.
+Se Unity non mostra l'interfaccia dopo `git pull`, riaprire la scena e verificare in Console eventuali errori di importazione TMP.
+
+### Verifiche UI da effettuare in Play Mode
+
+- Titolo, timer, progressi, pulsante **START ROUND**, etichette delle caselle, shop e footer visibili e leggibili.
+- Premendo **START ROUND** il testo diventa **END ROUND**, il timer scala e i contatori sono aggiornati.
+- Alla fine della partita il pulsante mostra **PLAY AGAIN**.
+- Non rimangono componenti `UnityEngine.UI.Text` nella scena e non compaiono errori TMP in Console.
