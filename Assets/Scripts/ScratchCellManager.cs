@@ -72,6 +72,11 @@ public sealed class ScratchCellManager : MonoBehaviour
         CollectCells();
         foreach (ScratchCell cell in cells)
             cell.ResetScratch();
+
+        // Inspector resets in Play Mode must also clear round pick counters.
+        ScratchGameManager gameManager = GetComponent<ScratchGameManager>();
+        if (gameManager != null)
+            gameManager.OnCellsReset();
     }
 
     private void OnValidate()

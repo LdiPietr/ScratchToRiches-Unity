@@ -11,6 +11,7 @@ public sealed class ScratchCell : MonoBehaviour, IPointerDownHandler, IDragHandl
     [SerializeField] private RawImage scratchImage;
 
     private ScratchCellManager manager;
+    private ScratchGameManager gameManager;
     private RectTransform scratchRect;
     private Texture2D scratchTexture;
     private bool[] erasedPixels;
@@ -30,6 +31,7 @@ public sealed class ScratchCell : MonoBehaviour, IPointerDownHandler, IDragHandl
     public void SetManager(ScratchCellManager owner)
     {
         manager = owner;
+        gameManager = owner != null ? owner.GetComponent<ScratchGameManager>() : null;
     }
 
     private void Start()
@@ -44,6 +46,9 @@ public sealed class ScratchCell : MonoBehaviour, IPointerDownHandler, IDragHandl
     {
         if (manager == null)
             manager = GetComponentInParent<ScratchCellManager>();
+
+        if (gameManager == null && manager != null)
+            gameManager = manager.GetComponent<ScratchGameManager>();
 
         if (manager == null || scratchImage == null)
         {
@@ -140,6 +145,14 @@ public sealed class ScratchCell : MonoBehaviour, IPointerDownHandler, IDragHandl
             return;
         }
 
+        // Claim a cell only once the pointer actually scratches inside its bounds.
+        // Already selected cells remain scratchable until the round ends.
+        if (gameManager != null && !gameManager.TrySelectCell(this))
+        {
+            hasPreviousPixel = false;
+            return;
+        }
+
         int size = scratchTexture.width;
         int pixelX = Mathf.Clamp(Mathf.FloorToInt(Mathf.InverseLerp(rect.xMin, rect.xMax, point.x) * size), 0, size - 1);
         int pixelY = Mathf.Clamp(Mathf.FloorToInt(Mathf.InverseLerp(rect.yMin, rect.yMax, point.y) * size), 0, size - 1);
@@ -215,6 +228,9 @@ public sealed class ScratchCell : MonoBehaviour, IPointerDownHandler, IDragHandl
             pixels[i] = clear;
         scratchTexture.SetPixels32(pixels);
         scratchTexture.Apply(false);
+
+        if (gameManager != null)
+            gameManager.OnCellCompleted(this);
     }
 
     private void OnDestroy()
