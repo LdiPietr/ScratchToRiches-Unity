@@ -4,11 +4,12 @@ using UnityEngine.UI;
 using TMPro;
 
 /// <summary>
-/// M2: 20-second rounds and a maximum number of distinct scratchable cells.
-/// Payouts, symbols and shop rules deliberately belong to later milestones.
+/// M2-M3: timed rounds, three distinct picks, symbol reveal and match feedback.
+/// Coins and shop logic are reserved for M4-M5.
 /// </summary>
 [DisallowMultipleComponent]
 [RequireComponent(typeof(ScratchCellManager))]
+[RequireComponent(typeof(ScratchSymbolManager))]
 public sealed class ScratchGameManager : MonoBehaviour
 {
     public enum RoundState { Ready, Playing, Finished }
@@ -20,9 +21,11 @@ public sealed class ScratchGameManager : MonoBehaviour
 
     [Header("Scene references")]
     [SerializeField] private ScratchCellManager cellManager;
+    [SerializeField] private ScratchSymbolManager symbolManager;
     [SerializeField] private TMP_Text timerValue;
     [SerializeField] private TMP_Text scratchProgress;
     [SerializeField] private TMP_Text boardSubtitle;
+    [SerializeField] private TMP_Text matchResultText;
     [SerializeField] private Button roundActionButton;
     [SerializeField] private TMP_Text roundActionLabel;
 
@@ -33,6 +36,8 @@ public sealed class ScratchGameManager : MonoBehaviour
 
     public RoundState State => state;
     public RoundEndReason EndReason => endReason;
+    public ScratchSymbolManager.MatchResult CurrentMatch =>
+        symbolManager != null ? symbolManager.Evaluate(selectedCells) : default;
     public float TimeRemaining => timeRemaining;
     public int SelectedCount => selectedCells.Count;
     public int RevealedCount
@@ -61,6 +66,9 @@ public sealed class ScratchGameManager : MonoBehaviour
         if (cellManager == null)
             cellManager = GetComponent<ScratchCellManager>();
 
+        if (symbolManager == null)
+            symbolManager = GetComponent<ScratchSymbolManager>();
+
         if (roundActionButton == null)
             Debug.LogError("ScratchGameManager: Round Action Button is missing.", this);
         else
@@ -71,9 +79,9 @@ public sealed class ScratchGameManager : MonoBehaviour
 
     private void Start()
     {
-        if (cellManager == null)
+        if (cellManager == null || symbolManager == null)
         {
-            Debug.LogError("ScratchGameManager: ScratchCellManager is missing.", this);
+            Debug.LogError("ScratchGameManager: ScratchCellManager and ScratchSymbolManager are required.", this);
             enabled = false;
             return;
         }
@@ -131,6 +139,15 @@ public sealed class ScratchGameManager : MonoBehaviour
         endReason = RoundEndReason.None;
         state = RoundState.Playing;
         cellManager.ResetAllCells();
+
+        // A fresh, fixed board is assigned only once per round.
+        if (symbolManager == null || !symbolManager.GenerateRound())
+        {
+            state = RoundState.Ready;
+            RefreshHud();
+            return;
+        }
+
         RefreshHud();
     }
 
@@ -201,6 +218,16 @@ public sealed class ScratchGameManager : MonoBehaviour
     private void RefreshHud()
     {
         UpdateTimerText();
+
+        if (matchResultText != null)
+        {
+            ScratchSymbolManager.MatchResult match = CurrentMatch;
+            matchResultText.text = state == RoundState.Ready
+                ? $"SCRATCH {MaxScratches} TO START"
+                : match.IsMatch
+                    ? $"{match.Tier.ToString().ToUpperInvariant()} x{match.Multiplier} ({match.Symbol})"
+                    : state == RoundState.Finished ? "NO MATCH" : "REVEAL MATCHING SYMBOLS";
+        }
 
         if (scratchProgress != null)
             scratchProgress.text = $"PICKS {selectedCells.Count}/{MaxScratches}    OPEN {RevealedCount}/{MaxScratches}";

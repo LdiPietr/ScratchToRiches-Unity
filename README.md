@@ -32,7 +32,7 @@ Il pulsante **Reset All Cells** è ora visibile direttamente nell'Inspector di `
 - Reset All Cells nell'Inspector funziona e resetta le scelte senza far ripartire il tempo.
 - Nessuna regressione nei test M1 e nessun errore di compilazione o Console relativo agli script.
 
-M3-M5 (simboli, premi, portafoglio, shop e upgrade) non sono implementate in questa milestone.
+M3 (simboli e combinazioni) è stata ora implementata. Monete, premi economici, shop e upgrade rimangono nella M4-M5.
 
 ## UI TextMeshPro - correzione M2
 
@@ -56,3 +56,37 @@ I nove simboli sottostanti non intercettano i raycast: il puntatore raggiunge la
 **Attenzione alla regola di gioco:** in un round puoi grattare **tre caselle qualsiasi su nove**. Dopo aver toccato tre caselle diverse, una quarta non è selezionabile; non significa che siano abilitate solo le prime tre della griglia.
 
 **Test discriminante:** premi `PLAY AGAIN` o riavvia il round, poi **gratta per prima Cell_09** senza toccare Cell_01–03. Deve funzionare e segnare `PICKS 1/3`. Verifica poi il numero `09` sopra la copertura e ripeti su Cell_04, Cell_05 ecc.
+
+## M3 - Simboli casuali e combinazioni (da validare in Play Mode)
+
+Il `Canvas` contiene ora `ScratchSymbolManager`, con pool iniziale configurabile `7, $, @, #, &`.
+Ogni pressione di **START ROUND** o **PLAY AGAIN** assegna simboli casuali a tutte le nove caselle; restano fissi per quel round e nascosti sotto le coperture.
+Due distribuzioni casuali consecutive non possono essere completamente identiche. Usare **Reset All Cells** in Play Mode ripristina soltanto le coperture e le scelte: **non cambia i simboli né riavvia il timer**.
+
+Il testo del titolo del board mostra il risultato in tempo reale e alla fine del round.
+**Solo le caselle completamente grattate** contribuiscono alle combinazioni; un simbolo parzialmente esposto non vale.
+La combinazione migliore fra le scelte rivelate determina il moltiplicatore, senza ancora assegnare monete:
+
+- **Nessuna coppia:** NO MATCH, moltiplicatore nominale x1 (nessun premio).
+- **Coppia:** due simboli uguali = PAIR x2.
+- **Tris:** tre uguali = TRIPLE x3.
+- **Poker:** quattro o più uguali = POKER x4 (massimo).
+
+La progressione resta di **3 scelte per round**, come in M2. Per provare il poker in questa milestone, impostare temporaneamente `ScratchGameManager > Scratch Limit = 4` nell'Inspector. L'upgrade che sblocca la quarta scelta sarà implementato nella M5.
+
+### Test deterministici delle combinazioni (solo Unity Editor)
+
+Sul Canvas, `ScratchSymbolManager > Editor Test Pattern` permette quattro modalità:
+`Random` (predefinita), `Pair`, `Triple`, `Poker`.
+Le modalità forzate configurano i simboli delle prime quattro caselle al **nuovo round** (le altre rimangono casuali):
+
+- **Pair**: rivelare completamente Cell_01, Cell_02, Cell_03 -> PAIR x2.
+- **Triple**: rivelare completamente Cell_01, Cell_02, Cell_03 -> TRIPLE x3.
+- **Poker**: prima impostare Scratch Limit = 4, poi rivelare completamente Cell_01, Cell_02, Cell_03 e Cell_04 -> POKER x4.
+- **Random**: verificare simboli nascosti e casuali, nessun cambiamento durante il round e rigenerazione dopo PLAY AGAIN.
+
+Verificare inoltre che: una quarta scelta resti bloccata con limite 3; match non conteggiato su caselle solo parzialmente grattate; scadenza del timer/END ROUND congeli il risultato; reset manuale non rigeneri simboli; nessun errore in Console e nessuna regressione M1/M2.
+
+Le modalità di test sono **solo Editor** e non forzano le combinazioni nelle build. Riportare `Editor Test Pattern` a **Random** al termine dei test.
+
+La M4 calcolerà le vincite in monete usando il risultato della M3; nessuna ricompensa economica viene simulata qui.

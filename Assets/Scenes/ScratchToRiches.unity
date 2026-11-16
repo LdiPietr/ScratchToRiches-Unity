@@ -133,6 +133,7 @@ GameObject:
   - component: {fileID: 477}
   - component: {fileID: 2000000001}
   - component: {fileID: 2000000002}
+  - component: {fileID: 2000000004}
   m_Layer: 5
   m_Name: Canvas
   m_TagString: Untagged
@@ -3012,6 +3013,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ScratchCell
   scratchImage: {fileID: 1297185426}
+  symbolText: {fileID: 161380016}
 --- !u!1 &225
 GameObject:
   m_ObjectHideFlags: 0
@@ -3241,6 +3243,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ScratchCell
   scratchImage: {fileID: 1985418391}
+  symbolText: {fileID: 1674128277}
 --- !u!1 &245
 GameObject:
   m_ObjectHideFlags: 0
@@ -3470,6 +3473,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ScratchCell
   scratchImage: {fileID: 1571713795}
+  symbolText: {fileID: 511401500}
 --- !u!1 &265
 GameObject:
   m_ObjectHideFlags: 0
@@ -3699,6 +3703,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ScratchCell
   scratchImage: {fileID: 996832735}
+  symbolText: {fileID: 1901890296}
 --- !u!1 &285
 GameObject:
   m_ObjectHideFlags: 0
@@ -3928,6 +3933,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ScratchCell
   scratchImage: {fileID: 72679799}
+  symbolText: {fileID: 1964429328}
 --- !u!1 &305
 GameObject:
   m_ObjectHideFlags: 0
@@ -4157,6 +4163,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ScratchCell
   scratchImage: {fileID: 612190714}
+  symbolText: {fileID: 1054770260}
 --- !u!1 &325
 GameObject:
   m_ObjectHideFlags: 0
@@ -4386,6 +4393,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ScratchCell
   scratchImage: {fileID: 1089424337}
+  symbolText: {fileID: 103740308}
 --- !u!1 &345
 GameObject:
   m_ObjectHideFlags: 0
@@ -9059,6 +9067,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ScratchCell
   scratchImage: {fileID: 176}
+  symbolText: {fileID: 1728619824}
 --- !u!1 &863787443
 GameObject:
   m_ObjectHideFlags: 0
@@ -9908,6 +9917,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ScratchCell
   scratchImage: {fileID: 196}
+  symbolText: {fileID: 863787445}
 --- !u!1 &1901890294
 GameObject:
   m_ObjectHideFlags: 0
@@ -10302,9 +10312,11 @@ MonoBehaviour:
   roundDuration: 20
   scratchLimit: 3
   cellManager: {fileID: 2000000001}
+  symbolManager: {fileID: 2000000004}
   timerValue: {fileID: 136}
   scratchProgress: {fileID: 356}
   boardSubtitle: {fileID: 166}
+  matchResultText: {fileID: 162}
   roundActionButton: {fileID: 2000000003}
   roundActionLabel: {fileID: 364}
 --- !u!114 &2000000003
@@ -10351,3 +10363,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &2000000004
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 101}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7d1eb4ed2f20454a8c986af3d4ce5a31, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::ScratchSymbolManager
+  symbolLabels:
+  - '7'
+  - $
+  - '@'
+  - '#'
+  - '&'
+  editorTestPattern: 0
+  cellManager: {fileID: 2000000001}

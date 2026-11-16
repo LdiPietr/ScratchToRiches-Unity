@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using TMPro;
 
 /// <summary>
 /// UI pointer handling and scratch-mask state for one cell.
@@ -9,6 +10,7 @@ using UnityEngine.UI;
 public sealed class ScratchCell : MonoBehaviour, IPointerDownHandler, IDragHandler, IPointerUpHandler
 {
     [SerializeField] private RawImage scratchImage;
+    [SerializeField] private TMP_Text symbolText;
 
     private ScratchCellManager manager;
     private ScratchGameManager gameManager;
@@ -23,6 +25,17 @@ public sealed class ScratchCell : MonoBehaviour, IPointerDownHandler, IDragHandl
     private Vector2Int previousPixel;
 
     public bool IsComplete => completed;
+    public bool HasSymbolText => symbolText != null;
+
+    /// <summary>The visible symbol lives under the scratch mask; only M3 updates it.</summary>
+    public void SetSymbol(string symbol)
+    {
+        if (symbolText != null)
+            symbolText.text = symbol;
+        else
+            Debug.LogError("ScratchCell is missing its TextMeshPro symbol reference.", this);
+    }
+
     public float RevealedPercentage =>
         erasedPixels == null || erasedPixels.Length == 0
             ? 0f
