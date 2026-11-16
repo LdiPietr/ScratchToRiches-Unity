@@ -47,3 +47,12 @@ Se Unity non mostra l'interfaccia dopo `git pull`, riaprire la scena e verificar
 - Premendo **START ROUND** il testo diventa **END ROUND**, il timer scala e i contatori sono aggiornati.
 - Alla fine della partita il pulsante mostra **PLAY AGAIN**.
 - Non rimangono componenti `UnityEngine.UI.Text` nella scena e non compaiono errori TMP in Console.
+
+## Correzione visibilità caselle (M2)
+
+Tutti i numeri `01–09` sono ora visualizzati **davanti** alle rispettive coperture, senza intercettare il puntatore.
+I nove simboli sottostanti non intercettano i raycast: il puntatore raggiunge la `RawImage` della copertura e il componente `ScratchCell`.
+
+**Attenzione alla regola di gioco:** in un round puoi grattare **tre caselle qualsiasi su nove**. Dopo aver toccato tre caselle diverse, una quarta non è selezionabile; non significa che siano abilitate solo le prime tre della griglia.
+
+**Test discriminante:** premi `PLAY AGAIN` o riavvia il round, poi **gratta per prima Cell_09** senza toccare Cell_01–03. Deve funzionare e segnare `PICKS 1/3`. Verifica poi il numero `09` sopra la copertura e ripeti su Cell_04, Cell_05 ecc.
