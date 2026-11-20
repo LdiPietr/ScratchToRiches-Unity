@@ -34,6 +34,11 @@ public sealed class ScratchSkillTreeUI : MonoBehaviour
     private int selectedSlot;
     private bool subscribed;
 
+    private static readonly string[] branchNames =
+    {
+        "GRATTA!", "SCOPRI!", "INCASSA!", "PIU' TEMPO!"
+    };
+
     private static readonly Color[] branchColors =
     {
         new Color(0.26f, 0.71f, 1f),
@@ -146,7 +151,7 @@ public sealed class ScratchSkillTreeUI : MonoBehaviour
         {
             if (branchLabels[branch] != null)
             {
-                branchLabels[branch].text = ((ScratchSkillTree.Branch)branch).ToString().ToUpperInvariant();
+                branchLabels[branch].text = branchNames[branch];
                 branchLabels[branch].color = branch == (int)selectedBranch ? branchColors[branch] : Color.white;
             }
             if (branchButtons[branch] != null && branchButtons[branch].targetGraphic is Image tabImage)
@@ -159,14 +164,14 @@ public sealed class ScratchSkillTreeUI : MonoBehaviour
             ScratchSkillTree.SkillId id = (ScratchSkillTree.SkillId)((int)selectedBranch * 8 + index);
             ScratchSkillTree.Definition def = ScratchSkillTree.All[(int)id];
             int level = skills.GetLevel(id);
-            string state = !def.Implemented ? "IN ARRIVO"
-                : level >= def.MaxLevel ? "COMPLETATO"
-                : !skills.RequirementsMet(id) ? "BLOCCATO"
-                : economy.Coins < skills.GetPrice(id) ? "MONETE INSUFFICIENTI"
-                : $"TIENI PREMUTO • {skills.GetPrice(id)} MONETE";
+            string state = !def.Implemented ? "IN ARRIVO!"
+                : level >= def.MaxLevel ? "AL MASSIMO!"
+                : !skills.RequirementsMet(id) ? "DA SBLOCCARE"
+                : economy.Coins < skills.GetPrice(id) ? "SERVONO PIU' MONETE"
+                : $"TIENI PREMUTO - {skills.GetPrice(id):N0} MONETE";
 
             if (nodeLabels[index] != null)
-                nodeLabels[index].text = $"{def.Id}  {def.Title.ToUpperInvariant()}   Lv {level}/{def.MaxLevel}\n{state}";
+                nodeLabels[index].text = $"{def.Title.ToUpperInvariant()}  {level}/{def.MaxLevel}\n{state}";
 
             if (nodeButtons[index] != null && nodeButtons[index].targetGraphic is Image background)
             {
@@ -183,21 +188,21 @@ public sealed class ScratchSkillTreeUI : MonoBehaviour
         if (selectedTitle != null)
             selectedTitle.text = $"{current.Title.ToUpperInvariant()}   {owned}/{current.MaxLevel}";
         if (selectedDescription != null)
-            selectedDescription.text = current.Description + "\nTieni premuto il nodo per acquistare.";
+            selectedDescription.text = current.Description + "\nTieni premuto il riquadro per farlo tuo!";
 
-        string status = !current.Implemented ? "IN ARRIVO - NON ACQUISTABILE"
-            : owned >= current.MaxLevel ? "POTENZIAMENTO COMPLETO"
+        string status = !current.Implemented ? "PRESTO IN ARRIVO!"
+            : owned >= current.MaxLevel ? "POTENZIAMENTO AL MASSIMO!"
             : !skills.RequirementsMet(CurrentId) ? skills.RequirementText(CurrentId)
             : game.State == ScratchGameManager.RoundState.Playing
-                ? "TERMINA LA PARTITA PER ACQUISTARE"
-                : economy.Coins < skills.GetPrice(CurrentId) ? "MONETE INSUFFICIENTI"
-                : "DISPONIBILE";
+                ? "FINISCI LA PARTITA E TORNA QUI!"
+                : economy.Coins < skills.GetPrice(CurrentId) ? "TI SERVONO PIU' MONETE!"
+                : "PUOI PRENDERLO! TIENI PREMUTO.";
         if (statusLabel != null)
             statusLabel.text = status;
         if (purchaseLabel != null)
-            purchaseLabel.text = owned >= current.MaxLevel ? "COMPLETO"
-                : !current.Implemented ? "PROSSIMAMENTE"
-                : $"ACQUISTA  {skills.GetPrice(CurrentId)}";
+            purchaseLabel.text = owned >= current.MaxLevel ? "AL MASSIMO!"
+                : !current.Implemented ? "IN ARRIVO"
+                : $"TIENI PREMUTO  {skills.GetPrice(CurrentId):N0}";
         if (purchaseButton != null)
             purchaseButton.interactable = skills.CanPurchase(CurrentId);
     }

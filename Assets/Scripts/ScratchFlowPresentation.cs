@@ -273,17 +273,17 @@ public sealed class ScratchFlowPresentation : MonoBehaviour
         if (game == null || economy == null) return;
         bool clockPaused = game.State == ScratchGameManager.RoundState.Playing &&
             (!game.TicketActive || !CanScratch);
-        string left = $"{(clockPaused ? "TEMPO IN PAUSA" : "TEMPO RESIDUO")}\n" +
-            $"{game.TimeRemaining:0.0} s\n\n" +
-            $"BIGLIETTO  {game.TicketNumber}\n" +
-            $"COMPLETATI  {game.TicketsCompleted}\n\n" +
+        string left = $"{(clockPaused ? "TEMPO CONGELATO" : "IL TEMPO VOLA!")}\n" +
+            $"{game.TimeRemaining:0.0} secondi\n\n" +
+            $"BIGLIETTO N. {game.TicketNumber}\n" +
+            $"BIGLIETTI FINITI  {game.TicketsCompleted}\n\n" +
             $"SCELTE  {game.SelectedCount}/{game.MaxScratches}\n" +
-            $"RIVELATE  {game.RevealedCount}/{game.MaxScratches}";
-        string right = $"IL TUO BIGLIETTO\n{game.CurrentTicketKind.ToString().ToUpperInvariant()}\n\n" +
+            $"GRATTATE  {game.RevealedCount}/{game.MaxScratches}";
+        string right = $"IN GIOCO\n{ScratchGameManager.TicketDisplayName(game.CurrentTicketKind)}\n\n" +
             $"PREMIO BASE  {game.TicketPrize(game.CurrentTicketKind)}\n" +
             $"ULTIMA VINCITA  +{game.TicketPayout}\n" +
-            $"TEMPO GUADAGNATO  +{game.LastTimeBonus:0.0}s\n\n" +
-            $"PORTAFOGLIO  {economy.Coins:N0}";
+            $"SECONDI EXTRA  +{game.LastTimeBonus:0.0}s\n\n" +
+            $"IL TUO BOTTINO  {economy.Coins:N0}";
 
         if (leftInformation != null && left != previousLeft)
         {

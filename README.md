@@ -347,3 +347,23 @@ Le transizioni usano `Time.unscaledDeltaTime` per le animazioni, **senza interro
 5. Il saldo è visibile in alto a destra sia durante il grattamento, sia nella scelta, sia sulla tenda finale.
 6. Dopo l'acquisto di un upgrade, il saldo cambia immediatamente senza nascondersi.
 7. Dopo CONTINUA - NUOVA RUN, la tenda risale e il timer riparte da 20 secondi, senza regressioni sul numero di caselle grattabili.
+
+## M5.6 — Testi più giocosi e interfaccia in italiano
+
+Aggiornate le scritte visibili al giocatore in tutta la scena: testata, conto monete, timer, biglietto, scelta tra i tre biglietti, pannelli laterali, tenda di fine partita e quattro alberi delle abilità.
+
+- `START RUN` diventa **SI PARTE!**; `END TICKET` diventa **PASSA OLTRE**; `NEW RUN` diventa **RIGIOCA!** (il riavvio dalla tenda resta sul pulsante **HO FINITO! SI RIPARTE!**).
+- Tipo biglietto mostrato come **CLASSICO**, **FORTUNATO**, **DORATO**; restano invariati identificatori interni `Standard`, `Fortunato`, `Gold` e relativi prezzi/premi.
+- Acquisti descritti in modo accessibile: **Tieni premuto**, **Da sbloccare**, **Al massimo!**, **Servono più monete**, con indicazione chiara di prezzo, livello e requisiti.
+- I quattro rami vengono mostrati come **GRATTA! / SCOPRI! / INCASSA! / PIU' TEMPO!**; rinominati i titoli e le descrizioni di tutte e 32 le abilità, senza cambiarne livelli, costi, prerequisiti o effetti.
+- Rimossi gli ID tecnici G1/C1/E1/T1 dalle etichette dei nodi. Per l'interfaccia di gioco questi restano identificatori interni, non contenuti utili al giocatore.
+- Le 45 scritte statiche della scena sono state aggiornate. Ridotto da 23 a 18 il font del contatore scelte per migliorare la leggibilità.
+
+### Test rapidi
+
+1. Play Mode: testata, contatore, monete e statistiche sono in italiano e non si sovrappongono.
+2. START → **SI PARTE!**; fine biglietto → **PASSA OLTRE**; scelta biglietto → **CLASSICO/FORTUNATO/DORATO**.
+3. Verifica che i biglietti conservino prezzi 0/20/65 e premi base 10/25/45.
+4. Scadenza run: tutti e quattro i rami mostrano testi più leggeri, ma requisiti, livelli, costi e acquisto per pressione prolungata funzionano come prima.
+5. Dopo un acquisto: saldo visibile e aggiornato; tenda di fine run si alza normalmente premendo **HO FINITO! SI RIPARTE!**.
+6. Regole immutate: timer 20s che si ferma fra biglietti, griglia 4x4, trasparenza anteprima 75%, soglia grattamento 85%.

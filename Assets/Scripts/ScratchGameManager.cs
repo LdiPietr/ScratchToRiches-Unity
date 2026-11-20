@@ -69,6 +69,29 @@ public sealed class ScratchGameManager : MonoBehaviour
     public bool WaitingForTicketChoice => state == RoundState.Playing && !ticketActive
         && ticketNumberInRun > 0 && timeRemaining > 0f;
 
+    // Friendly display names: internal enum identifiers stay unchanged.
+    public static string TicketDisplayName(TicketKind kind)
+    {
+        switch (kind)
+        {
+            case TicketKind.Standard: return "CLASSICO";
+            case TicketKind.Fortunato: return "FORTUNATO";
+            case TicketKind.Gold: return "DORATO";
+            default: return "MISTERIOSO";
+        }
+    }
+
+    private static string CombinationName(ScratchSymbolManager.MatchTier tier)
+    {
+        switch (tier)
+        {
+            case ScratchSymbolManager.MatchTier.Pair: return "COPPIA";
+            case ScratchSymbolManager.MatchTier.Triple: return "TRIS";
+            case ScratchSymbolManager.MatchTier.Poker: return "POKER";
+            default: return "NESSUNA";
+        }
+    }
+
     public static int TicketPrice(TicketKind kind)
     {
         switch (kind)
@@ -388,44 +411,45 @@ public sealed class ScratchGameManager : MonoBehaviour
 
     private void RefreshHud()
     {
-        // The four skill branches are a post-run shop ONLY: no access during
-        // the current ticket, between tickets, or before the first run.
+        // The skill curtain is shown only after the run ends.
         bool shouldShowTree = state == RoundState.Finished;
         if (skillTreePanel != null && skillTreePanel.activeSelf != shouldShowTree)
             skillTreePanel.SetActive(shouldShowTree);
 
         UpdateTimerText();
         if (scratchProgress != null)
-            scratchProgress.text = $"TICKET {Mathf.Max(1, ticketNumberInRun)}   PICKS {selectedCells.Count}/{MaxScratches}   OPEN {RevealedCount}/{MaxScratches}";
+            scratchProgress.text = $"SCELTE {selectedCells.Count}/{MaxScratches}   |   GRATTATE {RevealedCount}/{MaxScratches}";
 
         if (roundActionLabel != null)
-            roundActionLabel.text = state == RoundState.Ready ? "START RUN"
-                : state == RoundState.Finished ? "NEW RUN"
-                : ticketActive ? "END TICKET" : "CHOOSE TICKET";
+            roundActionLabel.text = state == RoundState.Ready ? "SI PARTE!"
+                : state == RoundState.Finished ? "RIGIOCA!"
+                : ticketActive ? "PASSA OLTRE" : "SCEGLI IL BIGLIETTO";
 
-        // The choice overlay owns the next-ticket action; disable the old shortcut.
         if (roundActionButton != null)
             roundActionButton.interactable = state != RoundState.Playing || ticketActive;
 
         if (matchResultText != null)
         {
             ScratchSymbolManager.MatchResult match = CurrentMatch;
-            matchResultText.text = state == RoundState.Ready ? "20 SECONDS - MULTIPLE TICKETS"
-                : ticketActive ? match.IsMatch ? $"{match.Tier.ToString().ToUpperInvariant()} x{match.Multiplier} ({match.Symbol})" : "SCRATCH MATCHING SYMBOLS"
-                : match.IsMatch ? $"{match.Tier.ToString().ToUpperInvariant()} x{match.Multiplier}   +{ticketPayout} COINS"
-                : $"NO MATCH   +{ticketPayout} COINS";
+            string win = CombinationName(match.Tier);
+            matchResultText.text = state == RoundState.Ready ? "PRONTO A FARE IL COLPACCIO?"
+                : ticketActive
+                    ? match.IsMatch ? $"{win} x{match.Multiplier}  -  {match.Symbol}" : "CERCA I SIMBOLI UGUALI!"
+                : match.IsMatch ? $"{win} x{match.Multiplier}   +{ticketPayout} MONETE"
+                : ticketPayout > 0 ? $"PREMIO DI CONSOLAZIONE! +{ticketPayout}"
+                : "PECCATO! RITENTA!";
         }
 
         if (boardSubtitle != null)
         {
             boardSubtitle.text = state == RoundState.Ready
-                ? "Start a run: 20s total, as many tickets as you can finish."
+                ? "20 secondi di fortuna. Quanti biglietti riuscirai a grattare?"
                 : state == RoundState.Finished
-                    ? $"TIME UP! {ticketsCompleted} tickets completed. Start a new run."
+                    ? $"TEMPO SCADUTO! {ticketsCompleted} biglietti completati. Ora scegli i tuoi bonus!"
                     : ticketActive
-                        ? ticketVoided ? "TEST RESET - THIS TICKET WILL NOT PAY."
-                            : $"{currentTicketKind} ticket {ticketNumberInRun}: finish {MaxScratches} picks to earn the full bonus."
-                        : $"Earned +{ticketPayout} coins, +{lastTimeBonus:0.0}s. CHOOSE YOUR NEXT TICKET!";
+                        ? ticketVoided ? "Questo biglietto di prova non assegna premi."
+                            : $"Biglietto {ticketNumberInRun} - {TicketDisplayName(currentTicketKind)}. Hai {MaxScratches} caselle da grattare!"
+                        : $"+{ticketPayout} monete, +{lastTimeBonus:0.0}s bonus! Scegli il prossimo biglietto!";
         }
         Changed?.Invoke();
     }
