@@ -13,6 +13,7 @@ public sealed class ScratchTicketChoiceUI : MonoBehaviour
     [Header("Scene references")]
     [SerializeField] private ScratchGameManager game;
     [SerializeField] private ScratchEconomyManager economy;
+    [SerializeField] private ScratchFlowPresentation presentation;
     [SerializeField] private GameObject choicePanel;
     [SerializeField] private Button[] ticketButtons = new Button[3];
     [SerializeField] private TMP_Text[] ticketDetails = new TMP_Text[3];
@@ -25,6 +26,7 @@ public sealed class ScratchTicketChoiceUI : MonoBehaviour
     {
         if (game == null) game = GetComponent<ScratchGameManager>();
         if (economy == null) economy = GetComponent<ScratchEconomyManager>();
+        if (presentation == null) presentation = GetComponent<ScratchFlowPresentation>();
         // The overlay must never cover the starting board.
         if (choicePanel != null) choicePanel.SetActive(false);
     }
@@ -89,7 +91,8 @@ public sealed class ScratchTicketChoiceUI : MonoBehaviour
         if (game == null || economy == null || choicePanel == null || ticketButtons == null)
             return;
 
-        bool show = game.WaitingForTicketChoice;
+        bool show = game.WaitingForTicketChoice &&
+            (presentation == null || presentation.CanShowTicketChoices);
         for (int i = 0; i < 3; i++)
         {
             var kind = (ScratchGameManager.TicketKind)i;

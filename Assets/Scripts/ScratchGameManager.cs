@@ -36,6 +36,7 @@ public sealed class ScratchGameManager : MonoBehaviour
     [SerializeField] private Button roundActionButton;
     [SerializeField] private TMP_Text roundActionLabel;
     [SerializeField] private GameObject skillTreePanel;
+    [SerializeField] private ScratchFlowPresentation presentation;
 
     private readonly HashSet<ScratchCell> selectedCells = new HashSet<ScratchCell>();
     private float timeRemaining;
@@ -125,6 +126,7 @@ public sealed class ScratchGameManager : MonoBehaviour
         if (symbolManager == null) symbolManager = GetComponent<ScratchSymbolManager>();
         if (economyManager == null) economyManager = GetComponent<ScratchEconomyManager>();
         if (skillTree == null) skillTree = GetComponent<ScratchSkillTree>();
+        if (presentation == null) presentation = GetComponent<ScratchFlowPresentation>();
 
         if (roundActionButton != null)
             roundActionButton.onClick.AddListener(OnRoundAction);
@@ -171,6 +173,13 @@ public sealed class ScratchGameManager : MonoBehaviour
 
     public void OnRoundAction()
     {
+        // The post-run curtain owns restart, including the upward animation.
+        if (state == RoundState.Finished && presentation != null)
+            return;
+        // Do not permit END TICKET before its entry animation has finished.
+        if (state == RoundState.Playing && ticketActive &&
+            presentation != null && !presentation.CanScratch)
+            return;
         if (state != RoundState.Playing) StartNewRun();
         else if (ticketActive) FinishTicket(RoundEndReason.PlayerEnded);
         // Between tickets the player MUST select a ticket in the choice panel.
@@ -255,6 +264,9 @@ public sealed class ScratchGameManager : MonoBehaviour
     public bool TrySelectCell(ScratchCell cell)
     {
         if (state != RoundState.Playing || !ticketActive || cell == null || !cell.isActiveAndEnabled)
+            return false;
+        // No input while an animated ticket is arriving or leaving.
+        if (presentation != null && !presentation.CanScratch)
             return false;
         if (!cell.transform.IsChildOf(transform))
             return false;

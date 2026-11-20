@@ -72,7 +72,8 @@ public sealed class ScratchSkillTreeUI : MonoBehaviour
             int slot = i;
             nodeButtons[i].onClick.AddListener(() => SelectSlot(slot));
         }
-        purchaseButton.onClick.AddListener(PurchaseSelected);
+        // Purchasing is now performed exclusively via hold gestures on nodes.
+        purchaseButton.gameObject.SetActive(false);
         skills.Changed += Refresh;
         economy.Changed += Refresh;
         game.Changed += Refresh;
@@ -94,8 +95,7 @@ public sealed class ScratchSkillTreeUI : MonoBehaviour
         if (nodeButtons != null)
             for (int i = 0; i < nodeButtons.Length; i++)
                 if (nodeButtons[i] != null) nodeButtons[i].onClick.RemoveAllListeners();
-        if (purchaseButton != null)
-            purchaseButton.onClick.RemoveListener(PurchaseSelected);
+        // The old instant-buy button remains serialized but inactive.
     }
 
     public void SelectBranch(int branch)
@@ -119,6 +119,22 @@ public sealed class ScratchSkillTreeUI : MonoBehaviour
 
     private ScratchSkillTree.SkillId CurrentId =>
         (ScratchSkillTree.SkillId)((int)selectedBranch * 8 + selectedSlot);
+
+    public int BranchIndex => (int)selectedBranch;
+
+    public bool CanHoldPurchase(int slot)
+    {
+        if (skills == null || slot < 0 || slot >= 8) return false;
+        var id = (ScratchSkillTree.SkillId)((int)selectedBranch * 8 + slot);
+        return skills.CanPurchase(id);
+    }
+
+    public void PurchaseHeldNode(int slot)
+    {
+        if (!CanHoldPurchase(slot)) return;
+        SelectSlot(slot);
+        if (skills.TryPurchase(CurrentId)) Refresh();
+    }
 
     public void Refresh()
     {
@@ -146,7 +162,8 @@ public sealed class ScratchSkillTreeUI : MonoBehaviour
             string state = !def.Implemented ? "IN ARRIVO"
                 : level >= def.MaxLevel ? "COMPLETATO"
                 : !skills.RequirementsMet(id) ? "BLOCCATO"
-                : $"{skills.GetPrice(id)} MONETE";
+                : economy.Coins < skills.GetPrice(id) ? "MONETE INSUFFICIENTI"
+                : $"TIENI PREMUTO • {skills.GetPrice(id)} MONETE";
 
             if (nodeLabels[index] != null)
                 nodeLabels[index].text = $"{def.Id}  {def.Title.ToUpperInvariant()}   Lv {level}/{def.MaxLevel}\n{state}";
@@ -166,7 +183,7 @@ public sealed class ScratchSkillTreeUI : MonoBehaviour
         if (selectedTitle != null)
             selectedTitle.text = $"{current.Title.ToUpperInvariant()}   {owned}/{current.MaxLevel}";
         if (selectedDescription != null)
-            selectedDescription.text = current.Description;
+            selectedDescription.text = current.Description + "\nTieni premuto il nodo per acquistare.";
 
         string status = !current.Implemented ? "IN ARRIVO - NON ACQUISTABILE"
             : owned >= current.MaxLevel ? "POTENZIAMENTO COMPLETO"

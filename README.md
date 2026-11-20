@@ -276,3 +276,55 @@ Durante una partita non puoi acquistare abilità, neppure quando hai appena fini
 4. `NEW RUN`: l'albero si richiude e il timer riparte da 20 secondi.
 5. Con C1/C2/C5/C7, le anteprime appaiono in argento **semitrasparente al 75% di opacità**, mentre le altre caselle sono totalmente coperte.
 6. Una casella con anteprima continua a richiedere il vero grattamento fino all'85%; nessuna regressione alla griglia 4x4.
+
+
+## M5.4 — Restyling, biglietto animato, tenda finale e acquisti tenendo premuto
+
+**Stato: implementato nel repository, da validare in Unity Play Mode.**
+
+### Layout della partita
+
+- Il `BoardPanel` è **centrato**. La griglia 4x4 è contenuta in `TicketArtworkMotion`, una card indipendente con cornice chiara e dettagli oro.
+- Il pannello **RunStatisticsPanel** a sinistra visualizza secondi residui, numero del biglietto, biglietti completati, scelte effettuate e caselle rivelate.
+- Il pannello **TicketRewardPanel** a destra mostra tipo di biglietto, premio base, ultima vincita, tempo recuperato e portafoglio.
+- Le nuove UI sono **scritte nella scena Unity**, non costruite da script durante Play Mode; font LiberationSans SDF, riferimenti TMP e grafiche rimangono editabili nell'Inspector.
+- La patina argentata resta al **75% di opacità nelle anteprime**, le caselle non hanno numeri e il completamento richiede sempre l'**85%**.
+
+### Animazioni (ScratchFlowPresentation)
+
+1. **START RUN**: entra da destra il primo biglietto Standard, con scivolamento, lieve rotazione e dissolvenza.
+2. Mentre il biglietto entra il grattamento e il comando END TICKET sono temporaneamente bloccati.
+3. **Completamento/END TICKET**: il biglietto vola verso sinistra e scompare. Solo a fine animazione compare la schermata scelta biglietto.
+4. **Scelta Standard/Fortunato/Gold**: il nuovo biglietto entra da destra, la schermata si chiude e puoi grattarlo.
+5. **Timer a zero**: anche l'ultimo biglietto vola via; dall'alto scende `RunEndCurtain` a schermo intero, che mostra i quattro alberi.
+6. **CONTINUA - NUOVA RUN** (dopo aver speso le monete): la tenda risale completamente, si chiude e parte una run nuova da 20 secondi con un biglietto Standard gratuito.
+
+Le transizioni usano `Time.unscaledDeltaTime` per le animazioni, **senza interrompere o azzerare il timer globale**. La scelta dei biglietti rimane disponibile soltanto durante una run in corso.
+
+### Acquisto con pressione prolungata (ScratchHoldToBuy)
+
+- Gli 8 nodi visibili del ramo selezionato sono **pulsanti singoli**, disposti su due colonne. I quattro rami esistenti rimangono Grattamento, Caselle, Economia e Tempo.
+- Per acquistare un nodo **acquistabile**, tienilo premuto per **0,7 secondi**. La barra verde nel pulsante si riempie durante la pressione.
+- Il costo viene scalato e il livello aumenta **una sola volta per pressione**; rilasciare prima dei 0,7s oppure uscire dal pulsante annulla la richiesta. Per comprare un secondo livello serve una seconda pressione.
+- Nodi bloccati, costosi o segnalati **IN ARRIVO** rimangono consultabili, ma non possono acquistare nulla.
+- Il vecchio pulsante di acquisto immediato è nascosto e non possiede più un handler di acquisto.
+- L'albero rimane **completamente nascosto prima e durante la run**, e acquisti consentiti soltanto nello stato `Finished`.
+
+### Checklist collaudo visivo M5.4
+
+1. La scena si apre con **biglietto al centro**, statistiche a sinistra e ricompense a destra; nessuna sovrapposizione nell'interfaccia 1920x1080.
+2. START RUN: il biglietto entra visibilmente da destra; non si può grattare durante il movimento.
+3. Finisci un biglietto: vola via prima della scelta Standard/Fortunato/Gold. Il timer continua a scorrere.
+4. Scegli un nuovo biglietto: entra da destra e si può grattare quando è arrivato.
+5. Premi END TICKET: valgono gli stessi movimenti; nessun bonus tempo per completamento incompleto.
+6. Arriva a zero con biglietto attivo, in ingresso o durante la scelta: compare **solo una** tenda finale; nessuna schermata scelta rimane davanti.
+7. L'albero nella tenda mostra quattro rami con otto nodi in due colonne ciascuno.
+8. Premere e rilasciare subito un nodo non scala monete; tenerlo premuto 0,7s scala monete e aumenta il livello una sola volta.
+9. Una seconda pressione può acquistare un secondo livello; i nodi bloccati non pagano.
+10. Premi CONTINUA - NUOVA RUN: la tenda risale, riparte il timer da 20 secondi ed entra un nuovo Standard.
+11. Riapri Play Mode: le monete e abilità acquistate sono ancora presenti. Gli upgrade del grattamento e delle caselle funzionano.
+12. Verifica anche a risoluzioni 16:9 diverse, con **Console pulita** e nessun componente/script mancante.
+
+**Nota:** le durate e i colori delle animazioni si possono regolare nel componente
+`ScratchFlowPresentation` sul Canvas; il tempo globale del gameplay rimane quello di
+`ScratchGameManager > Round Duration`.
