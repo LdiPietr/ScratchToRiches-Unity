@@ -5,7 +5,7 @@ using UnityEngine.UI;
 
 /// <summary>
 /// Displays the three scene-authored ticket cards BETWEEN tickets only.
-/// Never pauses the global clock or changes the Skill Tree panel.
+/// Ticket selection pauses the run clock; it does not change the skill tree.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class ScratchTicketChoiceUI : MonoBehaviour
@@ -108,7 +108,7 @@ public sealed class ScratchTicketChoiceUI : MonoBehaviour
         }
 
         if (statusLabel != null)
-            statusLabel.text = $"YOUR COINS: {economy.Coins}  /  THE TIMER KEEPS RUNNING!";
+            statusLabel.text = $"YOUR COINS: {economy.Coins}  /  TIMER IN PAUSA - SCEGLI UN BIGLIETTO";
 
         if (choicePanel.activeSelf != show)
             choicePanel.SetActive(show);

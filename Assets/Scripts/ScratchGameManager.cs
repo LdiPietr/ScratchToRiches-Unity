@@ -158,7 +158,12 @@ public sealed class ScratchGameManager : MonoBehaviour
         if (state != RoundState.Playing)
             return;
 
-        // Critically: this runs even BETWEEN tickets.
+        // Run time is charged only while a scratch ticket is actually playable.
+        // Ticket selection and entry/exit animations must never consume seconds.
+        // Do NOT change Time.timeScale: UI buttons and curtain animations remain live.
+        if (!ticketActive || (presentation != null && !presentation.CanScratch))
+            return;
+
         timeRemaining = Mathf.Max(0f, timeRemaining - Time.deltaTime);
         if (timeRemaining <= 0f)
         {

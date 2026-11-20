@@ -328,3 +328,22 @@ Le transizioni usano `Time.unscaledDeltaTime` per le animazioni, **senza interro
 **Nota:** le durate e i colori delle animazioni si possono regolare nel componente
 `ScratchFlowPresentation` sul Canvas; il tempo globale del gameplay rimane quello di
 `ScratchGameManager > Round Duration`.
+
+## M5.5 - Saldo monete sempre visibile e timer in pausa tra biglietti
+
+- Il pannello **WalletPanel** mantiene il riferimento TMP di `ScratchEconomyManager` (un solo saldo), ma ora è renderizzato **sopra il pannello di fine run e la tenda delle abilità**. È sempre visibile, inclusi acquisti e scelta dei biglietti.
+- Il timer globale si decrementa **solo mentre il biglietto è grattabile**. Si ferma automaticamente al termine del biglietto, durante l'uscita, nella schermata Standard/Fortunato/Gold e mentre il nuovo biglietto entra.
+- Alla fine dell'animazione d'ingresso il tempo riprende dal valore rimasto; non torna a 20 secondi. Soltanto `NEW RUN` lo azzera a 20.
+- Il testo della selezione mostra **TIMER IN PAUSA** e anche le informazioni laterali indicano chiaramente quando la partita è sospesa.
+- La pausa non usa `Time.timeScale`, così pulsanti, animazioni, salvataggi e UI restano reattivi.
+- Rimangono invariati prezzi biglietti (0 / 20 / 65), premi base (10 / 25 / 45), acquisto degli upgrade solo a fine run, pressione prolungata 0,7s, 4 alberi, anteprima copertura 75% e completamento casella 85%.
+
+### Test mirati M5.5
+
+1. Avvia la partita e gratta: il timer diminuisce soltanto quando il biglietto è fermo e grattabile.
+2. Completa un biglietto o premi END TICKET: il tempo si blocca immediatamente, prima del volo d'uscita.
+3. Rimani nella selezione Standard/Fortunato/Gold: anche dopo diversi secondi reali, il tempo non cambia.
+4. Scegli un biglietto: nessun secondo viene consumato durante l'arrivo; il tempo riprende quando puoi grattare.
+5. Il saldo è visibile in alto a destra sia durante il grattamento, sia nella scelta, sia sulla tenda finale.
+6. Dopo l'acquisto di un upgrade, il saldo cambia immediatamente senza nascondersi.
+7. Dopo CONTINUA - NUOVA RUN, la tenda risale e il timer riparte da 20 secondi, senza regressioni sul numero di caselle grattabili.

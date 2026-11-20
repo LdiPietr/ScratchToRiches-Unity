@@ -5,7 +5,8 @@ using UnityEngine.UI;
 
 /// <summary>
 /// Scene-authored M5 presentation. Ticket motions, side HUD and the full-screen
-/// post-run curtain do not create UI objects at runtime or stop the run clock.
+/// post-run curtain do not create UI objects at runtime. The run clock is
+/// paused between tickets and while a ticket is flying in/out.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class ScratchFlowPresentation : MonoBehaviour
@@ -270,7 +271,10 @@ public sealed class ScratchFlowPresentation : MonoBehaviour
     private void UpdateInformation()
     {
         if (game == null || economy == null) return;
-        string left = $"TEMPO RESIDUO\n{game.TimeRemaining:0.0} s\n\n" +
+        bool clockPaused = game.State == ScratchGameManager.RoundState.Playing &&
+            (!game.TicketActive || !CanScratch);
+        string left = $"{(clockPaused ? "TEMPO IN PAUSA" : "TEMPO RESIDUO")}\n" +
+            $"{game.TimeRemaining:0.0} s\n\n" +
             $"BIGLIETTO  {game.TicketNumber}\n" +
             $"COMPLETATI  {game.TicketsCompleted}\n\n" +
             $"SCELTE  {game.SelectedCount}/{game.MaxScratches}\n" +
