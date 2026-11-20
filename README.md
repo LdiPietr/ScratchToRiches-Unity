@@ -213,3 +213,48 @@ Per testare abilità costose senza grinding, `ScratchEconomyManager` espone solt
 **Limiti attuali:** i ticket speciali e i nodi avanzati `G6/G7/G8, C4/C8, E6/E7/E8` non sono ancora implementati.
 Non devono scalare monete. L'UI iniziale presenta quattro rami **a schede con 8 nodi ciascuno**; una versione grafica con connettori ramificati più elaborati potrà essere rifinita dopo i test funzionali.
 
+## M5.1 - Scelta del biglietto, argento e anteprime visive (DA COLLAUDARE IN UNITY)
+
+Questa modifica **non cambia** il funzionamento dei quattro alberi M5:
+gli acquisti delle abilità sono consentiti **soltanto prima di START RUN o dopo TIME UP**.
+Durante una partita non puoi acquistare abilità, neppure quando hai appena finito un biglietto.
+
+### Ciclo biglietti
+
+- `START RUN` avvia come prima un **biglietto Standard gratuito**; il timer globale parte da 20 secondi.
+- Mentre stai grattando il pulsante `END TICKET` continua a funzionare e paga le sole combinazioni effettivamente completate, senza assegnare bonus temporali da biglietto completo.
+- Completando le scelte oppure premendo `END TICKET`, compare **TicketChoiceOverlay**, sopra la griglia, con tre biglietti selezionabili:
+  - **STANDARD**: gratis, premio base 10 monete.
+  - **FORTUNATO**: costa 20 monete, premio base 25 monete.
+  - **GOLD**: costa 65 monete, premio base 45 monete.
+- Il premio effettivo si calcola sul risultato M3 (`PAIR x2`, `TRIPLE x3`, `POKER x4`) e su eventuali bonus economici acquistati. Il costo viene detratto **una sola volta** quando selezioni un nuovo biglietto.
+- Le carte che non puoi permetterti sono **disabilitate**; lo Standard gratuito rimane sempre disponibile.
+- Il bottone precedente `NEXT TICKET` **non avvia più automaticamente** uno Standard: la scelta passa obbligatoriamente per le tre carte.
+- Durante questa scelta **il timer continua a scorrere**. Se arriva a zero, la schermata di scelta scompare; soltanto `NEW RUN` può ripartire da 20 secondi.
+- Ogni nuovo biglietto ha 16 coperture ripristinate, simboli nuovi e limite di 3 scelte di base (4/5 soltanto con le abilità dell'albero Caselle).
+- I tre tipi di biglietto **non assegnano secondi**: i bonus temporali appartengono esclusivamente all'albero Tempo.
+
+### Griglia senza numeri e anteprime trasparenti
+
+- Le **16 etichette CellIndex** della scena sono nascoste, con testo svuotato. Non vengono ricreate dal codice.
+- Il colore condiviso `ScratchCellManager > Coating Color` è **argento tenue** (`R=0.77 G=0.79 B=0.82 A=1`); `Scratch Percentage` resta **85**.
+- Le abilità C1/C2/C5/C7 di anteprima non mostrano più un simbolo scritto accanto al numero: rendono la **copertura argentata semitrasparente** nelle caselle interessate (opacità 32%), lasciando vedere direttamente il simbolo sottostante.
+- Le caselle prive di anteprima restano opache; grattare una casella in anteprima **consuma comunque una scelta** e richiede l'85% di area grattata per essere completata.
+- Il ripristino delle coperture conserva correttamente l'eventuale anteprima del biglietto corrente, mentre il biglietto successivo genera nuove anteprime. Quando in futuro useremo simboli disegnati, la trasparenza mostrerà automaticamente l'immagine anziché una lettera.
+
+### Check M5.1
+
+1. Play Mode: primo biglietto Standard gratis, timer 20s e 16 caselle argentate **senza numeri**.
+2. Completa 3 caselle; appare la scelta **STANDARD / FORTUNATO / GOLD**, non una partenza automatica.
+3. Il timer resta unico e continua a scorrere durante la scelta. Il pannello è nascosto mentre gratti.
+4. Scegli Standard: nuovo biglietto, senza detrazione di monete e **senza reset del timer**.
+5. Con saldo inferiore a 20, Fortunato e Gold sono disabilitati.
+6. Con almeno 20 monete, scegli Fortunato: il saldo scende di 20, e una PAIR paga 50 prima di altri upgrade.
+7. Con almeno 65 monete, scegli Gold: il saldo scende di 65, e una PAIR paga 90 prima di altri upgrade.
+8. Premi END TICKET: ricevi soltanto il premio dovuto per caselle completamente rivelate; appare la scelta, senza bonus completamento.
+9. Lascia scadere il timer nella schermata di scelta: il pannello sparisce, appare NEW RUN e non puoi comprare biglietti.
+10. C1: verifica che la copertura di una casella sia semitrasparente, mostrando il vero simbolo; nessun numero o testo di anteprima sopra.
+11. C2/C5/C7: aumentano le caselle trasparenti come previsto; quelle normali restano coperte.
+12. Una casella trasparente deve comunque richiedere il grattamento fino a **85%** e consumare una scelta.
+13. Nessuna regressione dei quattro alberi: gli acquisti restano possibili solo **fra partite**, non durante la scelta dei biglietti.
+14. Nessuna Console error o NullReferenceException; 16 caselle grattabili e coperture ripristinate dopo ogni biglietto.

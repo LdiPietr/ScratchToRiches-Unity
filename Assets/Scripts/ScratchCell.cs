@@ -25,21 +25,34 @@ public sealed class ScratchCell : MonoBehaviour, IPointerDownHandler, IDragHandl
     private bool hasPreviousPixel;
     private Vector2Int previousPixel;
     private bool firstStrokeUsed;
-    private string indexLabel;
+    private bool previewActive;
+    private const float PreviewCoverOpacity = 0.32f;
 
     public bool IsComplete => completed;
     public bool HasSymbolText => symbolText != null;
 
-    /// <summary>Shows an optional preview without revealing or scratching the mask.</summary>
+    /// <summary>
+    /// Preview skills reveal the real artwork beneath a translucent scratch
+    /// cover. No textual symbol hint or cell number is displayed.
+    /// The mask still requires 85% real scratching to complete the cell.
+    /// </summary>
     public void SetPreview(string symbol)
     {
-        if (indexText == null)
-            return;
+        previewActive = !string.IsNullOrEmpty(symbol);
+        if (indexText != null)
+        {
+            indexText.text = string.Empty;
+            if (indexText.gameObject.activeSelf)
+                indexText.gameObject.SetActive(false);
+        }
+        RefreshCoverOpacity();
+    }
 
-        if (string.IsNullOrEmpty(indexLabel))
-            indexLabel = name.StartsWith("Cell_") ? name.Substring(5) : indexText.text;
-
-        indexText.text = string.IsNullOrEmpty(symbol) ? indexLabel : indexLabel + " " + symbol;
+    private void RefreshCoverOpacity()
+    {
+        if (scratchImage != null)
+            scratchImage.color = new Color(1f, 1f, 1f,
+                previewActive ? PreviewCoverOpacity : 1f);
     }
 
     /// <summary>The visible symbol lives under the scratch mask; only M3 updates it.</summary>
@@ -116,7 +129,7 @@ public sealed class ScratchCell : MonoBehaviour, IPointerDownHandler, IDragHandl
         scratchTexture.Apply(false);
 
         // Avoid local tint multiplying the manager's global coating color.
-        scratchImage.color = Color.white;
+        RefreshCoverOpacity();
         scratchImage.texture = scratchTexture;
         scratchRect = scratchImage.rectTransform;
         enabled = true;

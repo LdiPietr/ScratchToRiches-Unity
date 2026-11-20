@@ -23,7 +23,7 @@ public sealed class ScratchCellManager : MonoBehaviour
 
     [SerializeField]
     [Tooltip("Single coating color for all cells. Reset cells to apply changes in Play Mode.")]
-    private Color coatingColor = new Color(0.69330716f, 0.7735849f, 0.77050906f, 1f);
+    private Color coatingColor = new Color(0.77f, 0.79f, 0.82f, 1f);
 
     [Header("Auto-collected cells (Canvas children)")]
     [SerializeField] private ScratchCell[] cells = new ScratchCell[0];

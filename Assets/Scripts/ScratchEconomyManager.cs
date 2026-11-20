@@ -47,7 +47,8 @@ public sealed class ScratchEconomyManager : MonoBehaviour
     }
 
     /// <summary>One M3 match per ticket, never one reward per scratch gesture.</summary>
-    public int SettleTicket(int ticketId, ScratchSymbolManager.MatchResult match, bool allPicksCompleted)
+    public int SettleTicket(int ticketId, ScratchSymbolManager.MatchResult match,
+        bool allPicksCompleted, int ticketBasePrize = 0)
     {
         if (ticketId <= 0 || ticketId <= lastSettledTicketId)
             return 0;
@@ -57,7 +58,8 @@ public sealed class ScratchEconomyManager : MonoBehaviour
 
         if (match.IsMatch)
         {
-            int rewardBase = Mathf.Max(1, basePrize) + 2 * Level(ScratchSkillTree.SkillId.E1);
+            int rewardBase = Mathf.Max(1, ticketBasePrize > 0 ? ticketBasePrize : basePrize)
+                + 2 * Level(ScratchSkillTree.SkillId.E1);
             double multiplier = match.Tier == ScratchSymbolManager.MatchTier.Pair
                 ? 1.0 + 0.1 * Level(ScratchSkillTree.SkillId.E2)
                 : match.Tier == ScratchSymbolManager.MatchTier.Triple

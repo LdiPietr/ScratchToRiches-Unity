@@ -17,6 +17,8 @@ public sealed class ScratchGameManager : MonoBehaviour
 {
     public enum RoundState { Ready, Playing, Finished }
     public enum RoundEndReason { None, TimeExpired, AllCellsRevealed, PlayerEnded }
+    // Ticket selection changes the payout, never the run timer or scratch limit.
+    public enum TicketKind { Standard, Fortunato, Gold }
 
     [Header("Global run settings")]
     [SerializeField, Min(1f)] private float roundDuration = 20f;
@@ -48,6 +50,7 @@ public sealed class ScratchGameManager : MonoBehaviour
     private int ticketNumberInRun;
     private int ticketsCompleted;
     private int ticketPayout;
+    private TicketKind currentTicketKind = TicketKind.Standard;
     private float lastTimeBonus;
 
     public event Action Changed;
@@ -60,6 +63,32 @@ public sealed class ScratchGameManager : MonoBehaviour
     public int TicketsCompleted => ticketsCompleted;
     public int TicketPayout => ticketPayout;
     public float LastTimeBonus => lastTimeBonus;
+    public TicketKind CurrentTicketKind => currentTicketKind;
+    public bool WaitingForTicketChoice => state == RoundState.Playing && !ticketActive
+        && ticketNumberInRun > 0 && timeRemaining > 0f;
+
+    public static int TicketPrice(TicketKind kind)
+    {
+        switch (kind)
+        {
+            case TicketKind.Standard: return 0;
+            case TicketKind.Fortunato: return 20;
+            case TicketKind.Gold: return 65;
+            default: return int.MaxValue;
+        }
+    }
+
+    public int TicketPrize(TicketKind kind)
+    {
+        switch (kind)
+        {
+            case TicketKind.Standard: return economyManager != null ? economyManager.BasePrize : 10;
+            case TicketKind.Fortunato: return 25;
+            case TicketKind.Gold: return 45;
+            default: return 0;
+        }
+    }
+
     public int SelectedCount => selectedCells.Count;
     public int RevealedCount
     {
@@ -143,7 +172,8 @@ public sealed class ScratchGameManager : MonoBehaviour
     {
         if (state != RoundState.Playing) StartNewRun();
         else if (ticketActive) FinishTicket(RoundEndReason.PlayerEnded);
-        else StartNextTicket();
+        // Between tickets the player MUST select a ticket in the choice panel.
+        // The main action button never silently starts another Standard ticket.
     }
 
     /// <summary>Only a new RUN resets the timer to 20 seconds.</summary>
@@ -158,13 +188,28 @@ public sealed class ScratchGameManager : MonoBehaviour
         endReason = RoundEndReason.None;
         ticketNumberInRun = 0;
         ticketActive = false;
-        StartNextTicket();
+        BeginTicket(TicketKind.Standard, false); // First ticket remains free by default.
     }
 
-    public void StartNextTicket()
+    /// <summary>
+    /// Only the between-ticket selection panel can request the next ticket.
+    /// Insufficient funds or time never create a new ticket or charge coins.
+    /// </summary>
+    public bool ChooseNextTicket(TicketKind kind)
+    {
+        if (!WaitingForTicketChoice || TicketPrice(kind) == int.MaxValue)
+            return false;
+        return BeginTicket(kind, true);
+    }
+
+    private bool BeginTicket(TicketKind kind, bool charge)
     {
         if (state != RoundState.Playing || ticketActive || timeRemaining <= 0f)
-            return;
+            return false;
+
+        int cost = charge ? TicketPrice(kind) : 0;
+        if (cost > economyManager.Coins || cost == int.MaxValue)
+            return false;
 
         selectedCells.Clear();
         ticketPayout = 0;
@@ -182,9 +227,20 @@ public sealed class ScratchGameManager : MonoBehaviour
             Debug.LogError("M5: could not generate a scratch ticket.", this);
             state = RoundState.Finished;
             RefreshHud();
-            return;
+            return false;
         }
 
+        // Generate first, then charge: failed generation never consumes coins.
+        // On the main Unity thread no other wallet mutation can interleave.
+        if (cost > 0 && !economyManager.TrySpendCoins(cost))
+        {
+            Debug.LogError("M5: ticket purchase could not be completed.", this);
+            state = RoundState.Finished;
+            RefreshHud();
+            return false;
+        }
+
+        currentTicketKind = kind;
         currentTicketId++;
         ticketNumberInRun++;
         ticketActive = true;
@@ -192,6 +248,7 @@ public sealed class ScratchGameManager : MonoBehaviour
         economyManager.BeginTicket();
         ApplyPreviews();
         RefreshHud();
+        return true;
     }
 
     public bool TrySelectCell(ScratchCell cell)
@@ -250,11 +307,13 @@ public sealed class ScratchGameManager : MonoBehaviour
         if (ticketVoided)
         {
             settledMatch = default;
-            ticketPayout = economyManager.SettleTicket(currentTicketId, settledMatch, false);
+            ticketPayout = economyManager.SettleTicket(currentTicketId, settledMatch, false,
+                TicketPrize(currentTicketKind));
         }
         else
         {
-            ticketPayout = economyManager.SettleTicket(currentTicketId, settledMatch, fullyCompleted);
+            ticketPayout = economyManager.SettleTicket(currentTicketId, settledMatch, fullyCompleted,
+                TicketPrize(currentTicketKind));
             if (fullyCompleted && reason != RoundEndReason.TimeExpired && timeRemaining > 0f)
             {
                 ticketsCompleted++;
@@ -318,7 +377,11 @@ public sealed class ScratchGameManager : MonoBehaviour
         if (roundActionLabel != null)
             roundActionLabel.text = state == RoundState.Ready ? "START RUN"
                 : state == RoundState.Finished ? "NEW RUN"
-                : ticketActive ? "END TICKET" : "NEXT TICKET";
+                : ticketActive ? "END TICKET" : "CHOOSE TICKET";
+
+        // The choice overlay owns the next-ticket action; disable the old shortcut.
+        if (roundActionButton != null)
+            roundActionButton.interactable = state != RoundState.Playing || ticketActive;
 
         if (matchResultText != null)
         {
@@ -337,8 +400,8 @@ public sealed class ScratchGameManager : MonoBehaviour
                     ? $"TIME UP! {ticketsCompleted} tickets completed. Start a new run."
                     : ticketActive
                         ? ticketVoided ? "TEST RESET - THIS TICKET WILL NOT PAY."
-                            : $"Ticket {ticketNumberInRun}: finish {MaxScratches} picks to earn the full bonus."
-                        : $"Earned +{ticketPayout} coins, +{lastTimeBonus:0.0}s. NEXT TICKET keeps the clock running!";
+                            : $"{currentTicketKind} ticket {ticketNumberInRun}: finish {MaxScratches} picks to earn the full bonus."
+                        : $"Earned +{ticketPayout} coins, +{lastTimeBonus:0.0}s. CHOOSE YOUR NEXT TICKET!";
         }
         Changed?.Invoke();
     }
