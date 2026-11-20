@@ -48,8 +48,18 @@ public sealed class ScratchSymbolManager : MonoBehaviour
 
     public int SymbolCount => symbolLabels == null ? 0 : symbolLabels.Length;
 
+    public bool TryGetSymbol(ScratchCell cell, out string label)
+    {
+        label = string.Empty;
+        if (cell == null || !currentSymbols.TryGetValue(cell, out int id) ||
+            symbolLabels == null || id < 0 || id >= symbolLabels.Length)
+            return false;
+        label = symbolLabels[id];
+        return true;
+    }
+
     /// <summary>
-    /// One call per new round; all 9 symbols stay unchanged until the next round.
+    /// One call per new round; all 16 symbols stay unchanged until the next round.
     /// Ensures that two consecutive RANDOM full boards cannot be identical.
     /// </summary>
     public bool GenerateRound()

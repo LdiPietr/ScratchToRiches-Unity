@@ -133,3 +133,83 @@ La persistenza del saldo tra sessioni non è compresa in questa milestone.
 **Ripristinare** `Scratch Limit = 3` e `Editor Test Pattern = Random` alla fine delle prove.
 
 Le checklist delle milestone precedenti descrivono lo stato storico della griglia 3x3 con cinque simboli; la configurazione attuale è quella descritta in questa sezione.
+
+## M5 — Quattro alberi, timer globale, biglietti concatenati (DA VALIDARE IN UNITY)
+
+**Questo aggiornamento cambia volontariamente il flusso M4.**
+
+### Una partita, molti biglietti
+
+- `START RUN` avvia una partita con **20 secondi globali**; il timer parte una volta sola.
+- Un biglietto standard ha 16 caselle e parte da 3 scelte, tutte da grattare almeno all'**85%**.
+- Quando completi tutte le scelte, il biglietto viene liquidato **una volta**: monete e bonus temporali, se sbloccati.
+- Quando premi `END TICKET`, il biglietto termina prima del completamento: le combinazioni già realmente completate pagano, ma **non** ottieni bonus tempo né consolazione.
+- Dopo un biglietto, premi `NEXT TICKET`: 16 nuovi simboli e coperture ripristinate, **senza ripristinare o fermare il timer**.
+- Anche mentre scegli di passare al biglietto successivo, il timer globale continua a scorrere.
+- A 0 secondi la partita termina automaticamente: l'ultimo biglietto liquida soltanto le combinazioni realmente completate. `NEW RUN` è l'unica azione che riparte da 20 secondi.
+- `Reset All Cells` dell'Inspector non fa ottenere monete/tempo gratis e invalida l'attuale biglietto per la liquidazione. Non rigenera il simbolo e non ferma il timer.
+
+### Alberi: 4 rami x 8 nodi = 32 abilità pianificate
+
+Il pannello destro ora ospita l'interfaccia **ALBERO DELLE ABILITA**, con 4 schede:
+**Grattamento**, **Caselle**, **Economia**, **Tempo**.
+In ogni scheda si vedono 8 nodi, livello, costo o prerequisito. Seleziona un nodo, poi premi **ACQUISTA**.
+Gli acquisti si possono fare solo **prima di iniziare la partita o dopo TIME UP**, mai durante la partita.
+Sono implementati e acquistabili **24 nodi** con effetti reali; gli altri **8 nodi avanzati** sono visibili con la dicitura **IN ARRIVO**, ma non acquistabili.
+
+**Grattamento (G1–G5 operativi):**
+G1 aumenta raggio (+2/livello), G2 amplifica il primo tratto (+4/livello), G3 doppia/multipla passata, G4 ulteriori tracce, G5 turbo nei primi 3 secondi del biglietto.
+G6 Assistente, G7 Automatico e G8 Scratch Storm saranno completati in una fase successiva.
+
+**Caselle (C1, C2, C3, C5, C6, C7 operativi):**
+C1/C2 offrono anteprime dei simboli su caselle casuali; C3 aggiunge la **quarta scelta**; C5 porta le anteprime a 3–4; C6 aggiunge la **quinta scelta**; C7 offre la visione completa.
+Le anteprime sono mostrate nelle etichette delle caselle (`01 7`, ecc.) e non consumano scelte.
+C4 Ripensamento e C8 Manipolazione sono ancora bloccati come **IN ARRIVO**.
+
+**Economia (E1–E5 operativi):**
+E1 premio base +2 per livello; E2 +10% alla coppia per livello; E3 +15% al tris per livello; E4 +20% al poker per livello;
+E5 consolazione +3 per livello, ma **solo con tutte le scelte completate e nessuna combinazione valida**.
+E6 Serie vincente, E7 Moltiplicatore globale, E8 Cascata dorata sono nodi futuri.
+
+**Tempo (T1–T8 operativi con prerequisiti):**
+T1 +0,5s per il primo biglietto completo;
+T2 +1s al terzo biglietto completo;
+T3 +1s per livello ogni 4 biglietti completi.
+T4–T7: **+1/+2/+3/+4 secondi** completando 4 scelte; T8 **+5 secondi** completando 5 scelte.
+I livelli T4–T8 **si sostituiscono** sul medesimo biglietto, non si sommano.
+T4 richiede anche **C3 (quarta casella)**, T8 richiede anche **C6 (quinta casella)** oltre ai prerequisiti del ramo Tempo.
+Sono abilità avanzate costose, non bonus iniziali. Il timer iniziale resta 20 secondi anche dopo gli upgrade.
+Le piccole ricompense T1/T2/T3 possono sommarsi ai recuperi T4–T8.
+
+### Persistenza
+
+Dalla M5, **le monete e le abilità acquistate vengono conservate tra sessioni** con PlayerPrefs,
+in modo che i potenziamenti siano davvero permanenti. Il totale delle monete guadagnate viene tracciato separatamente.
+Questa scelta sostituisce esplicitamente il comportamento della M4, dove il saldo ricominciava da zero a ogni Play Mode.
+
+Per azzerare i test: in Play Mode **fuori da una partita in corso**, apri il menu contestuale dell'Inspector del componente `ScratchSkillTree` e usa
+`RESET ALL M5 PROGRESSION (Play Mode)`. Si azzerano livelli acquistati e portafoglio.
+Per testare abilità costose senza grinding, `ScratchEconomyManager` espone soltanto nell'Editor:
+`M5 QA - ADD 100000 COINS (Play Mode only)`. Non funziona durante una partita e non è disponibile in build.
+
+### Checklist minima di regressione M5
+
+1. Dopo reset progressione, timer in attesa 20s, saldo 0, G1 acquistabile quando hai monete, altri nodi mostrano prerequisiti.
+2. Prova `START RUN` e completa tre caselle di un biglietto; il timer **non torna a 20**. Compare `NEXT TICKET`.
+3. Premi `NEXT TICKET`: nuova distribuzione 16 simboli e timer che continua dal valore residuo.
+4. `END TICKET` paga soltanto le combinazioni completate, non il bonus tempo; a 0s compare `NEW RUN`.
+5. Accumula monete su più biglietti **e più partite**: gli identificativi di pagamento restano unici, nessun premio duplicato.
+6. Usa il QA +100000 monete **fuori da una partita**, acquista G1 e controlla che il grattamento diventi più largo.
+7. Acquista C1, avvia una nuova partita e verifica una etichetta `NN SIMBOLO` di anteprima senza consumare pick.
+8. Acquista C1→C2→C3 e verifica che le scelte siano **4**; prosegui con C5→C6 per **5** scelte.
+9. Acquista E1 e verifica +2 al premio base; per una coppia M4, con E1 Lv1, premio atteso **+24** invece di +20.
+10. Acquista T1 e verifica un **+0,5s** dopo il primo biglietto interamente completato. NON dopo `END TICKET`.
+11. Acquista tutti i prerequisiti T4 e C3: 4 caselle complete restituiscono +1s. Dopo T7 restituiscono +4s totali, non +1+2+3+4.
+12. Dopo C6 e T8, un biglietto con 5 caselle complete restituisce +5s totali dal ramo recupero.
+13. Testa `Reset All Cells` durante un biglietto: non deve permettere di ottenere premi duplicati.
+14. Riavvia Play Mode: monete e livelli acquistati restano salvati. Azzerali col menu contestuale per ripartire.
+15. Verifica senza errori Console/TMP, senza overlap della griglia 4x4, e Scratch Percentage ancora a **85**.
+
+**Limiti attuali:** i ticket speciali e i nodi avanzati `G6/G7/G8, C4/C8, E6/E7/E8` non sono ancora implementati.
+Non devono scalare monete. L'UI iniziale presenta quattro rami **a schede con 8 nodi ciascuno**; una versione grafica con connettori ramificati più elaborati potrà essere rifinita dopo i test funzionali.
+

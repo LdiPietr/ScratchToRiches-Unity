@@ -28,7 +28,32 @@ public sealed class ScratchCellManager : MonoBehaviour
     [Header("Auto-collected cells (Canvas children)")]
     [SerializeField] private ScratchCell[] cells = new ScratchCell[0];
 
+    private ScratchSkillTree skills;
+    private ScratchGameManager game;
+
+    private int SkillLevel(ScratchSkillTree.SkillId id)
+    {
+        if (skills == null) skills = GetComponent<ScratchSkillTree>();
+        return skills != null ? skills.GetLevel(id) : 0;
+    }
+
     public int BrushRadius => brushRadius;
+    public int EffectiveBrushRadius
+    {
+        get
+        {
+            if (game == null) game = GetComponent<ScratchGameManager>();
+            int radius = brushRadius + 2 * SkillLevel(ScratchSkillTree.SkillId.G1);
+            if (game != null && game.TicketActive && game.TicketElapsed < 3f)
+                radius += 3 * SkillLevel(ScratchSkillTree.SkillId.G5);
+            return Mathf.Clamp(radius, 1, 128);
+        }
+    }
+
+    public int FirstStrokeBonus => 4 * SkillLevel(ScratchSkillTree.SkillId.G2);
+    public int AdditionalScratchStripes =>
+        Mathf.Clamp(SkillLevel(ScratchSkillTree.SkillId.G3) +
+                    SkillLevel(ScratchSkillTree.SkillId.G4), 0, 5);
     public float ScratchPercentage => scratchPercentage;
     public int TextureResolution => textureResolution;
     public Color CoatingColor => coatingColor;

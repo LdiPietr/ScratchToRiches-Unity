@@ -11,6 +11,7 @@ public sealed class ScratchCell : MonoBehaviour, IPointerDownHandler, IDragHandl
 {
     [SerializeField] private RawImage scratchImage;
     [SerializeField] private TMP_Text symbolText;
+    [SerializeField] private TMP_Text indexText;
 
     private ScratchCellManager manager;
     private ScratchGameManager gameManager;
@@ -23,9 +24,23 @@ public sealed class ScratchCell : MonoBehaviour, IPointerDownHandler, IDragHandl
     private bool completed;
     private bool hasPreviousPixel;
     private Vector2Int previousPixel;
+    private bool firstStrokeUsed;
+    private string indexLabel;
 
     public bool IsComplete => completed;
     public bool HasSymbolText => symbolText != null;
+
+    /// <summary>Shows an optional preview without revealing or scratching the mask.</summary>
+    public void SetPreview(string symbol)
+    {
+        if (indexText == null)
+            return;
+
+        if (string.IsNullOrEmpty(indexLabel))
+            indexLabel = name.StartsWith("Cell_") ? name.Substring(5) : indexText.text;
+
+        indexText.text = string.IsNullOrEmpty(symbol) ? indexLabel : indexLabel + " " + symbol;
+    }
 
     /// <summary>The visible symbol lives under the scratch mask; only M3 updates it.</summary>
     public void SetSymbol(string symbol)
@@ -90,6 +105,7 @@ public sealed class ScratchCell : MonoBehaviour, IPointerDownHandler, IDragHandl
         completed = false;
         pointerDown = false;
         hasPreviousPixel = false;
+        firstStrokeUsed = false;
 
         Color32 coverColor = manager.CoatingColor;
         Color32[] pixels = new Color32[count];
@@ -177,13 +193,29 @@ public sealed class ScratchCell : MonoBehaviour, IPointerDownHandler, IDragHandl
             ? Mathf.Max(1, Mathf.CeilToInt(Vector2.Distance(previousPixel, current) / spacing))
             : 1;
 
+        int radius = manager.EffectiveBrushRadius;
+        if (!firstStrokeUsed)
+        {
+            radius = Mathf.Clamp(radius + manager.FirstStrokeBonus, 1, 128);
+            firstStrokeUsed = true;
+        }
+
         bool changed = false;
+        int additional = manager.AdditionalScratchStripes;
         for (int i = 1; i <= steps; i++)
         {
             float t = (float)i / steps;
             int x = hasPreviousPixel ? Mathf.RoundToInt(Mathf.Lerp(previousPixel.x, current.x, t)) : current.x;
             int y = hasPreviousPixel ? Mathf.RoundToInt(Mathf.Lerp(previousPixel.y, current.y, t)) : current.y;
-            changed |= EraseStamp(x, y);
+            changed |= EraseStamp(x, y, radius);
+
+            // Skill tree double/multi-pass: parallel strokes, clamped inside mask.
+            for (int stripe = 1; stripe <= additional; stripe++)
+            {
+                int offset = Mathf.Max(1, radius) * ((stripe + 1) / 2);
+                if ((stripe & 1) == 0) offset = -offset;
+                changed |= EraseStamp(x + offset, y, radius);
+            }
         }
 
         previousPixel = current;
@@ -196,9 +228,8 @@ public sealed class ScratchCell : MonoBehaviour, IPointerDownHandler, IDragHandl
             Complete();
     }
 
-    private bool EraseStamp(int centerX, int centerY)
+    private bool EraseStamp(int centerX, int centerY, int radius)
     {
-        int radius = manager.BrushRadius;
         int radiusSquared = radius * radius;
         int resolution = scratchTexture.width;
         Color32 clear = manager.CoatingColor;

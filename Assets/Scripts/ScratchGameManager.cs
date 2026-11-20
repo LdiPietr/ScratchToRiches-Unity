@@ -1,22 +1,24 @@
+using System;
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using TMPro;
 
 /// <summary>
-/// M2-M4: timed rounds, scratch matches and once-per-round coin settlement.
-/// Shop purchases and upgrades are reserved for M5.
+/// M5: one 20-second RUN holds many scratch tickets. Completing or skipping a
+/// ticket NEVER resets the run timer; only NEW RUN does.
 /// </summary>
 [DisallowMultipleComponent]
 [RequireComponent(typeof(ScratchCellManager))]
 [RequireComponent(typeof(ScratchSymbolManager))]
 [RequireComponent(typeof(ScratchEconomyManager))]
+[RequireComponent(typeof(ScratchSkillTree))]
 public sealed class ScratchGameManager : MonoBehaviour
 {
     public enum RoundState { Ready, Playing, Finished }
     public enum RoundEndReason { None, TimeExpired, AllCellsRevealed, PlayerEnded }
 
-    [Header("Round settings")]
+    [Header("Global run settings")]
     [SerializeField, Min(1f)] private float roundDuration = 20f;
     [SerializeField, Min(1)] private int scratchLimit = 3;
 
@@ -24,6 +26,7 @@ public sealed class ScratchGameManager : MonoBehaviour
     [SerializeField] private ScratchCellManager cellManager;
     [SerializeField] private ScratchSymbolManager symbolManager;
     [SerializeField] private ScratchEconomyManager economyManager;
+    [SerializeField] private ScratchSkillTree skillTree;
     [SerializeField] private TMP_Text timerValue;
     [SerializeField] private TMP_Text scratchProgress;
     [SerializeField] private TMP_Text boardSubtitle;
@@ -33,31 +36,40 @@ public sealed class ScratchGameManager : MonoBehaviour
 
     private readonly HashSet<ScratchCell> selectedCells = new HashSet<ScratchCell>();
     private float timeRemaining;
+    private float ticketOpenedAt;
     private RoundState state = RoundState.Ready;
-    private RoundEndReason endReason = RoundEndReason.None;
+    private RoundEndReason endReason;
     private ScratchSymbolManager.MatchResult settledMatch;
-    private int currentRoundId;
-    private int roundPayout;
+    private bool ticketActive;
+    private bool ticketVoided;
+    private bool internalReset;
+    // Monotonic ticket ID protects economy settlement across multiple runs.
+    private int currentTicketId;
+    private int ticketNumberInRun;
+    private int ticketsCompleted;
+    private int ticketPayout;
+    private float lastTimeBonus;
 
+    public event Action Changed;
     public RoundState State => state;
     public RoundEndReason EndReason => endReason;
-    // Freeze the displayed match after settlement. Inspector resets cannot
-    // rewrite the outcome or trigger a second payout.
-    public ScratchSymbolManager.MatchResult CurrentMatch =>
-        state == RoundState.Finished ? settledMatch :
-        symbolManager != null ? symbolManager.Evaluate(selectedCells) : default;
-    public int RoundPayout => state == RoundState.Finished ? roundPayout : 0;
     public float TimeRemaining => timeRemaining;
+    public float TicketElapsed => ticketActive ? Mathf.Max(0f, ticketOpenedAt - timeRemaining) : 0f;
+    public bool TicketActive => ticketActive;
+    public int TicketNumber => ticketNumberInRun;
+    public int TicketsCompleted => ticketsCompleted;
+    public int TicketPayout => ticketPayout;
+    public float LastTimeBonus => lastTimeBonus;
     public int SelectedCount => selectedCells.Count;
     public int RevealedCount
     {
         get
         {
-            int total = 0;
+            int count = 0;
             foreach (ScratchCell cell in selectedCells)
                 if (cell != null && cell.IsComplete)
-                    total++;
-            return total;
+                    count++;
+            return count;
         }
     }
 
@@ -65,39 +77,40 @@ public sealed class ScratchGameManager : MonoBehaviour
     {
         get
         {
+            int extra = Level(ScratchSkillTree.SkillId.C3) > 0 ? 1 : 0;
+            if (Level(ScratchSkillTree.SkillId.C6) > 0) extra++;
             int available = cellManager != null ? cellManager.CellCount : scratchLimit;
-            return Mathf.Clamp(scratchLimit, 1, Mathf.Max(1, available));
+            return Mathf.Clamp(scratchLimit + extra, 1, Mathf.Max(1, available));
         }
     }
 
+    public ScratchSymbolManager.MatchResult CurrentMatch =>
+        !ticketActive ? settledMatch : symbolManager != null ? symbolManager.Evaluate(selectedCells) : default;
+
+    private int Level(ScratchSkillTree.SkillId id) => skillTree != null ? skillTree.GetLevel(id) : 0;
+
     private void Awake()
     {
-        if (cellManager == null)
-            cellManager = GetComponent<ScratchCellManager>();
+        if (cellManager == null) cellManager = GetComponent<ScratchCellManager>();
+        if (symbolManager == null) symbolManager = GetComponent<ScratchSymbolManager>();
+        if (economyManager == null) economyManager = GetComponent<ScratchEconomyManager>();
+        if (skillTree == null) skillTree = GetComponent<ScratchSkillTree>();
 
-        if (symbolManager == null)
-            symbolManager = GetComponent<ScratchSymbolManager>();
-
-        if (economyManager == null)
-            economyManager = GetComponent<ScratchEconomyManager>();
-
-        if (roundActionButton == null)
-            Debug.LogError("ScratchGameManager: Round Action Button is missing.", this);
-        else
+        if (roundActionButton != null)
             roundActionButton.onClick.AddListener(OnRoundAction);
-
+        else
+            Debug.LogError("ScratchGameManager: RoundActionButton missing.", this);
         timeRemaining = roundDuration;
     }
 
     private void Start()
     {
-        if (cellManager == null || symbolManager == null || economyManager == null)
+        if (cellManager == null || symbolManager == null || economyManager == null || skillTree == null)
         {
-            Debug.LogError("ScratchGameManager: ScratchCellManager, ScratchSymbolManager and ScratchEconomyManager are required.", this);
+            Debug.LogError("ScratchGameManager: M5 manager reference missing.", this);
             enabled = false;
             return;
         }
-
         cellManager.CollectCells();
         RefreshHud();
     }
@@ -113,77 +126,82 @@ public sealed class ScratchGameManager : MonoBehaviour
         if (state != RoundState.Playing)
             return;
 
+        // Critically: this runs even BETWEEN tickets.
         timeRemaining = Mathf.Max(0f, timeRemaining - Time.deltaTime);
         if (timeRemaining <= 0f)
         {
-            FinishRound(RoundEndReason.TimeExpired);
+            if (ticketActive)
+                FinishTicket(RoundEndReason.TimeExpired);
+            state = RoundState.Finished;
+            RefreshHud();
             return;
         }
-
         UpdateTimerText();
     }
 
-    /// <summary>
-    /// Called by the primary UI button. Start, end early, or restart the round.
-    /// </summary>
     public void OnRoundAction()
     {
-        if (state == RoundState.Playing)
-            FinishRound(RoundEndReason.PlayerEnded);
-        else
-            StartRound();
+        if (state != RoundState.Playing) StartNewRun();
+        else if (ticketActive) FinishTicket(RoundEndReason.PlayerEnded);
+        else StartNextTicket();
     }
 
-    public void StartRound()
+    /// <summary>Only a new RUN resets the timer to 20 seconds.</summary>
+    public void StartNewRun()
     {
-        if (!Application.isPlaying || cellManager == null)
+        if (!Application.isPlaying || cellManager == null || state == RoundState.Playing)
             return;
 
-        cellManager.CollectCells();
-        if (cellManager.CellCount == 0)
-        {
-            Debug.LogError("ScratchGameManager: No ScratchCell components found on Canvas.", this);
+        timeRemaining = roundDuration;
+        ticketsCompleted = 0;
+        state = RoundState.Playing;
+        endReason = RoundEndReason.None;
+        ticketNumberInRun = 0;
+        ticketActive = false;
+        StartNextTicket();
+    }
+
+    public void StartNextTicket()
+    {
+        if (state != RoundState.Playing || ticketActive || timeRemaining <= 0f)
             return;
-        }
 
         selectedCells.Clear();
+        ticketPayout = 0;
+        lastTimeBonus = 0f;
         settledMatch = default;
-        roundPayout = 0;
-        timeRemaining = roundDuration;
         endReason = RoundEndReason.None;
-        state = RoundState.Playing;
-        cellManager.ResetAllCells();
+        ticketVoided = false;
 
-        // A fresh, fixed board is assigned only once per round.
-        if (symbolManager == null || !symbolManager.GenerateRound())
+        internalReset = true;
+        cellManager.ResetAllCells();
+        internalReset = false;
+
+        if (!symbolManager.GenerateRound())
         {
-            state = RoundState.Ready;
+            Debug.LogError("M5: could not generate a scratch ticket.", this);
+            state = RoundState.Finished;
             RefreshHud();
             return;
         }
 
-        // A new identifier only exists after symbol generation succeeds.
-        // Keeping it monotonic protects against duplicate settlement.
-        currentRoundId++;
-        economyManager.BeginRound();
+        currentTicketId++;
+        ticketNumberInRun++;
+        ticketActive = true;
+        ticketOpenedAt = timeRemaining;
+        economyManager.BeginTicket();
+        ApplyPreviews();
         RefreshHud();
     }
 
-    /// <summary>
-    /// Called only after a pointer lands INSIDE a cell; touching a new cell
-    /// spends one pick, but repeating a selected cell never spends another.
-    /// </summary>
     public bool TrySelectCell(ScratchCell cell)
     {
-        if (state != RoundState.Playing || cell == null || !cell.isActiveAndEnabled)
+        if (state != RoundState.Playing || !ticketActive || cell == null || !cell.isActiveAndEnabled)
             return false;
-
         if (!cell.transform.IsChildOf(transform))
             return false;
-
         if (selectedCells.Contains(cell))
             return true;
-
         if (selectedCells.Count >= MaxScratches)
             return false;
 
@@ -194,98 +212,135 @@ public sealed class ScratchGameManager : MonoBehaviour
 
     public void OnCellCompleted(ScratchCell cell)
     {
-        if (state != RoundState.Playing || !selectedCells.Contains(cell))
+        if (state != RoundState.Playing || !ticketActive || !selectedCells.Contains(cell))
             return;
-
         if (selectedCells.Count == MaxScratches && RevealedCount == MaxScratches)
-        {
-            FinishRound(RoundEndReason.AllCellsRevealed);
-            return;
-        }
-
-        RefreshHud();
+            FinishTicket(RoundEndReason.AllCellsRevealed);
+        else
+            RefreshHud();
     }
 
-    /// <summary>
-    /// Invoked by ScratchCellManager.ResetAllCells, including its Inspector
-    /// button. Resetting the covers also returns the available picks.
-    /// The timer continues if an active round was in progress.
-    /// </summary>
     public void OnCellsReset()
     {
         selectedCells.Clear();
+
+        // The Inspector reset must not allow free rerolls of the same ticket.
+        if (!internalReset && ticketActive)
+            ticketVoided = true;
         RefreshHud();
     }
 
     public void EndRoundEarly()
     {
-        if (state == RoundState.Playing)
-            FinishRound(RoundEndReason.PlayerEnded);
+        if (state == RoundState.Playing && ticketActive)
+            FinishTicket(RoundEndReason.PlayerEnded);
     }
 
-    private void FinishRound(RoundEndReason reason)
+    private void FinishTicket(RoundEndReason reason)
     {
-        if (state != RoundState.Playing)
+        if (state != RoundState.Playing || !ticketActive)
             return;
 
+        bool fullyCompleted = selectedCells.Count == MaxScratches && RevealedCount == MaxScratches;
         settledMatch = symbolManager.Evaluate(selectedCells);
-        state = RoundState.Finished;
+        ticketActive = false;
         endReason = reason;
 
-        // Time up, all cells revealed and END ROUND all settle the same way.
-        // The economy manager rejects any repeat settlement of this round ID.
-        roundPayout = economyManager.SettleRound(currentRoundId, settledMatch);
+        // A manual Inspector reset voids the ticket, preventing free rerolls.
+        if (ticketVoided)
+        {
+            settledMatch = default;
+            ticketPayout = economyManager.SettleTicket(currentTicketId, settledMatch, false);
+        }
+        else
+        {
+            ticketPayout = economyManager.SettleTicket(currentTicketId, settledMatch, fullyCompleted);
+            if (fullyCompleted && reason != RoundEndReason.TimeExpired && timeRemaining > 0f)
+            {
+                ticketsCompleted++;
+                lastTimeBonus = ComputeTimeBonus();
+                timeRemaining += lastTimeBonus;
+            }
+        }
         RefreshHud();
+    }
+
+    private float ComputeTimeBonus()
+    {
+        float bonus = 0f;
+        if (ticketsCompleted == 1 && Level(ScratchSkillTree.SkillId.T1) > 0)
+            bonus += 0.5f;
+        if (ticketsCompleted == 3 && Level(ScratchSkillTree.SkillId.T2) > 0)
+            bonus += 1f;
+        if (ticketsCompleted % 4 == 0)
+            bonus += Level(ScratchSkillTree.SkillId.T3);
+
+        // T4-T8 replace one another; never add +1+2+3+4+5.
+        int recoveredFromPicks = Level(ScratchSkillTree.SkillId.T8) > 0 && MaxScratches >= 5 ? 5 :
+            Level(ScratchSkillTree.SkillId.T7) > 0 && MaxScratches >= 4 ? 4 :
+            Level(ScratchSkillTree.SkillId.T6) > 0 && MaxScratches >= 4 ? 3 :
+            Level(ScratchSkillTree.SkillId.T5) > 0 && MaxScratches >= 4 ? 2 :
+            Level(ScratchSkillTree.SkillId.T4) > 0 && MaxScratches >= 4 ? 1 : 0;
+        bonus += recoveredFromPicks;
+        return bonus;
+    }
+
+    private void ApplyPreviews()
+    {
+        ScratchCell[] cells = GetComponentsInChildren<ScratchCell>(true);
+        for (int i = 0; i < cells.Length; i++)
+            cells[i].SetPreview(null);
+
+        int count = Level(ScratchSkillTree.SkillId.C7) > 0 ? cells.Length :
+            Level(ScratchSkillTree.SkillId.C5) > 0 ? 2 + Level(ScratchSkillTree.SkillId.C5) :
+            Level(ScratchSkillTree.SkillId.C2) > 0 ? 2 :
+            Level(ScratchSkillTree.SkillId.C1) > 0 ? 1 : 0;
+
+        // Unique random positions, not always the top-left corner.
+        List<int> available = new List<int>(cells.Length);
+        for (int i = 0; i < cells.Length; i++) available.Add(i);
+        for (int i = 0; i < Mathf.Min(count, cells.Length); i++)
+        {
+            int chosen = UnityEngine.Random.Range(0, available.Count);
+            ScratchCell cell = cells[available[chosen]];
+            available.RemoveAt(chosen);
+            if (symbolManager.TryGetSymbol(cell, out string symbol))
+                cell.SetPreview(symbol);
+        }
     }
 
     private void RefreshHud()
     {
         UpdateTimerText();
+        if (scratchProgress != null)
+            scratchProgress.text = $"TICKET {Mathf.Max(1, ticketNumberInRun)}   PICKS {selectedCells.Count}/{MaxScratches}   OPEN {RevealedCount}/{MaxScratches}";
+
+        if (roundActionLabel != null)
+            roundActionLabel.text = state == RoundState.Ready ? "START RUN"
+                : state == RoundState.Finished ? "NEW RUN"
+                : ticketActive ? "END TICKET" : "NEXT TICKET";
 
         if (matchResultText != null)
         {
             ScratchSymbolManager.MatchResult match = CurrentMatch;
-            matchResultText.text = state == RoundState.Ready
-                ? $"SCRATCH {MaxScratches} TO START"
-                : state == RoundState.Finished
-                    ? match.IsMatch
-                        ? $"{match.Tier.ToString().ToUpperInvariant()} x{match.Multiplier}  +{roundPayout} COINS"
-                        : "NO MATCH"
-                    : match.IsMatch
-                        ? $"{match.Tier.ToString().ToUpperInvariant()} x{match.Multiplier} ({match.Symbol})"
-                        : "REVEAL MATCHING SYMBOLS";
+            matchResultText.text = state == RoundState.Ready ? "20 SECONDS - MULTIPLE TICKETS"
+                : ticketActive ? match.IsMatch ? $"{match.Tier.ToString().ToUpperInvariant()} x{match.Multiplier} ({match.Symbol})" : "SCRATCH MATCHING SYMBOLS"
+                : match.IsMatch ? $"{match.Tier.ToString().ToUpperInvariant()} x{match.Multiplier}   +{ticketPayout} COINS"
+                : $"NO MATCH   +{ticketPayout} COINS";
         }
 
-        if (scratchProgress != null)
-            scratchProgress.text = $"PICKS {selectedCells.Count}/{MaxScratches}    OPEN {RevealedCount}/{MaxScratches}";
-
-        if (roundActionLabel != null)
-            roundActionLabel.text = state == RoundState.Playing
-                ? "END ROUND"
-                : state == RoundState.Ready ? "START ROUND" : "PLAY AGAIN";
-
-        if (boardSubtitle == null)
-            return;
-
-        switch (state)
+        if (boardSubtitle != null)
         {
-            case RoundState.Ready:
-                boardSubtitle.text = $"Press START ROUND. You have {roundDuration:0.#}s to scratch {MaxScratches} cells.";
-                break;
-            case RoundState.Playing:
-                boardSubtitle.text = selectedCells.Count < MaxScratches
-                    ? $"Choose {MaxScratches - selectedCells.Count} more cell(s), then finish revealing your picks."
-                    : "All picks used. Finish revealing the selected cells!";
-                break;
-            case RoundState.Finished:
-                string reward = roundPayout > 0 ? $"+{roundPayout} COINS" : "NO WIN";
-                boardSubtitle.text = endReason == RoundEndReason.TimeExpired
-                    ? $"TIME UP - {reward}. PRESS PLAY AGAIN."
-                    : endReason == RoundEndReason.AllCellsRevealed
-                        ? $"ALL PICKS REVEALED - {reward}. PLAY AGAIN."
-                        : $"ROUND ENDED - {reward}. PLAY AGAIN.";
-                break;
+            boardSubtitle.text = state == RoundState.Ready
+                ? "Start a run: 20s total, as many tickets as you can finish."
+                : state == RoundState.Finished
+                    ? $"TIME UP! {ticketsCompleted} tickets completed. Start a new run."
+                    : ticketActive
+                        ? ticketVoided ? "TEST RESET - THIS TICKET WILL NOT PAY."
+                            : $"Ticket {ticketNumberInRun}: finish {MaxScratches} picks to earn the full bonus."
+                        : $"Earned +{ticketPayout} coins, +{lastTimeBonus:0.0}s. NEXT TICKET keeps the clock running!";
         }
+        Changed?.Invoke();
     }
 
     private void UpdateTimerText()
