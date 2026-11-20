@@ -258,3 +258,21 @@ Durante una partita non puoi acquistare abilità, neppure quando hai appena fini
 12. Una casella trasparente deve comunque richiedere il grattamento fino a **85%** e consumare una scelta.
 13. Nessuna regressione dei quattro alberi: gli acquisti restano possibili solo **fra partite**, non durante la scelta dei biglietti.
 14. Nessuna Console error o NullReferenceException; 16 caselle grattabili e coperture ripristinate dopo ogni biglietto.
+
+## M5.2 — Albero visibile esclusivamente a fine run, anteprima più coperta
+
+- `SkillTreePanel` è **inattivo nella scena** all'avvio e resta nascosto durante la run, mentre si gratta e nella scelta fra i biglietti.
+- Soltanto alla scadenza del **timer globale** (stato `Finished`) il pannello si apre automaticamente; gli acquisti dei quattro alberi sono disponibili **esclusivamente in questo stato**.
+- Premendo `NEW RUN`, il pannello scompare e la nuova run riparte normalmente da 20 secondi.
+- L'anteprima C1/C2/C5/C7 mostra il simbolo reale sotto la patina argentata con copertura **55% opaca** (prima 32%): la casella resta visibilmente da grattare.
+- La copertura delle caselle normali resta completamente opaca; nessun numero o testo di anteprima aggiuntivo. La soglia di completamento rimane **85%**.
+- Invariati `END TICKET`, selezione Standard/Fortunato/Gold, prezzi, vincite, salvataggi e bonus temporali.
+
+### Check M5.2
+
+1. Apertura scena/Play Mode: skill tree non visibile; pulsante `START RUN` visibile.
+2. Durante il biglietto e dopo `END TICKET`: albero nascosto, schermata di scelta biglietti visibile soltanto fra i biglietti.
+3. A timer globale esaurito: la schermata di scelta si chiude e compare l'albero con i quattro rami e gli acquisti disponibili.
+4. `NEW RUN`: l'albero si richiude e il timer riparte da 20 secondi.
+5. Con C1/C2/C5/C7, le anteprime appaiono in argento **semitrasparente al 55% di opacità**, mentre le altre caselle sono totalmente coperte.
+6. Una casella con anteprima continua a richiedere il vero grattamento fino all'85%; nessuna regressione alla griglia 4x4.

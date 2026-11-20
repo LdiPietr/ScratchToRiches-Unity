@@ -35,6 +35,7 @@ public sealed class ScratchGameManager : MonoBehaviour
     [SerializeField] private TMP_Text matchResultText;
     [SerializeField] private Button roundActionButton;
     [SerializeField] private TMP_Text roundActionLabel;
+    [SerializeField] private GameObject skillTreePanel;
 
     private readonly HashSet<ScratchCell> selectedCells = new HashSet<ScratchCell>();
     private float timeRemaining;
@@ -370,6 +371,12 @@ public sealed class ScratchGameManager : MonoBehaviour
 
     private void RefreshHud()
     {
+        // The four skill branches are a post-run shop ONLY: no access during
+        // the current ticket, between tickets, or before the first run.
+        bool shouldShowTree = state == RoundState.Finished;
+        if (skillTreePanel != null && skillTreePanel.activeSelf != shouldShowTree)
+            skillTreePanel.SetActive(shouldShowTree);
+
         UpdateTimerText();
         if (scratchProgress != null)
             scratchProgress.text = $"TICKET {Mathf.Max(1, ticketNumberInRun)}   PICKS {selectedCells.Count}/{MaxScratches}   OPEN {RevealedCount}/{MaxScratches}";

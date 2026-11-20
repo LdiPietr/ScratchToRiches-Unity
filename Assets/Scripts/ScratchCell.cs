@@ -26,7 +26,7 @@ public sealed class ScratchCell : MonoBehaviour, IPointerDownHandler, IDragHandl
     private Vector2Int previousPixel;
     private bool firstStrokeUsed;
     private bool previewActive;
-    private const float PreviewCoverOpacity = 0.32f;
+    private const float PreviewCoverOpacity = 0.55f;
 
     public bool IsComplete => completed;
     public bool HasSymbolText => symbolText != null;

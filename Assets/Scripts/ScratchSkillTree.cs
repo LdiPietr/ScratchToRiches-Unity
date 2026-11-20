@@ -146,7 +146,7 @@ public sealed class ScratchSkillTree : MonoBehaviour
         return definition.Implemented &&
                GetLevel(id) < definition.MaxLevel &&
                RequirementsMet(id) &&
-               (game == null || game.State != ScratchGameManager.RoundState.Playing) &&
+               game != null && game.State == ScratchGameManager.RoundState.Finished &&
                economy != null && economy.Coins >= GetPrice(id);
     }
 
