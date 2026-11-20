@@ -10,6 +10,8 @@ using TMPro;
 public sealed class ScratchCell : MonoBehaviour, IPointerDownHandler, IDragHandler, IPointerUpHandler
 {
     [SerializeField] private RawImage scratchImage;
+    // Author-time UI Image under the grattable RawImage. Legacy TMP fallback stays optional.
+    [SerializeField] private Image symbolImage;
     [SerializeField] private TMP_Text symbolText;
     [SerializeField] private TMP_Text indexText;
 
@@ -29,7 +31,7 @@ public sealed class ScratchCell : MonoBehaviour, IPointerDownHandler, IDragHandl
     private const float PreviewCoverOpacity = 0.75f;
 
     public bool IsComplete => completed;
-    public bool HasSymbolText => symbolText != null;
+    public bool HasSymbolDisplay => symbolImage != null || symbolText != null;
 
     /// <summary>
     /// Preview skills reveal the real artwork beneath a translucent scratch
@@ -55,13 +57,21 @@ public sealed class ScratchCell : MonoBehaviour, IPointerDownHandler, IDragHandl
                 previewActive ? PreviewCoverOpacity : 1f);
     }
 
-    /// <summary>The visible symbol lives under the scratch mask; only M3 updates it.</summary>
-    public void SetSymbol(string symbol)
+    /// <summary>
+    /// A sprite is shown under the scratch coating; the legacy text renderer
+    /// remains a fallback for older test scenes without a sprite reference.
+    /// </summary>
+    public void SetSymbol(string symbol, Sprite artwork = null)
     {
+        if (symbolImage != null)
+        {
+            symbolImage.sprite = artwork;
+            symbolImage.enabled = artwork != null;
+        }
         if (symbolText != null)
-            symbolText.text = symbol;
-        else
-            Debug.LogError("ScratchCell is missing its TextMeshPro symbol reference.", this);
+            symbolText.text = artwork == null ? symbol : string.Empty;
+        if (symbolImage == null && symbolText == null)
+            Debug.LogError("ScratchCell: missing both Image and TextMeshPro symbol renderers.", this);
     }
 
     public float RevealedPercentage =>

@@ -32,8 +32,13 @@ public sealed class ScratchSymbolManager : MonoBehaviour
         public bool IsMatch => Tier != MatchTier.None;
     }
 
-    [Header("Available symbols (single ASCII glyph recommended)")]
-    [SerializeField] private string[] symbolLabels = { "7", "$", "@", "#", "&", "%", "*" };
+    [Header("Seven winning symbols, in matching artwork order")]
+    [SerializeField] private string[] symbolLabels =
+    {
+        "SETTE FORTUNATO", "MONETA", "DIAMANTE", "STELLA",
+        "CORONA", "QUADRIFOGLIO", "SACCHETTO DI MONETE"
+    };
+    [SerializeField] private Sprite[] symbolSprites = new Sprite[7];
 
 #if UNITY_EDITOR
     [Header("Editor-only deterministic test (Cell 01-04)")]
@@ -73,10 +78,20 @@ public sealed class ScratchSymbolManager : MonoBehaviour
             return false;
         }
 
-        if (symbolLabels == null || symbolLabels.Length < 4)
+        if (symbolLabels == null || symbolLabels.Length != 7 ||
+            symbolSprites == null || symbolSprites.Length != symbolLabels.Length)
         {
-            Debug.LogError("ScratchSymbolManager needs at least four different symbol labels.", this);
+            Debug.LogError("ScratchSymbolManager: seven names and seven matching sprite references are required.", this);
             return false;
+        }
+
+        for (int i = 0; i < symbolSprites.Length; i++)
+        {
+            if (symbolSprites[i] == null)
+            {
+                Debug.LogError($"ScratchSymbolManager: missing sprite at index {i} ({symbolLabels[i]}).", this);
+                return false;
+            }
         }
 
         HashSet<string> unique = new HashSet<string>();
@@ -98,9 +113,9 @@ public sealed class ScratchSymbolManager : MonoBehaviour
 
         foreach (ScratchCell cell in cells)
         {
-            if (cell == null || !cell.HasSymbolText)
+            if (cell == null || !cell.HasSymbolDisplay)
             {
-                Debug.LogError("Every ScratchCell needs a TextMeshPro symbol reference.", this);
+                Debug.LogError("Every ScratchCell needs an Image or TextMeshPro symbol reference.", this);
                 return false;
             }
         }
@@ -136,7 +151,7 @@ public sealed class ScratchSymbolManager : MonoBehaviour
         for (int i = 0; i < cells.Length; i++)
         {
             currentSymbols.Add(cells[i], layout[i]);
-            cells[i].SetSymbol(symbolLabels[layout[i]]);
+            cells[i].SetSymbol(symbolLabels[layout[i]], symbolSprites[layout[i]]);
         }
 
         previousLayout = (int[])layout.Clone();

@@ -367,3 +367,38 @@ Aggiornate le scritte visibili al giocatore in tutta la scena: testata, conto mo
 4. Scadenza run: tutti e quattro i rami mostrano testi più leggeri, ma requisiti, livelli, costi e acquisto per pressione prolungata funzionano come prima.
 5. Dopo un acquisto: saldo visibile e aggiornato; tenda di fine run si alza normalmente premendo **HO FINITO! SI RIPARTE!**.
 6. Regole immutate: timer 20s che si ferma fra biglietti, griglia 4x4, trasparenza anteprima 75%, soglia grattamento 85%.
+
+## M5.7 — I sette simboli illustrati integrati da `Symbols`
+
+I sette PNG aggiunti nel precedente push `Symbols` sono ora **utilizzati realmente nella griglia 4×4**, non soltanto presenti nella cartella `Assets/Art/Symbols/`.
+
+- `sym_lucky7.png` → **SETTE FORTUNATO**
+- `sym_coin.png` → **MONETA**
+- `sym_diamond.png` → **DIAMANTE**
+- `sym_star.png` → **STELLA**
+- `sym_crown.png` → **CORONA**
+- `sym_clover.png` → **QUADRIFOGLIO**
+- `sym_coinbag.png` → **SACCHETTO DI MONETE**
+
+### Import Unity
+
+Tutti i `.meta` conservano il **GUID originale** del push `Symbols` ma cambiano importazione in **Sprite (2D and UI)**, **Single**, **Alpha Is Transparency attivo**. Niente mipmap né ridimensionamento NPOT; il massimo resta 2048 px. I sette sprite sono referenziati per GUID nel `ScratchSymbolManager` della scena.
+
+### UI e gameplay
+
+- I 16 GameObject `Symbol` all'interno delle 16 `ScratchCell` hanno ora un componente `UnityEngine.UI.Image` al posto del vecchio renderer TMP. Sono sempre gli stessi oggetti, nella **stessa posizione di disegno prima del `ScratchCoating`**. Le immagini preservano le proporzioni e non catturano eventi del mouse.
+- `ScratchCell` riceve sprite e nome tramite `SetSymbol(label, artwork)`. Le etichette testuali restano disponibili per i nomi delle combinazioni e per le anteprime; niente numerazioni sulle caselle.
+- `ScratchSymbolManager` genera ancora una sola identità per ciascuna casella, con selezione casuale, test forzati in Editor e valutazione coppia/tris/poker sui simboli effettivamente rivelati.
+- Anteprima con copertura al **75%**, completamento a **85%**, 20 secondi durante il grattamento, pausa fra biglietti, saldo e upgrade restano invariati.
+- Non è stato aggiunto un builder runtime; tutti i 16 componenti Image e i 7 riferimenti sprite sono **già serializzati nella scena**.
+
+### Test obbligatorio dopo `git pull origin main`
+
+1. Unity: aprire `Assets/Scenes/ScratchToRiches.unity`; nell'Inspector del manager verificare **7 sprite referenziati** e in ciascuna casella **Symbol Image**.
+2. Play Mode: il primo biglietto mostra illustrazioni al posto dei vecchi caratteri; tutte le 16 caselle mantengono il grattamento.
+3. Grattare fino all'85% e controllare che il simbolo sotto la patina appaia senza distorsione.
+4. Con l'upgrade di anteprima, verificare che la patina al 75% lasci intravedere **il simbolo vero** e non riveli già la casella ai fini della vincita.
+5. Verificare coppia, tris e poker e le vincite; tutti gli altri controlli di M5.6 devono rimanere funzionanti.
+6. Verificare la Console Unity: nessun `Missing Sprite`, GUID duplicato, `Missing Script` o errore C#.
+
+**Limite del controllo remoto:** il push è verificato a livello di YAML e script; importazione effettiva e resa dei PNG in Play Mode sono da verificare in Unity Editor.
