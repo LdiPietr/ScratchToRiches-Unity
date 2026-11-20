@@ -90,3 +90,46 @@ Verificare inoltre che: una quarta scelta resti bloccata con limite 3; match non
 Le modalità di test sono **solo Editor** e non forzano le combinazioni nelle build. Riportare `Editor Test Pattern` a **Random** al termine dei test.
 
 La M4 calcolerà le vincite in monete usando il risultato della M3; nessuna ricompensa economica viene simulata qui.
+
+## M4 - Economia, score e layout 4x4 (in attesa del test Unity)
+
+La scena usa ora una **griglia 4x4** con **16 caselle** (`Cell_01` ... `Cell_16`). Le scelte restano **3 per round**, qualsiasi terna fra le 16. Per testare il poker si imposta temporaneamente `ScratchGameManager > Scratch Limit = 4`.
+Il pool di simboli ora contiene **7 simboli** configurabili: `7`, `$`, `@`, `#`, `&`, `%`, `*`. I pattern Editor `Pair / Triple / Poker` sono preservati e controllano le caselle 01-04.
+Con 3 scelte e 7 simboli equiprobabili, la probabilità teorica di almeno una coppia è circa **38,8%** (rispetto al 52% con 5 simboli); aumentare semplicemente il numero di caselle non cambierebbe la probabilità a parità di pool.
+Con quattro scelte e sette simboli equiprobabili il poker resta possibile, ma molto raro (circa 0,29%): la curva delle probabilità sarà oggetto della M7.
+
+Il valore iniziale **ScratchCellManager > Scratch Percentage = 85** è impostato sia in codice sia nella scena.
+La M4 aggiunge `ScratchEconomyManager` sul Canvas, collegato al testo `WalletValue`.
+Il portafoglio rappresenta anche lo **Score** del giocatore; il saldo di default comincia da **0** e si accumula durante la sessione, senza azzerarsi tra i round.
+`Base Prize` è configurabile nell'Inspector, valore default **10** monete:
+
+| Risultato | Premio base 10 |
+|---|---:|
+| NO MATCH | +0 |
+| PAIR x2 | +20 |
+| TRIPLE x3 | +30 |
+| POKER x4 | +40 |
+
+Le monete vengono accreditate **una sola volta**, soltanto alla conclusione del round (tutte le caselle scelte rivelate, timeout oppure `END ROUND`). Il risultato economico usa soltanto le caselle effettivamente completate; il match finale resta congelato anche con reset dell'Inspector.
+La UI mostra `COINS / SCORE`, saldo aggiornato e il premio ottenuto nel titolo e nel sottotitolo del board.
+**Nessuna moneta viene spesa per avviare il round.** Lo shop resta visivo e verrà collegato nella M5.
+La persistenza del saldo tra sessioni non è compresa in questa milestone.
+
+### Collaudo M4
+
+1. Tutte le 16 caselle sono presenti e grattabili, numerate correttamente e senza sovrapposizioni.
+2. Il timer parte da 20 s, con `Scratch Limit = 3`, e la quarta casella è bloccata.
+3. Lo Scratch Percentage in Inspector è 85 e funziona sulle 16 caselle.
+4. Il WalletValue mostra 0 all'avvio; START ROUND non spende monete.
+5. Con `Editor Test Pattern = Pair`, completare 01, 02, 03: **+20** a fine round.
+6. Con `Triple`, completare 01, 02, 03: **+30**.
+7. Con `Poker` e `Scratch Limit = 4`, completare 01, 02, 03, 04: **+40**.
+8. Senza match, il premio è +0; le caselle parzialmente rivelate non contano.
+9. `END ROUND` e scadenza assegnano una sola volta l'eventuale premio per match completo.
+10. `PLAY AGAIN` rigenera i simboli e mantiene il saldo cumulato.
+11. Il reset Inspector ripristina le coperture e non accredita monete, come nella M2.
+12. Console senza errori e nessuna regressione sui test M1-M3.
+
+**Ripristinare** `Scratch Limit = 3` e `Editor Test Pattern = Random` alla fine delle prove.
+
+Le checklist delle milestone precedenti descrivono lo stato storico della griglia 3x3 con cinque simboli; la configurazione attuale è quella descritta in questa sezione.

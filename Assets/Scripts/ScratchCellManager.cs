@@ -15,7 +15,7 @@ public sealed class ScratchCellManager : MonoBehaviour
 
     [SerializeField, Range(0.1f, 100f)]
     [Tooltip("Revealed percentage that instantly clears the remaining cover.")]
-    private float scratchPercentage = 99.8f;
+    private float scratchPercentage = 85f;
 
     [SerializeField, Range(16, 512)]
     [Tooltip("Texture size (width and height) for every scratch mask. Reset cells to apply changes in Play Mode.")]

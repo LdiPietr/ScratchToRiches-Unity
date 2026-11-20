@@ -4,12 +4,13 @@ using UnityEngine.UI;
 using TMPro;
 
 /// <summary>
-/// M2-M3: timed rounds, three distinct picks, symbol reveal and match feedback.
-/// Coins and shop logic are reserved for M4-M5.
+/// M2-M4: timed rounds, scratch matches and once-per-round coin settlement.
+/// Shop purchases and upgrades are reserved for M5.
 /// </summary>
 [DisallowMultipleComponent]
 [RequireComponent(typeof(ScratchCellManager))]
 [RequireComponent(typeof(ScratchSymbolManager))]
+[RequireComponent(typeof(ScratchEconomyManager))]
 public sealed class ScratchGameManager : MonoBehaviour
 {
     public enum RoundState { Ready, Playing, Finished }
@@ -22,6 +23,7 @@ public sealed class ScratchGameManager : MonoBehaviour
     [Header("Scene references")]
     [SerializeField] private ScratchCellManager cellManager;
     [SerializeField] private ScratchSymbolManager symbolManager;
+    [SerializeField] private ScratchEconomyManager economyManager;
     [SerializeField] private TMP_Text timerValue;
     [SerializeField] private TMP_Text scratchProgress;
     [SerializeField] private TMP_Text boardSubtitle;
@@ -33,11 +35,18 @@ public sealed class ScratchGameManager : MonoBehaviour
     private float timeRemaining;
     private RoundState state = RoundState.Ready;
     private RoundEndReason endReason = RoundEndReason.None;
+    private ScratchSymbolManager.MatchResult settledMatch;
+    private int currentRoundId;
+    private int roundPayout;
 
     public RoundState State => state;
     public RoundEndReason EndReason => endReason;
+    // Freeze the displayed match after settlement. Inspector resets cannot
+    // rewrite the outcome or trigger a second payout.
     public ScratchSymbolManager.MatchResult CurrentMatch =>
+        state == RoundState.Finished ? settledMatch :
         symbolManager != null ? symbolManager.Evaluate(selectedCells) : default;
+    public int RoundPayout => state == RoundState.Finished ? roundPayout : 0;
     public float TimeRemaining => timeRemaining;
     public int SelectedCount => selectedCells.Count;
     public int RevealedCount
@@ -69,6 +78,9 @@ public sealed class ScratchGameManager : MonoBehaviour
         if (symbolManager == null)
             symbolManager = GetComponent<ScratchSymbolManager>();
 
+        if (economyManager == null)
+            economyManager = GetComponent<ScratchEconomyManager>();
+
         if (roundActionButton == null)
             Debug.LogError("ScratchGameManager: Round Action Button is missing.", this);
         else
@@ -79,9 +91,9 @@ public sealed class ScratchGameManager : MonoBehaviour
 
     private void Start()
     {
-        if (cellManager == null || symbolManager == null)
+        if (cellManager == null || symbolManager == null || economyManager == null)
         {
-            Debug.LogError("ScratchGameManager: ScratchCellManager and ScratchSymbolManager are required.", this);
+            Debug.LogError("ScratchGameManager: ScratchCellManager, ScratchSymbolManager and ScratchEconomyManager are required.", this);
             enabled = false;
             return;
         }
@@ -135,6 +147,8 @@ public sealed class ScratchGameManager : MonoBehaviour
         }
 
         selectedCells.Clear();
+        settledMatch = default;
+        roundPayout = 0;
         timeRemaining = roundDuration;
         endReason = RoundEndReason.None;
         state = RoundState.Playing;
@@ -148,6 +162,10 @@ public sealed class ScratchGameManager : MonoBehaviour
             return;
         }
 
+        // A new identifier only exists after symbol generation succeeds.
+        // Keeping it monotonic protects against duplicate settlement.
+        currentRoundId++;
+        economyManager.BeginRound();
         RefreshHud();
     }
 
@@ -210,8 +228,13 @@ public sealed class ScratchGameManager : MonoBehaviour
         if (state != RoundState.Playing)
             return;
 
+        settledMatch = symbolManager.Evaluate(selectedCells);
         state = RoundState.Finished;
         endReason = reason;
+
+        // Time up, all cells revealed and END ROUND all settle the same way.
+        // The economy manager rejects any repeat settlement of this round ID.
+        roundPayout = economyManager.SettleRound(currentRoundId, settledMatch);
         RefreshHud();
     }
 
@@ -224,9 +247,13 @@ public sealed class ScratchGameManager : MonoBehaviour
             ScratchSymbolManager.MatchResult match = CurrentMatch;
             matchResultText.text = state == RoundState.Ready
                 ? $"SCRATCH {MaxScratches} TO START"
-                : match.IsMatch
-                    ? $"{match.Tier.ToString().ToUpperInvariant()} x{match.Multiplier} ({match.Symbol})"
-                    : state == RoundState.Finished ? "NO MATCH" : "REVEAL MATCHING SYMBOLS";
+                : state == RoundState.Finished
+                    ? match.IsMatch
+                        ? $"{match.Tier.ToString().ToUpperInvariant()} x{match.Multiplier}  +{roundPayout} COINS"
+                        : "NO MATCH"
+                    : match.IsMatch
+                        ? $"{match.Tier.ToString().ToUpperInvariant()} x{match.Multiplier} ({match.Symbol})"
+                        : "REVEAL MATCHING SYMBOLS";
         }
 
         if (scratchProgress != null)
@@ -251,11 +278,12 @@ public sealed class ScratchGameManager : MonoBehaviour
                     : "All picks used. Finish revealing the selected cells!";
                 break;
             case RoundState.Finished:
+                string reward = roundPayout > 0 ? $"+{roundPayout} COINS" : "NO WIN";
                 boardSubtitle.text = endReason == RoundEndReason.TimeExpired
-                    ? "TIME UP! Press PLAY AGAIN to start a new round."
+                    ? $"TIME UP - {reward}. PRESS PLAY AGAIN."
                     : endReason == RoundEndReason.AllCellsRevealed
-                        ? "ALL PICKS REVEALED! Press PLAY AGAIN."
-                        : "ROUND ENDED! Press PLAY AGAIN.";
+                        ? $"ALL PICKS REVEALED - {reward}. PLAY AGAIN."
+                        : $"ROUND ENDED - {reward}. PLAY AGAIN.";
                 break;
         }
     }

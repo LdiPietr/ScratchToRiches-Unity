@@ -33,7 +33,7 @@ public sealed class ScratchSymbolManager : MonoBehaviour
     }
 
     [Header("Available symbols (single ASCII glyph recommended)")]
-    [SerializeField] private string[] symbolLabels = { "7", "$", "@", "#", "&" };
+    [SerializeField] private string[] symbolLabels = { "7", "$", "@", "#", "&", "%", "*" };
 
 #if UNITY_EDITOR
     [Header("Editor-only deterministic test (Cell 01-04)")]
