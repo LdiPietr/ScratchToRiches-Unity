@@ -18,10 +18,15 @@ public sealed class ScratchSkillTreeUI : MonoBehaviour
     [Header("Four tree tabs")]
     [SerializeField] private Button[] branchButtons = new Button[4];
     [SerializeField] private TMP_Text[] branchLabels = new TMP_Text[4];
+    [SerializeField] private Image[] branchIcons = new Image[4];
 
     [Header("Eight nodes of the selected branch")]
     [SerializeField] private Button[] nodeButtons = new Button[8];
     [SerializeField] private TMP_Text[] nodeLabels = new TMP_Text[8];
+    [SerializeField] private Image[] nodeIcons = new Image[8];
+    // Order: 8 Gratta, 8 Scopri, 8 Incassa, 8 Tempo.
+    // Folder names Tickets/Luck are art categories, not gameplay logic.
+    [SerializeField] private Sprite[] upgradeSprites = new Sprite[32];
 
     [Header("Node details and purchase")]
     [SerializeField] private TMP_Text selectedTitle;
@@ -149,6 +154,9 @@ public sealed class ScratchSkillTreeUI : MonoBehaviour
 
         for (int branch = 0; branch < 4; branch++)
         {
+            if (branchIcons != null && branch < branchIcons.Length && branchIcons[branch] != null)
+                branchIcons[branch].color = branch == (int)selectedBranch
+                    ? Color.white : new Color(1f, 1f, 1f, 0.65f);
             if (branchLabels[branch] != null)
             {
                 branchLabels[branch].text = branchNames[branch];
@@ -170,6 +178,16 @@ public sealed class ScratchSkillTreeUI : MonoBehaviour
                 : economy.Coins < skills.GetPrice(id) ? "SERVONO PIU' MONETE"
                 : $"TIENI PREMUTO - {skills.GetPrice(id):N0} MONETE";
 
+            if (nodeIcons != null && index < nodeIcons.Length && nodeIcons[index] != null)
+            {
+                int artworkIndex = (int)id;
+                if (upgradeSprites != null && artworkIndex < upgradeSprites.Length)
+                    nodeIcons[index].sprite = upgradeSprites[artworkIndex];
+                nodeIcons[index].color = !def.Implemented
+                    ? new Color(1f, 1f, 1f, 0.38f)
+                    : !skills.RequirementsMet(id) ? new Color(1f, 1f, 1f, 0.67f)
+                    : Color.white;
+            }
             if (nodeLabels[index] != null)
                 nodeLabels[index].text = $"{def.Title.ToUpperInvariant()}  {level}/{def.MaxLevel}\n{state}";
 

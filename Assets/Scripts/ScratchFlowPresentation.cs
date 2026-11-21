@@ -23,6 +23,8 @@ public sealed class ScratchFlowPresentation : MonoBehaviour
     [SerializeField] private ScratchTicketChoiceUI ticketChooser;
 
     [Header("Moving ticket")]
+    [SerializeField] private Image ticketArtwork;
+    [SerializeField] private Sprite[] ticketArtworkSprites = new Sprite[3];
     [SerializeField] private RectTransform ticketTransform;
     [SerializeField] private CanvasGroup ticketCanvasGroup;
     [SerializeField] private Button primaryActionButton;
@@ -58,6 +60,9 @@ public sealed class ScratchFlowPresentation : MonoBehaviour
         if (ticketTransform != null) ticketHome = ticketTransform.anchoredPosition;
         if (curtainRect != null) curtainHome = curtainRect.anchoredPosition;
 
+        if (ticketArtwork != null && ticketArtworkSprites != null &&
+            ticketArtworkSprites.Length == 3)
+            ticketArtwork.sprite = ticketArtworkSprites[0];
         if (curtainObject != null) curtainObject.SetActive(false);
         if (ticketCanvasGroup != null)
         {
@@ -125,6 +130,11 @@ public sealed class ScratchFlowPresentation : MonoBehaviour
         if (game.TicketActive && seenTicketNumber != game.TicketNumber)
         {
             seenTicketNumber = game.TicketNumber;
+            // Swap artwork before the ticket flies in, never mid-scratch.
+            if (ticketArtwork != null && ticketArtworkSprites != null &&
+                ticketArtworkSprites.Length == 3)
+                ticketArtwork.sprite =
+                    ticketArtworkSprites[Mathf.Clamp((int)game.CurrentTicketKind, 0, 2)];
             StopMotion();
             motion = StartCoroutine(FlyInTicket());
         }

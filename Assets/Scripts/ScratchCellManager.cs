@@ -25,6 +25,80 @@ public sealed class ScratchCellManager : MonoBehaviour
     [Tooltip("Single coating color for all cells. Reset cells to apply changes in Play Mode.")]
     private Color coatingColor = new Color(0.77f, 0.79f, 0.82f, 1f);
 
+    [Header("Art: scene-linked scratch foils")]
+    [SerializeField] private Sprite brushedCover;
+    [SerializeField] private Sprite premiumCover;
+
+    private Sprite activeCover;
+    private Sprite cachedSource;
+    private int cachedResolution = -1;
+    private Color32[] cachedPixels;
+
+    /// <summary>Classic uses brushed foil; Lucky and Golden use premium foil.</summary>
+    public void PrepareCoverForTicket(ScratchGameManager.TicketKind kind)
+    {
+        activeCover = kind == ScratchGameManager.TicketKind.Standard
+            ? brushedCover : premiumCover;
+    }
+
+    /// <summary>
+    /// Cache an opaque art sample for all sixteen scratch masks.
+    /// The source PNG supplies the RGB details; mask erasing retains the
+    /// original alpha behavior and the 85 percent completion threshold.
+    /// </summary>
+    public Color32[] GetCoverPixels()
+    {
+        Sprite sprite = activeCover != null ? activeCover : brushedCover;
+        if (cachedPixels != null && cachedResolution == textureResolution &&
+            cachedSource == sprite)
+            return cachedPixels;
+
+        int resolution = textureResolution;
+        cachedPixels = new Color32[resolution * resolution];
+        cachedResolution = resolution;
+        cachedSource = sprite;
+        Color32 backing = coatingColor;
+        backing.a = 255;
+
+        if (sprite == null)
+        {
+            for (int i = 0; i < cachedPixels.Length; i++)
+                cachedPixels[i] = backing;
+            return cachedPixels;
+        }
+
+        Texture2D texture = sprite.texture;
+        if (texture == null || !texture.isReadable)
+        {
+            Debug.LogWarning("Scratch cover texture is not readable; using solid coating. Enable Read/Write in the PNG import settings.", this);
+            for (int i = 0; i < cachedPixels.Length; i++)
+                cachedPixels[i] = backing;
+            return cachedPixels;
+        }
+
+        Rect rect = sprite.textureRect;
+        Color32[] source = texture.GetPixels32();
+        int texWidth = texture.width;
+        int texHeight = texture.height;
+        for (int y = 0; y < resolution; y++)
+        {
+            int sy = Mathf.Clamp(Mathf.FloorToInt(rect.yMin + (y + 0.5f) *
+                rect.height / resolution), 0, texHeight - 1);
+            for (int x = 0; x < resolution; x++)
+            {
+                int sx = Mathf.Clamp(Mathf.FloorToInt(rect.xMin + (x + 0.5f) *
+                    rect.width / resolution), 0, texWidth - 1);
+                Color32 pixel = source[sy * texWidth + sx];
+                float a = pixel.a / 255f;
+                cachedPixels[y * resolution + x] = new Color32(
+                    (byte)Mathf.RoundToInt(Mathf.Lerp(backing.r, pixel.r, a)),
+                    (byte)Mathf.RoundToInt(Mathf.Lerp(backing.g, pixel.g, a)),
+                    (byte)Mathf.RoundToInt(Mathf.Lerp(backing.b, pixel.b, a)), 255);
+            }
+        }
+        return cachedPixels;
+    }
+
     [Header("Auto-collected cells (Canvas children)")]
     [SerializeField] private ScratchCell[] cells = new ScratchCell[0];
 

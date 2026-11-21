@@ -256,6 +256,8 @@ public sealed class ScratchGameManager : MonoBehaviour
         endReason = RoundEndReason.None;
         ticketVoided = false;
 
+        // Select foil artwork BEFORE recreating all sixteen scratch masks.
+        cellManager.PrepareCoverForTicket(kind);
         internalReset = true;
         cellManager.ResetAllCells();
         internalReset = false;

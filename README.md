@@ -402,3 +402,42 @@ Tutti i `.meta` conservano il **GUID originale** del push `Symbols` ma cambiano 
 6. Verificare la Console Unity: nessun `Missing Sprite`, GUID duplicato, `Missing Script` o errore C#.
 
 **Limite del controllo remoto:** il push è verificato a livello di YAML e script; importazione effettiva e resa dei PNG in Play Mode sono da verificare in Unity Editor.
+
+## M5.8 — Neon Arcade / Cartoon Casino: integrazione dei 42 asset grafici
+
+Il commit `art` ha introdotto **42 PNG già dotati di .meta**. Questa milestone li collega ai componenti UI realmente usati durante il gioco, lasciando i GameObject e i campi **serializzati nella scena** (nessun runtime builder).
+
+### Biglietti e header
+
+- `Ticket_Classic` → Classico (Standard), `Ticket_Lucky` → Fortunato, `Ticket_Golden` → Dorato.
+- Lo sfondo grafico dell'oggetto `TicketArtworkMotion` usa il PNG della tipologia corrente: `ScratchFlowPresentation` sostituisce lo Sprite **prima dell'entrata animata**, senza modificare il funzionamento delle griglie.
+- La schermata fra biglietti ha tre **anteprime grafiche scene-authored**; pulsanti e testi di costo/premio restano controllati dagli script precedenti.
+- `Header_Empty_NoText` è applicata come **cornice dietro il titolo TMP**, che rimane modificabile. La vecchia barra dorata fissa sul biglietto è disattivata per non confondere l'artwork specifico dei tre biglietti.
+
+### Due coperture grattabili
+
+- `ScratchCover_Brushed`: biglietto Classico.
+- `ScratchCover_Premium`: Fortunato e Dorato.
+- `ScratchCellManager` usa il PNG leggibile per generare una versione campionata, cached alla risoluzione già esistente (128×128); le 16 `ScratchCell` continuano a rimuovere i pixel RGBA con lo stesso pennello e a completarsi all'85% di area grattata.
+- I PNG conservano trasparenza e dettagli RGB; viene composto un fondale argentato opaco dietro le parti trasparenti, così una casella non svela simboli **prima** della grattatura. L'anteprima al 75% continua a funzionare.
+- L'import `.meta` era già Read/Write Enabled per entrambe le coperture; nessun GUID è stato modificato.
+
+### Alberi delle abilità
+
+- **4 root artwork** collegate alle quattro schede: `Tree_Scratch`, `Tree_Tickets`, `Tree_Economy`, `Tree_Luck`.
+- **32 icone** collegate all'array `upgradeSprites` di `ScratchSkillTreeUI`, in ordine: Scratch 1–8 (G1–G8), Tickets 1–8 (C1–C8), Economy 1–8 (E1–E8), Luck 1–8 (T1–T8).
+- **8 componenti Image** riutilizzati per i nodi visibili: cambiando scheda sostituiscono la sprite con quella specifica; le icone bloccate/non implementate sono attenuate.
+- Testi, prezzi, livello, requisiti, hold-to-buy 0,7 s e comportamento delle 32 abilità non sono alterati.
+- Nota grafica: le cartelle artistice `Tickets` e `Luck` non coincidono esattamente con i nomi dei rami di gameplay `Scopri!` e `Più tempo!`. Questa è una **mappatura per posizione puramente visiva**; le caratteristiche degli upgrade restano identificate dal testo.
+
+### Controlli consigliati in Unity (non eseguiti dal solo commit GitHub)
+
+1. Aprire `Assets/Scenes/ScratchToRiches.unity`. Nessun `Missing Script` e riferimenti Sprite validi.
+2. In Play Mode controllare **cornice dietro il titolo**, tre biglietti e anteprime nella scelta, senza testi tagliati né deformazione eccessiva dell'artwork.
+3. Su Classico grattare un quadrante e verificare la **patina Brushed**. Su Fortunato/Dorato verificare **Premium**, completamento all'85%, anteprima al 75% e assenza di rivelazioni premature.
+4. Testare coppia/tris/poker con gli stessi sette simboli di M5.7 e le normali vincite.
+5. A fine partita aprire tutti i quattro rami: verificare le 32 icone mostrate negli otto slot e il comportamento visivo di nodi bloccati, acquistabili e potenziati.
+6. Comprare con pressione prolungata: il saldo monete rimane visibile e aggiornato; la tenda scende/risale correttamente.
+7. Verificare responsive a 1920×1080 e 1280×720 e Console priva di errori, soprattutto di texture non leggibili.
+
+Questa integrazione è controllata staticamente su script e file Unity serializzati. Una resa esatta dei PNG **non può essere convalidata senza aprire la scena in Unity Play Mode**.

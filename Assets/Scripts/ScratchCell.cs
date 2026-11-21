@@ -130,10 +130,13 @@ public sealed class ScratchCell : MonoBehaviour, IPointerDownHandler, IDragHandl
         hasPreviousPixel = false;
         firstStrokeUsed = false;
 
-        Color32 coverColor = manager.CoatingColor;
-        Color32[] pixels = new Color32[count];
-        for (int i = 0; i < pixels.Length; i++)
-            pixels[i] = coverColor;
+        Color32[] pixels = manager.GetCoverPixels();
+        if (pixels.Length != count)
+        {
+            Debug.LogError("ScratchCell: coating texture resolution mismatch.", this);
+            enabled = false;
+            return;
+        }
 
         scratchTexture.SetPixels32(pixels);
         scratchTexture.Apply(false);
@@ -255,8 +258,7 @@ public sealed class ScratchCell : MonoBehaviour, IPointerDownHandler, IDragHandl
     {
         int radiusSquared = radius * radius;
         int resolution = scratchTexture.width;
-        Color32 clear = manager.CoatingColor;
-        clear.a = 0;
+        Color32 clear = new Color32(0, 0, 0, 0);
         bool changed = false;
 
         for (int y = Mathf.Max(0, centerY - radius); y <= Mathf.Min(resolution - 1, centerY + radius); y++)
@@ -288,8 +290,7 @@ public sealed class ScratchCell : MonoBehaviour, IPointerDownHandler, IDragHandl
         pointerDown = false;
         hasPreviousPixel = false;
 
-        Color32 clear = manager.CoatingColor;
-        clear.a = 0;
+        Color32 clear = new Color32(0, 0, 0, 0);
         Color32[] pixels = new Color32[scratchTexture.width * scratchTexture.height];
         for (int i = 0; i < pixels.Length; i++)
             pixels[i] = clear;
