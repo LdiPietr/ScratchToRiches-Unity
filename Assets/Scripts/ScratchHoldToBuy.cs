@@ -23,11 +23,11 @@ public sealed class ScratchHoldToBuy : MonoBehaviour,
     {
         if (progressFill != null)
         {
-            progressFill.type = Image.Type.Filled;
-            progressFill.fillMethod = Image.FillMethod.Horizontal;
-            progressFill.fillOrigin = (int)Image.OriginHorizontal.Left;
-            progressFill.fillAmount = 0f;
+            // A sprite-less Filled Image appears fully drawn in Unity UI.
+            // A Simple Image can be revealed with a controlled RectTransform scale.
+            progressFill.type = Image.Type.Simple;
             progressFill.raycastTarget = false;
+            progressFill.enabled = false;
         }
     }
 
@@ -73,7 +73,16 @@ public sealed class ScratchHoldToBuy : MonoBehaviour,
     private void UpdateFill()
     {
         if (progressFill != null)
-            progressFill.fillAmount = holding ? Mathf.Clamp01(elapsed / holdDuration) : 0f;
+            {
+                progressFill.enabled = holding;
+                if (holding)
+                {
+                    float fraction = Mathf.Clamp01(elapsed / holdDuration);
+                    RectTransform rect = progressFill.rectTransform;
+                    rect.localScale = new Vector3(fraction, 1f, 1f);
+                    rect.anchoredPosition = new Vector2(-rect.rect.width * (1f - fraction) * 0.5f, rect.anchoredPosition.y);
+                }
+            }
     }
 
     private void Cancel()

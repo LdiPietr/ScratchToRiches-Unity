@@ -194,10 +194,11 @@ public sealed class ScratchSkillTreeUI : MonoBehaviour
             if (nodeButtons[index] != null && nodeButtons[index].targetGraphic is Image background)
             {
                 bool selected = index == selectedSlot;
-                background.color = selected ? new Color(0.22f, 0.28f, 0.40f)
-                    : level == def.MaxLevel ? new Color(0.11f, 0.29f, 0.21f)
-                    : !def.Implemented ? new Color(0.12f, 0.12f, 0.17f)
-                    : new Color(0.12f, 0.16f, 0.27f);
+                background.color = selected ? new Color(0.31f, 0.23f, 0.44f)
+                    : level == def.MaxLevel ? new Color(0.23f, 0.19f, 0.10f)
+                    : !def.Implemented ? new Color(0.075f, 0.079f, 0.12f)
+                    : !skills.RequirementsMet(id) ? new Color(0.105f, 0.11f, 0.16f)
+                    : new Color(0.13f, 0.16f, 0.25f);
             }
         }
 
@@ -206,7 +207,7 @@ public sealed class ScratchSkillTreeUI : MonoBehaviour
         if (selectedTitle != null)
             selectedTitle.text = $"{current.Title.ToUpperInvariant()}   {owned}/{current.MaxLevel}";
         if (selectedDescription != null)
-            selectedDescription.text = current.Description + "\nTieni premuto il riquadro per farlo tuo!";
+            selectedDescription.text = current.Description + (skills.CanPurchase(CurrentId) ? "\nTIENI PREMUTO PER ACQUISTARE" : string.Empty);
 
         string status = !current.Implemented ? "PRESTO IN ARRIVO!"
             : owned >= current.MaxLevel ? "POTENZIAMENTO AL MASSIMO!"

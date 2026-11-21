@@ -100,15 +100,15 @@ public sealed class ScratchTicketChoiceUI : MonoBehaviour
             int prize = game.TicketPrize(kind);
             if (ticketDetails[i] != null)
                 ticketDetails[i].text = cost == 0
-                    ? $"GRATIS!   |   PREMIO BASE {prize}"
-                    : $"COSTA {cost}   |   PREMIO BASE {prize}";
+                    ? $"GRATIS!\nPREMIO BASE {prize}"
+                    : $"COSTO {cost} MONETE\nPREMIO BASE {prize}";
 
             if (ticketButtons[i] != null)
                 ticketButtons[i].interactable = show && economy.Coins >= cost;
         }
 
         if (statusLabel != null)
-            statusLabel.text = $"HAI {economy.Coins:N0} MONETE  -  SCEGLI CON CALMA, IL TEMPO E' FERMO!";
+            statusLabel.text = $"TEMPO IN PAUSA   •   {economy.Coins:N0} MONETE DISPONIBILI";
 
         if (choicePanel.activeSelf != show)
             choicePanel.SetActive(show);

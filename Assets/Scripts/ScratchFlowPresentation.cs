@@ -158,8 +158,8 @@ public sealed class ScratchFlowPresentation : MonoBehaviour
         ticketChooser.Refresh();
         ticketCanvasGroup.blocksRaycasts = false;
         if (primaryActionButton != null) primaryActionButton.interactable = false;
-        Vector2 start = ticketHome + new Vector2(1050f, -130f);
-        Quaternion startRotation = Quaternion.Euler(0f, 0f, -9f);
+        Vector2 start = ticketHome + new Vector2(0f, -900f);
+        Quaternion startRotation = Quaternion.Euler(0f, 0f, -3f);
         float t = 0f;
         while (t < ticketTravelDuration)
         {
@@ -201,9 +201,9 @@ public sealed class ScratchFlowPresentation : MonoBehaviour
             t += Time.unscaledDeltaTime;
             float a = EaseIn(Mathf.Clamp01(t / ticketTravelDuration));
             ticketTransform.anchoredPosition = Vector2.LerpUnclamped(start,
-                ticketHome + new Vector2(-1050f, 150f), a);
+                ticketHome + new Vector2(0f, -910f), a);
             ticketTransform.localRotation = Quaternion.SlerpUnclamped(startRotation,
-                Quaternion.Euler(0f, 0f, 12f), a);
+                Quaternion.Euler(0f, 0f, 3f), a);
             ticketTransform.localScale = Vector3.LerpUnclamped(startScale, Vector3.one * 0.78f, a);
             ticketCanvasGroup.alpha = Mathf.Lerp(startAlpha, 0f, a);
             yield return null;
@@ -283,9 +283,9 @@ public sealed class ScratchFlowPresentation : MonoBehaviour
         if (game == null || economy == null) return;
         bool clockPaused = game.State == ScratchGameManager.RoundState.Playing &&
             (!game.TicketActive || !CanScratch);
-        string left = $"{(clockPaused ? "TEMPO CONGELATO" : "IL TEMPO VOLA!")}\n" +
+        string left = $"{(game.State == ScratchGameManager.RoundState.Ready ? "PRONTO A PARTIRE" : clockPaused ? "TEMPO CONGELATO" : "IL TEMPO VOLA!")}\n" +
             $"{game.TimeRemaining:0.0} secondi\n\n" +
-            $"BIGLIETTO N. {game.TicketNumber}\n" +
+            $"BIGLIETTO N. {(game.TicketNumber == 0 ? "-" : game.TicketNumber.ToString())}\n" +
             $"BIGLIETTI FINITI  {game.TicketsCompleted}\n\n" +
             $"SCELTE  {game.SelectedCount}/{game.MaxScratches}\n" +
             $"GRATTATE  {game.RevealedCount}/{game.MaxScratches}";

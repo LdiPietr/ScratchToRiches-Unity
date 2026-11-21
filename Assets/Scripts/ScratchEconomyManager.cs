@@ -139,7 +139,7 @@ public sealed class ScratchEconomyManager : MonoBehaviour
     private void RefreshWallet()
     {
         if (walletValue != null)
-            walletValue.text = coins.ToString();
+            walletValue.text = coins.ToString("N0");
         Changed?.Invoke();
     }
 
