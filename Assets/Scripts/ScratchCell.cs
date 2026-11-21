@@ -298,7 +298,12 @@ public sealed class ScratchCell : MonoBehaviour, IPointerDownHandler, IDragHandl
         scratchTexture.Apply(false);
 
         if (gameManager != null)
+        {
+            // Optional physical-print feedback on the real scratched cell.
+            ScratchWinJuice feedback = gameManager.GetComponent<ScratchWinJuice>();
+            if (feedback != null) feedback.OnCellRevealed(scratchRect);
             gameManager.OnCellCompleted(this);
+        }
     }
 
     private void OnDestroy()

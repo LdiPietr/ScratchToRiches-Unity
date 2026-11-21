@@ -12,6 +12,14 @@ public sealed class ScratchWinJuice : MonoBehaviour
     [SerializeField] private TMP_Text matchLabel;
     [SerializeField] private TMP_Text walletLabel;
     [SerializeField] private Image[] winCoins = new Image[0];
+    [SerializeField] private Image combinationBackdrop;
+    [SerializeField] private Sprite neutralBadge;
+    [SerializeField] private Sprite pairBadge;
+    [SerializeField] private Sprite tripleBadge;
+    [SerializeField] private Sprite pokerBadge;
+    [SerializeField] private Image[] scratchFlakes = new Image[0];
+    private float flakePulse;
+    private Vector2 flakeOrigin;
 
     private Color cardColor, resultColor, moneyColor;
     private Vector3 resultScale, moneyScale;
@@ -36,6 +44,9 @@ public sealed class ScratchWinJuice : MonoBehaviour
         previousMoney = economy.Coins;
         foreach (Image coin in winCoins)
             if (coin != null) coin.gameObject.SetActive(false);
+        foreach (Image flake in scratchFlakes)
+            if (flake != null) flake.gameObject.SetActive(false);
+        UpdateMatchBadge();
         waitingForSettlement = game.TicketActive;
         game.Changed += GameChanged;
         economy.Changed += EconomyChanged;
@@ -61,6 +72,30 @@ public sealed class ScratchWinJuice : MonoBehaviour
                     if (coin != null) coin.gameObject.SetActive(true);
             }
         }
+        UpdateMatchBadge();
+    }
+
+    private void UpdateMatchBadge()
+    {
+        if (combinationBackdrop == null || game == null) return;
+        switch (game.CurrentMatch.Tier)
+        {
+            case ScratchSymbolManager.MatchTier.Pair: combinationBackdrop.sprite = pairBadge; break;
+            case ScratchSymbolManager.MatchTier.Triple: combinationBackdrop.sprite = tripleBadge; break;
+            case ScratchSymbolManager.MatchTier.Poker: combinationBackdrop.sprite = pokerBadge; break;
+            default: combinationBackdrop.sprite = neutralBadge; break;
+        }
+    }
+
+    public void OnCellRevealed(RectTransform cell)
+    {
+        if (!enabled || ticketArtwork == null || cell == null) return;
+        Vector3 local = ticketArtwork.rectTransform.InverseTransformPoint(
+            cell.TransformPoint(cell.rect.center));
+        flakeOrigin = new Vector2(local.x, local.y);
+        flakePulse = 1f;
+        foreach (Image flake in scratchFlakes)
+            if (flake != null) flake.gameObject.SetActive(true);
     }
 
     private void EconomyChanged()
@@ -78,6 +113,25 @@ public sealed class ScratchWinJuice : MonoBehaviour
         float a = Mathf.Sin(scratchPulse * Mathf.PI);
         float b = Mathf.Sin(rewardPulse * Mathf.PI);
         float c = Mathf.Sin(walletPulse * Mathf.PI);
+        flakePulse = Mathf.MoveTowards(flakePulse, 0f, dt / 0.36f);
+        float flakeProgress = 1f - flakePulse;
+        for (int i = 0; i < scratchFlakes.Length; i++)
+        {
+            Image flake = scratchFlakes[i];
+            if (flake == null) continue;
+            if (flakePulse <= 0f)
+            {
+                if (flake.gameObject.activeSelf) flake.gameObject.SetActive(false);
+                continue;
+            }
+            float angle = (i + 0.25f) * Mathf.PI * 2f / scratchFlakes.Length;
+            Vector2 direction = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
+            float radius = 14f + 66f * (1f - (1f - flakeProgress) * (1f - flakeProgress));
+            flake.rectTransform.anchoredPosition = flakeOrigin + direction * radius
+                + Vector2.down * (22f * flakeProgress * flakeProgress);
+            flake.rectTransform.localScale = Vector3.one * (0.6f + 0.36f * flakeProgress);
+            flake.color = new Color(1f, 1f, 1f, Mathf.Clamp01(flakePulse * 2.3f));
+        }
         // Ten scene-authored coin sprites fly outward and fade at payout.
         float progress = 1f - rewardPulse;
         for (int i = 0; i < winCoins.Length; i++)
@@ -98,7 +152,7 @@ public sealed class ScratchWinJuice : MonoBehaviour
             coin.color = new Color(1f, 1f, 1f, Mathf.Clamp01(rewardPulse * 5f));
         }
         ticketArtwork.color = Color.Lerp(cardColor, new Color(1f, 0.87f, 0.61f, cardColor.a), a * 0.25f);
-        matchLabel.color = Color.Lerp(resultColor, new Color(1f, 0.97f, 0.49f, resultColor.a), b);
+        matchLabel.color = Color.Lerp(resultColor, new Color(0.27f, 0.50f, 0.23f, resultColor.a), b);
         matchLabel.rectTransform.localScale = resultScale * (1f + b * 0.20f);
         walletLabel.color = Color.Lerp(moneyColor, new Color(1f, 0.83f, 0.38f, moneyColor.a), c);
         walletLabel.rectTransform.localScale = moneyScale * (1f + c * 0.12f);
@@ -116,5 +170,7 @@ public sealed class ScratchWinJuice : MonoBehaviour
         walletLabel.rectTransform.localScale = moneyScale;
         foreach (Image coin in winCoins)
             if (coin != null) coin.gameObject.SetActive(false);
+        foreach (Image flake in scratchFlakes)
+            if (flake != null) flake.gameObject.SetActive(false);
     }
 }
