@@ -25,6 +25,7 @@ public sealed class ScratchFlowPresentation : MonoBehaviour
     [Header("Moving ticket")]
     [SerializeField] private Image ticketArtwork;
     [SerializeField] private Sprite[] ticketArtworkSprites = new Sprite[3];
+    [SerializeField] private TMP_Text ticketTypeLabel;
     [SerializeField] private Image[] cellFrameImages = new Image[16];
     [SerializeField] private Sprite[] cellFrameSprites = new Sprite[3];
     private int appliedCellTicket = -1;
@@ -67,6 +68,7 @@ public sealed class ScratchFlowPresentation : MonoBehaviour
             ticketArtworkSprites.Length == 3)
             ticketArtwork.sprite = ticketArtworkSprites[0];
         ApplyCellFrames(ScratchGameManager.TicketKind.Standard);
+        UpdateTicketTypeLabel(ScratchGameManager.TicketKind.Standard);
         if (curtainObject != null) curtainObject.SetActive(false);
         if (ticketCanvasGroup != null)
         {
@@ -140,6 +142,7 @@ public sealed class ScratchFlowPresentation : MonoBehaviour
                 ticketArtwork.sprite =
                     ticketArtworkSprites[Mathf.Clamp((int)game.CurrentTicketKind, 0, 2)];
             ApplyCellFrames(game.CurrentTicketKind);
+            UpdateTicketTypeLabel(game.CurrentTicketKind);
             StopMotion();
             motion = StartCoroutine(FlyInTicket());
         }
@@ -149,6 +152,12 @@ public sealed class ScratchFlowPresentation : MonoBehaviour
             StopMotion();
             motion = StartCoroutine(FlyOutTicket());
         }
+    }
+
+    private void UpdateTicketTypeLabel(ScratchGameManager.TicketKind kind)
+    {
+        if (ticketTypeLabel != null)
+            ticketTypeLabel.text = "BIGLIETTO " + ScratchGameManager.TicketDisplayName(kind);
     }
 
     private void ApplyCellFrames(ScratchGameManager.TicketKind kind)

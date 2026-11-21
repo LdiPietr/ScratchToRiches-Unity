@@ -16724,7 +16724,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &3100000006
 RectTransform:
   m_ObjectHideFlags: 0
@@ -16772,7 +16772,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: GRATTA CHE TI PASSA!
+  m_text: BIGLIETTO CLASSICO
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -16782,7 +16782,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4292525993
-  m_fontColor: {r: 0.18, g: 0.22, b: 0.34, a: 1}
+  m_fontColor: {r: 0.14, g: 0.13, b: 0.16, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -16799,14 +16799,14 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 27
-  m_fontSizeBase: 22
+  m_fontSize: 33
+  m_fontSizeBase: 33
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 8
   m_fontSizeMax: 100
   m_fontStyle: 1
-  m_HorizontalAlignment: 1
+  m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
   m_characterSpacing: 0
@@ -19236,6 +19236,7 @@ MonoBehaviour:
   - {fileID: 21300000, guid: d2013f74a76e55219ccd0d48ac370e27, type: 3}
   - {fileID: 21300000, guid: 43a38e0a19a45411bc84ebe8ff15d1f0, type: 3}
   - {fileID: 21300000, guid: 5f128c5b57655ec9ab674c7b6db16259, type: 3}
+  ticketTypeLabel: {fileID: 3100000008}
   cellFrameImages:
   - {fileID: 172}
   - {fileID: 192}
