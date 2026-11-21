@@ -11,6 +11,7 @@ public sealed class ScratchWinJuice : MonoBehaviour
     [SerializeField] private Image ticketArtwork;
     [SerializeField] private TMP_Text matchLabel;
     [SerializeField] private TMP_Text walletLabel;
+    [SerializeField] private Image[] winCoins = new Image[0];
 
     private Color cardColor, resultColor, moneyColor;
     private Vector3 resultScale, moneyScale;
@@ -33,6 +34,8 @@ public sealed class ScratchWinJuice : MonoBehaviour
         moneyScale = walletLabel.rectTransform.localScale;
         revealed = game.RevealedCount;
         previousMoney = economy.Coins;
+        foreach (Image coin in winCoins)
+            if (coin != null) coin.gameObject.SetActive(false);
         waitingForSettlement = game.TicketActive;
         game.Changed += GameChanged;
         economy.Changed += EconomyChanged;
@@ -51,7 +54,12 @@ public sealed class ScratchWinJuice : MonoBehaviour
         {
             revealed = 0;
             waitingForSettlement = false;
-            if (game.TicketPayout > 0) rewardPulse = 1f;
+            if (game.TicketPayout > 0)
+            {
+                rewardPulse = 1f;
+                foreach (Image coin in winCoins)
+                    if (coin != null) coin.gameObject.SetActive(true);
+            }
         }
     }
 
@@ -70,6 +78,25 @@ public sealed class ScratchWinJuice : MonoBehaviour
         float a = Mathf.Sin(scratchPulse * Mathf.PI);
         float b = Mathf.Sin(rewardPulse * Mathf.PI);
         float c = Mathf.Sin(walletPulse * Mathf.PI);
+        // Ten scene-authored coin sprites fly outward and fade at payout.
+        float progress = 1f - rewardPulse;
+        for (int i = 0; i < winCoins.Length; i++)
+        {
+            Image coin = winCoins[i];
+            if (coin == null) continue;
+            if (rewardPulse <= 0f)
+            {
+                if (coin.gameObject.activeSelf) coin.gameObject.SetActive(false);
+                continue;
+            }
+            if (!coin.gameObject.activeSelf) coin.gameObject.SetActive(true);
+            float angle = (i + 0.5f) * Mathf.PI * 2f / winCoins.Length;
+            float travel = 55f + 280f * (1f - (1f - progress) * (1f - progress));
+            coin.rectTransform.anchoredPosition =
+                new Vector2(Mathf.Cos(angle) * travel, Mathf.Sin(angle) * travel + progress * 25f);
+            coin.rectTransform.localScale = Vector3.one * (0.72f + 0.42f * progress);
+            coin.color = new Color(1f, 1f, 1f, Mathf.Clamp01(rewardPulse * 5f));
+        }
         ticketArtwork.color = Color.Lerp(cardColor, new Color(1f, 0.87f, 0.61f, cardColor.a), a * 0.25f);
         matchLabel.color = Color.Lerp(resultColor, new Color(1f, 0.97f, 0.49f, resultColor.a), b);
         matchLabel.rectTransform.localScale = resultScale * (1f + b * 0.20f);
@@ -87,5 +114,7 @@ public sealed class ScratchWinJuice : MonoBehaviour
         matchLabel.rectTransform.localScale = resultScale;
         walletLabel.color = moneyColor;
         walletLabel.rectTransform.localScale = moneyScale;
+        foreach (Image coin in winCoins)
+            if (coin != null) coin.gameObject.SetActive(false);
     }
 }
