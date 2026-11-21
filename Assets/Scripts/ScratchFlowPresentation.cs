@@ -25,6 +25,9 @@ public sealed class ScratchFlowPresentation : MonoBehaviour
     [Header("Moving ticket")]
     [SerializeField] private Image ticketArtwork;
     [SerializeField] private Sprite[] ticketArtworkSprites = new Sprite[3];
+    [SerializeField] private Image[] cellFrameImages = new Image[16];
+    [SerializeField] private Sprite[] cellFrameSprites = new Sprite[3];
+    private int appliedCellTicket = -1;
     [SerializeField] private RectTransform ticketTransform;
     [SerializeField] private CanvasGroup ticketCanvasGroup;
     [SerializeField] private Button primaryActionButton;
@@ -63,6 +66,7 @@ public sealed class ScratchFlowPresentation : MonoBehaviour
         if (ticketArtwork != null && ticketArtworkSprites != null &&
             ticketArtworkSprites.Length == 3)
             ticketArtwork.sprite = ticketArtworkSprites[0];
+        ApplyCellFrames(ScratchGameManager.TicketKind.Standard);
         if (curtainObject != null) curtainObject.SetActive(false);
         if (ticketCanvasGroup != null)
         {
@@ -135,6 +139,7 @@ public sealed class ScratchFlowPresentation : MonoBehaviour
                 ticketArtworkSprites.Length == 3)
                 ticketArtwork.sprite =
                     ticketArtworkSprites[Mathf.Clamp((int)game.CurrentTicketKind, 0, 2)];
+            ApplyCellFrames(game.CurrentTicketKind);
             StopMotion();
             motion = StartCoroutine(FlyInTicket());
         }
@@ -144,6 +149,17 @@ public sealed class ScratchFlowPresentation : MonoBehaviour
             StopMotion();
             motion = StartCoroutine(FlyOutTicket());
         }
+    }
+
+    private void ApplyCellFrames(ScratchGameManager.TicketKind kind)
+    {
+        int index = Mathf.Clamp((int)kind, 0, 2);
+        if (appliedCellTicket == index || cellFrameImages == null || cellFrameSprites == null ||
+            cellFrameImages.Length != 16 || cellFrameSprites.Length != 3)
+            return;
+        for (int i = 0; i < cellFrameImages.Length; i++)
+            if (cellFrameImages[i] != null) cellFrameImages[i].sprite = cellFrameSprites[index];
+        appliedCellTicket = index;
     }
 
     private void StopMotion()

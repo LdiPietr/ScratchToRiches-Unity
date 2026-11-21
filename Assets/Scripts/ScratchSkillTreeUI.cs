@@ -160,11 +160,11 @@ public sealed class ScratchSkillTreeUI : MonoBehaviour
             if (branchLabels[branch] != null)
             {
                 branchLabels[branch].text = branchNames[branch];
-                branchLabels[branch].color = branch == (int)selectedBranch ? branchColors[branch] : Color.white;
+                branchLabels[branch].color = branch == (int)selectedBranch ? new Color(0.42f, 0.19f, 0.10f) : new Color(0.17f, 0.17f, 0.20f);
             }
             if (branchButtons[branch] != null && branchButtons[branch].targetGraphic is Image tabImage)
                 tabImage.color = branch == (int)selectedBranch
-                    ? new Color(0.22f, 0.24f, 0.40f) : new Color(0.10f, 0.13f, 0.22f);
+                    ? new Color(1f, 0.91f, 0.68f) : new Color(0.91f, 0.89f, 0.83f);
         }
 
         for (int index = 0; index < 8; index++)
@@ -194,11 +194,11 @@ public sealed class ScratchSkillTreeUI : MonoBehaviour
             if (nodeButtons[index] != null && nodeButtons[index].targetGraphic is Image background)
             {
                 bool selected = index == selectedSlot;
-                background.color = selected ? new Color(0.31f, 0.23f, 0.44f)
-                    : level == def.MaxLevel ? new Color(0.23f, 0.19f, 0.10f)
-                    : !def.Implemented ? new Color(0.075f, 0.079f, 0.12f)
-                    : !skills.RequirementsMet(id) ? new Color(0.105f, 0.11f, 0.16f)
-                    : new Color(0.13f, 0.16f, 0.25f);
+                background.color = selected ? new Color(1f, 0.91f, 0.69f)
+                    : level == def.MaxLevel ? new Color(0.85f, 0.94f, 0.79f)
+                    : !def.Implemented ? new Color(0.64f, 0.65f, 0.64f)
+                    : !skills.RequirementsMet(id) ? new Color(0.79f, 0.78f, 0.75f)
+                    : Color.white;
             }
         }
 
