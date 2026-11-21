@@ -127,6 +127,7 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
+  - component: {fileID: 9100000000}
   - component: {fileID: 102}
   - component: {fileID: 475}
   - component: {fileID: 476}
@@ -5437,6 +5438,7 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
+  - component: {fileID: 9100000001}
   - component: {fileID: 382}
   - component: {fileID: 383}
   - component: {fileID: 384}
@@ -5928,6 +5930,7 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
+  - component: {fileID: 9100000002}
   - component: {fileID: 398}
   - component: {fileID: 399}
   - component: {fileID: 400}
@@ -6419,6 +6422,7 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
+  - component: {fileID: 9100000003}
   - component: {fileID: 414}
   - component: {fileID: 415}
   - component: {fileID: 416}
@@ -20421,3 +20425,62 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &9100000000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 101}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a42bed68cc0f49cda0308c461b5de00c, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::ScratchWinJuice
+  game: {fileID: 2000000002}
+  economy: {fileID: 2000000005}
+  ticketArtwork: {fileID: 3100000003}
+  matchLabel: {fileID: 162}
+  walletLabel: {fileID: 148}
+--- !u!114 &9100000001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 381}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c3a23d1379db49ca97d6bc8b8fdd68df, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::ScratchTicketCardHover
+  hoverScale: 1.055
+  speed: 12
+--- !u!114 &9100000002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 397}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c3a23d1379db49ca97d6bc8b8fdd68df, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::ScratchTicketCardHover
+  hoverScale: 1.055
+  speed: 12
+--- !u!114 &9100000003
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 413}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c3a23d1379db49ca97d6bc8b8fdd68df, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::ScratchTicketCardHover
+  hoverScale: 1.055
+  speed: 12
