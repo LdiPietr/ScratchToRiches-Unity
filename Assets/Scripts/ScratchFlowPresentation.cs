@@ -158,7 +158,7 @@ public sealed class ScratchFlowPresentation : MonoBehaviour
         ticketChooser.Refresh();
         ticketCanvasGroup.blocksRaycasts = false;
         if (primaryActionButton != null) primaryActionButton.interactable = false;
-        Vector2 start = ticketHome + new Vector2(0f, -900f);
+        Vector2 start = ticketHome + new Vector2(0f, -35f);
         Quaternion startRotation = Quaternion.Euler(0f, 0f, -3f);
         float t = 0f;
         while (t < ticketTravelDuration)
@@ -201,7 +201,7 @@ public sealed class ScratchFlowPresentation : MonoBehaviour
             t += Time.unscaledDeltaTime;
             float a = EaseIn(Mathf.Clamp01(t / ticketTravelDuration));
             ticketTransform.anchoredPosition = Vector2.LerpUnclamped(start,
-                ticketHome + new Vector2(0f, -910f), a);
+                ticketHome + new Vector2(0f, -35f), a);
             ticketTransform.localRotation = Quaternion.SlerpUnclamped(startRotation,
                 Quaternion.Euler(0f, 0f, 3f), a);
             ticketTransform.localScale = Vector3.LerpUnclamped(startScale, Vector3.one * 0.78f, a);
