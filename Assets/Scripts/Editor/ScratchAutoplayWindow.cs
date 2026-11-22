@@ -23,6 +23,10 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         StartPurchase, WaitPurchase, CloseShop, WaitShopClosed, WaitFarmShopClosed
     }
 
+    // A real-play simulation must never manufacture winning combinations.
+    // Forced QA is intentionally repetitive to assert all payout rules.
+    private enum AutoplayMode { SimulazioneReale, QACombinazioniForzate }
+
     private static readonly ScratchSymbolManager.TestPattern[][] TestPatterns =
     {
         // Open each tier with a REAL strategic ticket so newly unlocked
@@ -74,8 +78,16 @@ public sealed class ScratchAutoplayWindow : EditorWindow
 
     private Phase phase;
     private bool running;
-    private bool qaFunds = true;
+    private AutoplayMode autoplayMode = AutoplayMode.SimulazioneReale;
+    private bool qaFunds;
     private bool startFresh = true;
+    private bool freshSeedEachRun = true;
+    private int actualSeed;
+    private ScratchSymbolManager.TestPattern activePattern = ScratchSymbolManager.TestPattern.Random;
+    private readonly int[] observedRandomResults = new int[5];
+    private readonly HashSet<string> uniqueFirstChoices = new HashSet<string>();
+    private int naturalTicketsPlayed;
+    private int forcedTicketsPlayed;
     private bool captureFrames;
     private bool recordVideo = true;
     private bool recordGameAudio;
@@ -179,10 +191,13 @@ public sealed class ScratchAutoplayWindow : EditorWindow
 
         using (new EditorGUI.DisabledScope(running))
         {
-            qaFunds = EditorGUILayout.ToggleLeft("Credito QA per i test (100.000 monete)", qaFunds);
+            autoplayMode = (AutoplayMode)EditorGUILayout.EnumPopup("Tipo di test", autoplayMode);
+            qaFunds = EditorGUILayout.ToggleLeft("Credito QA per gli sblocchi (100.000 monete)", qaFunds);
             startFresh = EditorGUILayout.ToggleLeft("Azzera progressi prima del test (solo Play Mode)", startFresh);
             humanSpeed = EditorGUILayout.Slider("Velocita' gesti (1 = umano)", humanSpeed, 0.5f, 4f);
-            seed = EditorGUILayout.IntField("Seed dei gesti", seed);
+            freshSeedEachRun = EditorGUILayout.ToggleLeft("Nuova partita casuale a ogni avvio", freshSeedEachRun);
+            using (new EditorGUI.DisabledScope(freshSeedEachRun))
+                seed = EditorGUILayout.IntField("Seed riproducibile", seed);
             maxSessionMinutes = EditorGUILayout.Slider("Timeout massimo (min)", maxSessionMinutes, 5f, 240f);
             recordVideo = EditorGUILayout.ToggleLeft("REGISTRA VIDEO MP4 H.264 (Unity Recorder)", recordVideo);
             if (recordVideo)
@@ -198,8 +213,17 @@ public sealed class ScratchAutoplayWindow : EditorWindow
                 framesPerSecond = EditorGUILayout.IntSlider("FPS PNG", framesPerSecond, 1, 5);
         }
 
+        if (autoplayMode == AutoplayMode.SimulazioneReale)
+            EditorGUILayout.HelpBox("SIMULAZIONE REALE: tutti i biglietti hanno simboli casuali. " +
+                "Il bot sceglie usando SOLO grattate e anteprime disponibili; nessun tris, poker o premio viene forzato. " +
+                "Gli sblocchi seguono ancora un piano di test prestabilito.", MessageType.Info);
+        else
+            EditorGUILayout.HelpBox("QA COMBINAZIONI FORZATE: alcune partite impongono coppia, tris, poker e cinquina " +
+                "e selezionano le stesse posizioni per verificare i pagamenti. La ripetizione e' INTENZIONALE e non " +
+                "misura la fortuna naturale del gioco.", MessageType.Warning);
+
         if (qaFunds)
-            EditorGUILayout.HelpBox("Credito QA: sblocchi rapidi. Queste monete non sono guadagni reali e restano nel wallet fino al reset.", MessageType.Warning);
+            EditorGUILayout.HelpBox("Credito QA: sblocchi rapidi. Non misura l'economia naturale e le monete restano nel wallet fino al reset.", MessageType.Warning);
         else
             EditorGUILayout.HelpBox("Senza credito QA il tester grattera' altri biglietti per finanziare ogni acquisto. Potrebbero servire molte ore: aumenta il timeout massimo.", MessageType.Info);
         if (recordVideo)
@@ -223,6 +247,9 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         GUILayout.Space(8);
         EditorGUILayout.LabelField("Stato: " + lastStatus, EditorStyles.wordWrappedLabel);
         EditorGUILayout.LabelField("Biglietti test: " + tickets + " / 18  |  Farm: " + farmTickets);
+        EditorGUILayout.LabelField("Partite casuali: " + naturalTicketsPlayed +
+            " | QA forzate: " + forcedTicketsPlayed);
+        EditorGUILayout.LabelField("Primi movimenti diversi: " + uniqueFirstChoices.Count);
         EditorGUILayout.LabelField("Scelte ragionate: " + informedChoices + " | Anteprime usate: " + previewChoices);
         EditorGUILayout.LabelField("Verifiche OK: " + assertionsPassed + "    Errori: " + assertionsFailed);
         EditorGUILayout.LabelField("Video: " + videoStatus, EditorStyles.wordWrappedLabel);
@@ -283,8 +310,11 @@ public sealed class ScratchAutoplayWindow : EditorWindow
                 return;
             }
         }
-        random = new System.Random(seed);
-        UnityEngine.Random.InitState(seed);
+        // A fresh run uses a fresh seed. Disable this only to reproduce bugs
+        // from the seed recorded in summary.txt/tickets.csv.
+        actualSeed = freshSeedEachRun ? Guid.NewGuid().GetHashCode() : seed;
+        random = new System.Random(actualSeed);
+        UnityEngine.Random.InitState(actualSeed);
         phase = Phase.WaitLive;
         stage = patternIndex = purchaseIndex = cellIndex = strokePointIndex = tickets = 0;
         assertionsPassed = assertionsFailed = frameCount = 0;
@@ -294,6 +324,10 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         videoStatus = recordVideo ? "Avvio in corso" : "Non richiesto";
         videoOutputPath = string.Empty;
         farmTickets = informedChoices = previewChoices = previewMatchingChoices = randomExplorationChoices = 0;
+        naturalTicketsPlayed = forcedTicketsPlayed = 0;
+        Array.Clear(observedRandomResults, 0, observedRandomResults.Length);
+        uniqueFirstChoices.Clear();
+        activePattern = ScratchSymbolManager.TestPattern.Random;
         lastQaHoldTick = 0d;
         pointer = null;
         activeCell = null;
@@ -310,7 +344,9 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         ledger.Add("timestamp;event;ticket;kind;pattern;wallet;cost;payout;match;details");
         checks.Add("timestamp;result;check;details");
         running = true;
-        Note("START", "seed=" + seed + ";humanSpeed=" + humanSpeed + ";QA=" + qaFunds);
+        Note("START", "mode=" + autoplayMode + ";seed=" + actualSeed +
+            ";freshSeed=" + freshSeedEachRun + ";humanSpeed=" + humanSpeed +
+            ";QA_credit=" + qaFunds);
         if (qaFunds)
         {
             int credited = economy.CreditForAutoplayTest(100000);
@@ -332,7 +368,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
                 ";resolution=" + videoHeight + "p;audio=" + recordGameAudio);
         }
 
-        SetPattern(TestPatterns[0][0]);
+        SetPattern(PlannedPattern(0, 0));
         game.StartNewRun();
         walletBeforeTicket = economy.Coins;
         ticketCost = 0;
@@ -400,6 +436,9 @@ public sealed class ScratchAutoplayWindow : EditorWindow
             : (ScratchGameManager.TicketKind)stage;
         Check(game.CurrentTicketKind == expected, "ticket_kind",
             "Atteso=" + expected + " effettivo=" + game.CurrentTicketKind);
+        if (autoplayMode == AutoplayMode.SimulazioneReale)
+            Check(activePattern == ScratchSymbolManager.TestPattern.Random,
+                "no_forced_outcome_in_real_play", "Current symbol pattern: " + activePattern);
         Check(cellManager.ActiveCells.Length == game.CurrentGridSide * game.CurrentGridSide,
             "grid_size", game.CurrentGridSide + "x" + game.CurrentGridSide);
         Check(game.MaxScratches == game.CurrentGridSide, "pick_cap", "MaxScelte=" + game.MaxScratches);
@@ -442,11 +481,19 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         ChangePhase(Phase.Scratch, 0.5f / humanSpeed);
     }
 
+    /// <summary>
+    /// Only functional-QA mode uses manufactured combinations. Real simulations
+    /// always select Random and can earn any result (including no win).
+    /// </summary>
+    private ScratchSymbolManager.TestPattern PlannedPattern(int tierIndex, int ticketIndex) =>
+        autoplayMode == AutoplayMode.SimulazioneReale
+            ? ScratchSymbolManager.TestPattern.Random
+            : TestPatterns[tierIndex][ticketIndex];
+
     private void PrepareCell()
     {
         ScratchCell[] cells = cellManager.ActiveCells;
-        bool strategic = farming ||
-            TestPatterns[stage][patternIndex] == ScratchSymbolManager.TestPattern.Random;
+        bool strategic = activePattern == ScratchSymbolManager.TestPattern.Random;
 
         if (strategic)
         {
@@ -473,6 +520,9 @@ public sealed class ScratchAutoplayWindow : EditorWindow
                 ";reason=force deterministic combination");
         }
 
+        // First move diversity is an observed statistic, not an imposed pattern.
+        if (cellIndex == 0)
+            uniqueFirstChoices.Add(game.CurrentTicketKind + ":" + activeCell.name);
         cellStartedAt = Time.realtimeSinceStartup;
         activeCoating = activeCell.GetComponentInChildren<RawImage>(true);
         pointerHeld = false;
@@ -561,7 +611,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
     private void ValidateTicket()
     {
         EndPointer();
-        var pat = farming ? ScratchSymbolManager.TestPattern.Random : TestPatterns[stage][patternIndex];
+        var pat = activePattern;
         ScratchSymbolManager.MatchTier expect = (ScratchSymbolManager.MatchTier)(int)pat;
         Check(game.RevealedCount == game.MaxScratches, "fully_scratched",
             "Grattate=" + game.RevealedCount + "/" + game.MaxScratches);
@@ -584,6 +634,13 @@ public sealed class ScratchAutoplayWindow : EditorWindow
                 "Diamante con 5 simboli grattati.");
         if (farming) farmTickets++;
         else tickets++;
+        if (pat == ScratchSymbolManager.TestPattern.Random)
+        {
+            naturalTicketsPlayed++;
+            observedRandomResults[(int)game.CurrentMatch.Tier]++;
+        }
+        else
+            forcedTicketsPlayed++;
         Note(farming ? "FARM_TICKET_END" : "TICKET_END", "match=" + game.CurrentMatch.Tier + ";gain=" + game.TicketPayout +
             ";net=" + (game.TicketPayout - ticketCost) +
             ";seconds=" + (Time.realtimeSinceStartup - ticketStartedAt).ToString("F2", CultureInfo.InvariantCulture));
@@ -631,7 +688,10 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         }
         if (stage == 3)
         {
-            Finish(assertionsFailed == 0, "Completati tutti e 4 i biglietti e i test combinazione.");
+            Finish(assertionsFailed == 0,
+                autoplayMode == AutoplayMode.SimulazioneReale
+                    ? "18 biglietti casuali su quattro categorie, con sblocchi completati; nessuna combinazione forzata."
+                    : "Completati tutti e quattro i biglietti e i test combinazione forzata.");
             return;
         }
         stage++;
@@ -824,7 +884,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
                 "Fortunato rifiutato prima di C3 senza consumare monete.");
         }
 
-        SetPattern(TestPatterns[stage][patternIndex]);
+        SetPattern(PlannedPattern(stage, patternIndex));
         walletBeforeTicket = economy.Coins;
         ticketCost = ScratchGameManager.TicketPrice(kind);
         if (!game.ChooseNextTicket(kind))
@@ -837,6 +897,10 @@ public sealed class ScratchAutoplayWindow : EditorWindow
 
     private void SetPattern(ScratchSymbolManager.TestPattern pattern)
     {
+        if (autoplayMode == AutoplayMode.SimulazioneReale &&
+            pattern != ScratchSymbolManager.TestPattern.Random)
+            throw new InvalidOperationException("Real-play autoplay cannot force a winning combination.");
+        activePattern = pattern;
         SerializedObject target = new SerializedObject(symbols);
         SerializedProperty prop = target.FindProperty("editorTestPattern");
         if (prop == null) throw new InvalidOperationException("Editor test pattern missing.");
@@ -863,8 +927,6 @@ public sealed class ScratchAutoplayWindow : EditorWindow
 
     private void Note(string kind, string details)
     {
-        int safeStage = Mathf.Clamp(stage, 0, 3);
-        int safePattern = Mathf.Clamp(patternIndex, 0, TestPatterns[safeStage].Length - 1);
         string num = game == null ? "-" : game.TicketNumber.ToString();
         string tier = game == null ? "-" : game.CurrentTicketKind.ToString();
         string match = game == null ? "-" : game.CurrentMatch.Tier.ToString();
@@ -872,7 +934,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         string payout = game == null ? "-" : game.TicketPayout.ToString();
         ledger.Add(DateTime.UtcNow.ToString("o") + ";" + Safe(kind) + ";" +
             num + ";" + tier + ";" +
-            (farming ? "Random" : TestPatterns[safeStage][safePattern].ToString()) + ";" +
+            activePattern + ";" +
             wallet + ";" + ticketCost + ";" + payout + ";" + match + ";" +
             Safe(farming ? "FARM | " + details : details));
     }
@@ -994,11 +1056,21 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         File.WriteAllLines(Path.Combine(reportDirectory, "checks.csv"), checks, Encoding.UTF8);
         string summary = "Scratch to Riches V2 - Auto QA\n" +
             "Stato: " + lastStatus + "\n" +
-            "Seed: " + seed + "\n" +
+            "Modalita': " + autoplayMode + "\n" +
+            "Seed effettivo: " + actualSeed + "\n" +
+            "Seed nuovo a ogni avvio: " + freshSeedEachRun + "\n" +
             "Durata reale (s): " + (Time.realtimeSinceStartup - startedAt).ToString("F2", CultureInfo.InvariantCulture) + "\n" +
             "Biglietti di test: " + tickets + "/18\n" +
             "Biglietti farm: " + farmTickets + "\n" +
             "Biglietti giocati totali: " + (tickets + farmTickets) + "\n" +
+            "Biglietti con combinazione NON forzata: " + naturalTicketsPlayed + "\n" +
+            "Biglietti con combinazione forzata: " + forcedTicketsPlayed + "\n" +
+            "Primi movimenti distinti (tipo:casella): " + uniqueFirstChoices.Count + "\n" +
+            "Risultati SOLO su biglietti casuali: nessuna=" + observedRandomResults[0] +
+            ", coppia=" + observedRandomResults[1] +
+            ", tris=" + observedRandomResults[2] +
+            ", poker=" + observedRandomResults[3] +
+            ", cinquina=" + observedRandomResults[4] + "\n" +
             "Check OK: " + assertionsPassed + "\nCheck KO: " + assertionsFailed + "\n" +
             "Saldo finale: " + (economy != null ? economy.Coins.ToString() : "n/a") + "\n" +
             "Credito QA incluso: " + qaFunds + "\n" +

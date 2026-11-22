@@ -1,5 +1,20 @@
 # Scratch to Riches
 
+## V2.6 — Autoplay casuale separato dai test delle combinazioni (22 novembre 2026)
+
+**Motivazione:** il tester precedente usava sempre `seed = 20261122`, resettava `UnityEngine.Random` allo stesso stato a ogni sessione e, dopo i primi biglietti casuali, imponeva artificialmente **coppia, tris, poker, cinquina** nei primi slot. Per questo i video mostravano le stesse prime scelte e vincite ricorrenti: era un test delle formule, NON una simulazione di una vera partita.
+
+Nella finestra `Tools > Scratch to Riches > Autoplay e registrazione V2` ci sono due modalità:
+
+- **SimulazioneReale (predefinita):** tutte le 18 partite di riferimento e i biglietti aggiuntivi di farming usano il generatore RANDOM del gioco, senza assegnare nessuna combinazione predeterminata. Le caselle sono scelte dalla strategia che legge solo simboli già grattati o anteprime effettivamente visibili. Può capitare anche di non vincere; non c'è nessuna garanzia di ottenere coppie, tris, poker o cinquine. Il bot segue ancora una **sequenza prestabilita di acquisto delle abilità**: non è un'IA che ottimizza completamente l'albero.
+- **QACombinazioniForzate:** mantiene i 18 casi di verifica e le combinazioni indotte nelle prime posizioni, per controllare formula premi, singolo pagamento e limiti delle griglie. In questa modalità la ripetizione delle mosse è intenzionale.
+
+L'opzione **Nuova partita casuale a ogni avvio** è attiva di default e genera un seed differente per ogni sessione, sia per il layout dei simboli sia per le decisioni del bot. Disattivala e imposta un **seed riproducibile** se vuoi rieseguire esattamente una situazione di errore. Il valore realmente usato appare in `summary.txt` e in `tickets.csv`.
+
+Per valutare **anche** la progressione economica naturale, lascia disattivato **Credito QA** (ora predefinito off). Il bot dovrà guadagnare le monete necessarie, giocando biglietti aggiuntivi se servono. Con Credito QA on testi le regole e il comportamento casuale ma non il tempo reale degli sblocchi. Il test può durare molto a lungo in modalità organica.
+
+Il report ora separa `Biglietti con combinazione NON forzata`, `Biglietti con combinazione forzata`, conteggio risultati casuali (nessuna/coppia/tris/poker/cinquina) e quante **caselle iniziali distinte** sono state effettivamente selezionate. Si tratta di osservazioni, non di garanzie di distribuzione: 18 biglietti non sono abbastanza per misurare con precisione eventi rari.
+
 ## V2.5 — Anteprime sfruttate dall'autoplay e nessun flash di simboli (22 novembre 2026)
 
 **Bug di gameplay/visual individuato:** `ScratchCell.ResetScratch()` ricreava la copertura ma non cancellava `previewActive`; i simboli potevano quindi apparire per un breve istante mentre si caricava il biglietto seguente. Inoltre una casella della 4x4 o della 5x5 attivata per la prima volta chiamava `Start() -> ResetScratch()` anche dopo che il manager l'aveva gia' preparata, cancellando le anteprime nuove.
