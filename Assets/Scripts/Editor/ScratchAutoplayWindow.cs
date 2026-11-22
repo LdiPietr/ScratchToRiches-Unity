@@ -101,6 +101,9 @@ public sealed class ScratchAutoplayWindow : EditorWindow
     private bool realtimeCheckPassed;
     private bool pointerHeld;
     private bool farming;
+    // True when the unlocked next ticket exists but the wallet cannot pay its entry price.
+    // False during ordinary skill-price farming.
+    private bool farmingForTicket;
     private int farmTickets;
     private int informedChoices;
     private int previewChoices;
@@ -319,7 +322,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         phase = Phase.WaitLive;
         stage = patternIndex = purchaseIndex = cellIndex = strokePointIndex = tickets = 0;
         assertionsPassed = assertionsFailed = frameCount = 0;
-        realtimeCheckPassed = pointerHeld = farming = false;
+        realtimeCheckPassed = pointerHeld = farming = farmingForTicket = false;
         movieRecorder = null;
         videoValidationPending = false;
         videoStatus = recordVideo ? "Avvio in corso" : "Non richiesto";
@@ -703,12 +706,18 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         if (!game.WaitingForTicketChoice || !flow.CanShowTicketChoices) return;
         if (farming)
         {
-            ScratchSkillTree.SkillId needed = UnlockPlans[stage][purchaseIndex];
-            if (economy.Coins >= skills.GetPrice(needed))
+            int needed = FarmingTargetCoins();
+            if (economy.Coins >= needed)
             {
-                farming = false;
-                Note("FARM_DONE", "wallet=" + economy.Coins + ";skill=" + needed);
-                ChangePhase(Phase.OpenShop, (0.3f + (float)random.NextDouble() * 0.4f) / humanSpeed);
+                bool forTicket = farmingForTicket;
+                farming = farmingForTicket = false;
+                Note("FARM_DONE", "wallet=" + economy.Coins +
+                    ";target=" + needed + ";purpose=" + (forTicket ? "TICKET" : "UPGRADE"));
+                if (forTicket)
+                    ChooseNext(now); // The ticket is now unlocked AND affordable.
+                else
+                    ChangePhase(Phase.OpenShop,
+                        (0.3f + (float)random.NextDouble() * 0.4f) / humanSpeed);
             }
             else
                 ChooseFarmTicket(now);
@@ -769,21 +778,30 @@ public sealed class ScratchAutoplayWindow : EditorWindow
             nextAction = now + 0.1f;
             return;
         }
+        // The final unlock of each tier must leave enough money to buy at
+        // least ONE ticket of the newly unlocked tier. Without this reserve the
+        // tester unlocks Fortunato at 140, remains with 1 coin, then aborts.
+        int requiredCash = FundsNeededForNextPurchase();
+        if (skills.RequirementsMet(id) && economy.Coins < requiredCash)
+        {
+            farming = true;
+            farmingForTicket = false;
+            Note("FARM_START", "skill=" + id + ";wallet=" + economy.Coins +
+                ";upgradePrice=" + skills.GetPrice(id) +
+                ";ticketReserve=" + TicketReserveForCurrentPurchase() +
+                ";totalRequired=" + requiredCash);
+            lastStatus = "Farming per " + id + ": saldo " + economy.Coins +
+                ", necessari " + requiredCash + " (include primo biglietto)";
+            flow.ContinueAfterUpgrades();
+            ChangePhase(Phase.WaitFarmShopClosed, 0.1f);
+            return;
+        }
         if (!skills.CanPurchase(id))
         {
-            if (!qaFunds && skills.RequirementsMet(id) && economy.Coins < skills.GetPrice(id))
-            {
-                farming = true;
-                Note("FARM_START", "skill=" + id + ";wallet=" + economy.Coins +
-                    ";required=" + skills.GetPrice(id));
-                lastStatus = "Farming naturale per " + id + ": servono " + skills.GetPrice(id) +
-                    " monete (saldo " + economy.Coins + ")";
-                flow.ContinueAfterUpgrades();
-                ChangePhase(Phase.WaitFarmShopClosed, 0.1f);
-                return;
-            }
             Fail("Non acquistabile " + id + " (wallet=" + economy.Coins +
-                ";prezzo=" + skills.GetPrice(id) + ";requisiti=" + skills.RequirementText(id) + ")");
+                ";prezzo=" + skills.GetPrice(id) +
+                ";riserva biglietto=" + TicketReserveForCurrentPurchase() +
+                ";requisiti=" + skills.RequirementText(id) + ")");
             return;
         }
 
@@ -856,6 +874,17 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         pressedHold.QaReleaseHold();
         Check(true, "hold_to_buy", id + " livello=" + expectedSkillLevel);
         Note("SKILL_PURCHASED", id.ToString());
+        if (purchaseIndex == UnlockPlans[stage].Length - 1)
+        {
+            int reserve = ScratchGameManager.TicketPrice((ScratchGameManager.TicketKind)stage);
+            if (!Check(economy.Coins >= reserve, "next_ticket_cash_reserved",
+                "unlocked=" + stage + ";wallet=" + economy.Coins + ";ticketCost=" + reserve))
+            {
+                pressedHold = null;
+                Finish(false, "Acquisto dello sblocco senza fondi per il nuovo biglietto.");
+                return;
+            }
+        }
         pressedHold = null;
         purchaseIndex++;
         ChangePhase(Phase.StartPurchase, (0.2f + (float)random.NextDouble() * 0.3f) / humanSpeed);
@@ -878,6 +907,67 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         if (flow.ShopOpen || !flow.CanShowTicketChoices) return;
         Note("SHOP_CLOSE", "nuovo biglietto=" + (ScratchGameManager.TicketKind)stage);
         ChooseNext(now);
+    }
+
+    // Reserve a ticket's price only before the FINAL skill of its tier,
+    // not for every intermediate purchase.
+    private int TicketReserveForCurrentPurchase()
+    {
+        if (stage <= 0 || stage >= UnlockPlans.Length ||
+            purchaseIndex < 0 || purchaseIndex >= UnlockPlans[stage].Length)
+            return 0;
+        if (purchaseIndex != UnlockPlans[stage].Length - 1)
+            return 0;
+        return ScratchGameManager.TicketPrice((ScratchGameManager.TicketKind)stage);
+    }
+
+    private int FundsNeededForNextPurchase()
+    {
+        if (stage <= 0 || stage >= UnlockPlans.Length ||
+            purchaseIndex < 0 || purchaseIndex >= UnlockPlans[stage].Length)
+            return 0;
+        return BudgetRequired(skills.GetPrice(UnlockPlans[stage][purchaseIndex]),
+            TicketReserveForCurrentPurchase());
+    }
+
+    private static int BudgetRequired(int skillPrice, int ticketReserve)
+    {
+        long total = (long)skillPrice + ticketReserve;
+        return (int)Math.Min(int.MaxValue, Math.Max(0L, total));
+    }
+
+    /// <summary>
+    /// Regression test for the wallet=141 / C3=140 / Fortunato=10 failure.
+    /// Pure calculations: works outside Play Mode and does not alter saves.
+    /// </summary>
+    [MenuItem("Tools/Scratch to Riches/Test riserva biglietti autoplay")]
+    private static void TestTicketBudget()
+    {
+        int failures = 0;
+        // Historical regression: 141 coins, C3 costs 140, Fortunato costs 10.
+        // 141 is insufficient, 150 is sufficient. The test remains valid even
+        // when the live provisional ticket prices are later rebalanced.
+        if (BudgetRequired(140, 10) != 150) failures++;
+        if (141 - 140 >= 10) failures++;
+        if (150 - 140 < 10) failures++;
+
+        foreach (ScratchGameManager.TicketKind kind in new[]
+        {
+            ScratchGameManager.TicketKind.Fortunato,
+            ScratchGameManager.TicketKind.Gold,
+            ScratchGameManager.TicketKind.Diamond
+        })
+        {
+            int currentTicketPrice = ScratchGameManager.TicketPrice(kind);
+            if (currentTicketPrice <= 0) failures++;
+            if (BudgetRequired(100, currentTicketPrice) != 100 + currentTicketPrice)
+                failures++;
+        }
+
+        if (failures == 0)
+            Debug.Log("STR AUTO QA: reserve budget regression PASS.");
+        else
+            Debug.LogError("STR AUTO QA: reserve budget regression FAIL " + failures);
     }
 
     private void WaitFarmShopClosed(float now)
@@ -903,7 +993,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
             return;
         }
         Note("FARM_TICKET_START", "kind=" + kind + ";needed=" +
-            skills.GetPrice(UnlockPlans[stage][purchaseIndex]));
+            FarmingTargetCoins() + ";purpose=" + (farmingForTicket ? "TICKET" : "UPGRADE"));
         ChangePhase(Phase.WaitLive, (0.2f + (float)random.NextDouble() * 0.4f) / humanSpeed);
     }
 
@@ -919,11 +1009,29 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         }
 
         SetPattern(PlannedPattern(stage, patternIndex));
-        walletBeforeTicket = economy.Coins;
         ticketCost = ScratchGameManager.TicketPrice(kind);
+        if (!game.IsTicketUnlocked(kind))
+        {
+            Fail("Il biglietto non e' sbloccato: " + kind);
+            return;
+        }
+
+        // Protection for later tickets as well: a losing paid ticket must not
+        // end the entire run when the wallet can still earn via older tiers.
+        if (economy.Coins < ticketCost)
+        {
+            farming = farmingForTicket = true;
+            Note("TICKET_FUNDS_NEEDED", "kind=" + kind + ";wallet=" +
+                economy.Coins + ";ticketCost=" + ticketCost);
+            ChooseFarmTicket(now);
+            return;
+        }
+
+        walletBeforeTicket = economy.Coins;
         if (!game.ChooseNextTicket(kind))
         {
-            Fail("Selezione biglietto fallita: " + kind + " wallet=" + economy.Coins);
+            Fail("Selezione biglietto fallita per causa diversa dal saldo: " +
+                kind + " wallet=" + economy.Coins);
             return;
         }
         ChangePhase(Phase.WaitLive, (0.4f + (float)random.NextDouble() * 0.6f) / humanSpeed);

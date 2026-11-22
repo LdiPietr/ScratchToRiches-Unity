@@ -1,5 +1,20 @@
 # Scratch to Riches
 
+## V2.8 — Riserva economica per biglietti e recupero dopo le perdite (22 novembre 2026)
+
+**Run V2.7 analizzato, seed `-1624272968`, 527,81 secondi, video 720p/30fps:** 33 biglietti veri, di cui 4 di test e 29 di farming; 382 controlli PASS e un solo FAIL: `Selezione biglietto fallita: Fortunato wallet=1`. La partita ha eseguito 99 scelte strategiche: 7 anteprime grattate, 44 celle coperte scelte nonostante anteprime disponibili. Distribuzione delle 33 vincite: 15 senza combinazione, 16 coppie e 2 tris, nessun risultato forzato. La produzione video e gli sblocchi della linea Classico hanno funzionato. **Questi dati non validano ancora Fortunato, Dorato o Diamante.**
+
+**Causa del blocco:** il tester aveva risparmiato esattamente il prezzo di `C3`, senza conservare il costo del primo Fortunato. Al momento dell'acquisto aveva 141 monete, ha pagato 140 e ne ha conservata solo 1; Fortunato costa 10. Il codice del gioco ha correttamente rifiutato la transazione per fondi insufficienti. Il problema non e' un bug del wallet.
+
+**Fix autoplayer (senza toccare i prezzi o il gameplay):**
+
+- Prima dell'**ultimo upgrade che sblocca ogni nuovo tier**, il tester riserva anche il prezzo del primo biglietto di quel tier. Richiede percio' il prezzo dello skill **piu'** il prezzo del biglietto; se non ci sono abbastanza monete, continua a grattare un tier gia' disponibile. Si applica a Fortunato, Dorato e Diamante e segue i futuri prezzi configurati nel codice.
+- Dopo qualunque biglietto pagato che si conclude con una perdita, se il saldo non basta per ripetere il tier scelto, l'autoplay ripiega su un biglietto sbloccato e sostenibile, incluso il Classico gratuito. Raccoglie fondi e riprende esattamente dalla prova interrotta, senza falsificare le vincite.
+- Registra `ticketReserve`, `FARM_START`, `TICKET_FUNDS_NEEDED`, `FARM_DONE` e il controllo `next_ticket_cash_reserved` nel CSV.
+- Menu di regressione fuori Play Mode: `Tools > Scratch to Riches > Test riserva biglietti autoplay`. Il test include il caso 141 - 140 = 1, insufficiente per un Fortunato da 10, e controlla le tariffe effettive dei biglietti senza imporre prezzi fissi per il bilanciamento futuro.
+
+**Limite:** il run completo e' ancora da verificare in Unity. L'economia naturale ha richiesto **oltre otto minuti a velocita' autoplay x4** solo per arrivare al primo sblocco di Fortunato: e' un dato di bilanciamento da esaminare in seguito, non una durata soddisfacente gia' validata.
+
 ## V2.7 — Autoplay che decide se sfruttare le anteprime (22 novembre 2026)
 
 **Difetto osservato:** la V2.6 grattava praticamente tutte le celle mostrate in trasparenza: quando non trovava un match immediato, la vecchia strategia sceglieva comunque una qualsiasi anteprima. Questo distorceva i test degli upgrade `C1/C2/C4/C6`.
