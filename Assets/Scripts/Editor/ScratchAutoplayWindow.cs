@@ -63,7 +63,8 @@ public sealed class ScratchAutoplayWindow : EditorWindow
 
     // A complete, legal player route through every demo-eligible skill, including
     // the minimum extra levels required by prerequisites. No QA coins or forced wins.
-    // F04 is deliberately last: its three real Golden tickets trigger the ending.
+    // F04 is deliberately last: G08 starts the capstone, while the player's
+    // visible-Jolly scratch supplies the required real activation.
     private static readonly ScratchSkillTree.SkillId[] FullDemoPlan =
     {
         ScratchSkillTree.SkillId.E1, ScratchSkillTree.SkillId.G1,
@@ -703,6 +704,8 @@ public sealed class ScratchAutoplayWindow : EditorWindow
                     "Forzati=" + forcedTicketsPlayed + ";creditoQA=" + qaFunds);
                 Check(game.DemoFinalGoldTickets >= 3, "three_final_gold_tickets",
                     "Gold post capstone=" + game.DemoFinalGoldTickets);
+                Check(skills.JollyActivationCount > 0, "real_visible_jolly_scratched",
+                    "Jolly realmente grattati=" + skills.JollyActivationCount);
                 Check(game.State == ScratchGameManager.RoundState.Finished, "authored_demo_end",
                     "La scena ha completato il milestone finale.");
                 ProgressEvent("DEMO_FINISHED", "-", 0, 0, "End scene reached naturally");
