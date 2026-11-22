@@ -11,8 +11,8 @@ using UnityEngine;
 [RequireComponent(typeof(ScratchCellManager))]
 public sealed class ScratchSymbolManager : MonoBehaviour
 {
-    public enum MatchTier { None, Pair, Triple, Poker }
-    public enum TestPattern { Random, Pair, Triple, Poker }
+    public enum MatchTier { None, Pair, Triple, Poker, Five }
+    public enum TestPattern { Random, Pair, Triple, Poker, Five }
 
     public readonly struct MatchResult
     {
@@ -64,10 +64,10 @@ public sealed class ScratchSymbolManager : MonoBehaviour
     }
 
     /// <summary>
-    /// One call per new round; all 16 symbols stay unchanged until the next round.
+    /// One call per new ticket; all active symbols remain fixed until the next ticket.
     /// Ensures that two consecutive RANDOM full boards cannot be identical.
     /// </summary>
-    public bool GenerateRound()
+    public bool GenerateRound(int poolSize = 7)
     {
         if (cellManager == null)
             cellManager = GetComponent<ScratchCellManager>();
@@ -104,7 +104,7 @@ public sealed class ScratchSymbolManager : MonoBehaviour
             }
         }
 
-        ScratchCell[] cells = GetComponentsInChildren<ScratchCell>(true);
+        ScratchCell[] cells = cellManager.ActiveCells;
         if (cells.Length == 0)
         {
             Debug.LogError("ScratchSymbolManager found no scratch cells.", this);
@@ -120,14 +120,26 @@ public sealed class ScratchSymbolManager : MonoBehaviour
             }
         }
 
+        if (poolSize != 4 && poolSize != 7)
+        {
+            Debug.LogError("Unsupported symbol pool size.", this);
+            return false;
+        }
+        // Diamond randomly selects four distinct symbols from the existing seven.
+        int[] pool = { 0, 1, 2, 3, 4, 5, 6 };
+        for (int i = pool.Length - 1; i > 0; i--)
+        {
+            int pick = UnityEngine.Random.Range(0, i + 1);
+            int temp = pool[i]; pool[i] = pool[pick]; pool[pick] = temp;
+        }
         int[] layout = new int[cells.Length];
         for (int i = 0; i < layout.Length; i++)
-            layout[i] = UnityEngine.Random.Range(0, symbolLabels.Length);
+            layout[i] = pool[UnityEngine.Random.Range(0, poolSize)];
 
 #if UNITY_EDITOR
         bool forced = editorTestPattern != TestPattern.Random;
         if (forced)
-            ApplyEditorTestPattern(layout, editorTestPattern);
+            ApplyEditorTestPattern(layout, editorTestPattern, pool);
 #else
         bool forced = false;
 #endif
@@ -143,8 +155,7 @@ public sealed class ScratchSymbolManager : MonoBehaviour
                 }
 
             if (identical)
-                layout[0] = (layout[0] + 1 + UnityEngine.Random.Range(0, symbolLabels.Length - 1))
-                    % symbolLabels.Length;
+                layout[0] = pool[(Array.IndexOf(pool, layout[0]) + 1) % poolSize];
         }
 
         currentSymbols.Clear();
@@ -160,7 +171,7 @@ public sealed class ScratchSymbolManager : MonoBehaviour
 
     /// <summary>
     /// Unfinished scratches and untouched cells never contribute to a match.
-    /// Four-or-more identical fully revealed symbols cap at Poker x4.
+    /// Five identical completed symbols produce Cinquina x5.
     /// </summary>
     public MatchResult Evaluate(IEnumerable<ScratchCell> selectedCells)
     {
@@ -187,7 +198,8 @@ public sealed class ScratchSymbolManager : MonoBehaviour
             }
         }
 
-        MatchTier tier = bestCount >= 4 ? MatchTier.Poker
+        MatchTier tier = bestCount >= 5 ? MatchTier.Five
+            : bestCount == 4 ? MatchTier.Poker
             : bestCount == 3 ? MatchTier.Triple
             : bestCount == 2 ? MatchTier.Pair
             : MatchTier.None;
@@ -199,18 +211,20 @@ public sealed class ScratchSymbolManager : MonoBehaviour
 
 #if UNITY_EDITOR
     /// <summary>
-    /// Deterministic first four cells for QA. Use Scratch Limit = 4 for Poker.
+    /// Deterministic first three, four or five cells for QA.
     /// All other cells retain their random labels.
     /// </summary>
-    private static void ApplyEditorTestPattern(int[] layout, TestPattern pattern)
+    private static void ApplyEditorTestPattern(int[] layout, TestPattern pattern, int[] pool)
     {
-        if (layout.Length < 4)
-            return;
-
-        layout[0] = 0;
-        layout[1] = 0;
-        layout[2] = pattern == TestPattern.Pair ? 1 : 0;
-        layout[3] = pattern == TestPattern.Poker ? 0 : 2;
+        if (layout.Length < 3) return;
+        layout[0] = pool[0];
+        layout[1] = pool[0];
+        layout[2] = pattern == TestPattern.Pair ? pool[1] : pool[0];
+        if (layout.Length >= 4)
+            layout[3] = pattern == TestPattern.Poker || pattern == TestPattern.Five ? pool[0] : pool[2];
+        if (layout.Length >= 5)
+            layout[4] = pattern == TestPattern.Five ? pool[0] :
+                pattern == TestPattern.Pair ? pool[3] : pool[1];
     }
 #endif
 }

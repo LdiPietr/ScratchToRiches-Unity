@@ -5,8 +5,7 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// M5: one 20-second RUN holds many scratch tickets. Completing or skipping a
-/// ticket NEVER resets the run timer; only NEW RUN does.
+/// V2: continuous gameplay. No countdown; a ticket determines its grid and symbol pool.
 /// </summary>
 [DisallowMultipleComponent]
 [RequireComponent(typeof(ScratchCellManager))]
@@ -16,13 +15,9 @@ using UnityEngine.UI;
 public sealed class ScratchGameManager : MonoBehaviour
 {
     public enum RoundState { Ready, Playing, Finished }
-    public enum RoundEndReason { None, TimeExpired, AllCellsRevealed, PlayerEnded }
+    public enum RoundEndReason { None, AllCellsRevealed, PlayerEnded }
     // Ticket selection changes the payout, never the run timer or scratch limit.
-    public enum TicketKind { Standard, Fortunato, Gold }
-
-    [Header("Global run settings")]
-    [SerializeField, Min(1f)] private float roundDuration = 20f;
-    [SerializeField, Min(1)] private int scratchLimit = 3;
+    public enum TicketKind { Standard, Fortunato, Gold, Diamond }
 
     [Header("Scene references")]
     [SerializeField] private ScratchCellManager cellManager;
@@ -39,8 +34,6 @@ public sealed class ScratchGameManager : MonoBehaviour
     [SerializeField] private ScratchFlowPresentation presentation;
 
     private readonly HashSet<ScratchCell> selectedCells = new HashSet<ScratchCell>();
-    private float timeRemaining;
-    private float ticketOpenedAt;
     private RoundState state = RoundState.Ready;
     private RoundEndReason endReason;
     private ScratchSymbolManager.MatchResult settledMatch;
@@ -53,21 +46,16 @@ public sealed class ScratchGameManager : MonoBehaviour
     private int ticketsCompleted;
     private int ticketPayout;
     private TicketKind currentTicketKind = TicketKind.Standard;
-    private float lastTimeBonus;
 
     public event Action Changed;
     public RoundState State => state;
     public RoundEndReason EndReason => endReason;
-    public float TimeRemaining => timeRemaining;
-    public float TicketElapsed => ticketActive ? Mathf.Max(0f, ticketOpenedAt - timeRemaining) : 0f;
     public bool TicketActive => ticketActive;
     public int TicketNumber => ticketNumberInRun;
     public int TicketsCompleted => ticketsCompleted;
     public int TicketPayout => ticketPayout;
-    public float LastTimeBonus => lastTimeBonus;
     public TicketKind CurrentTicketKind => currentTicketKind;
-    public bool WaitingForTicketChoice => state == RoundState.Playing && !ticketActive
-        && ticketNumberInRun > 0 && timeRemaining > 0f;
+    public bool WaitingForTicketChoice => state == RoundState.Playing && !ticketActive && ticketNumberInRun > 0;
 
     // Friendly display names: internal enum identifiers stay unchanged.
     public static string TicketDisplayName(TicketKind kind)
@@ -77,6 +65,7 @@ public sealed class ScratchGameManager : MonoBehaviour
             case TicketKind.Standard: return "CLASSICO";
             case TicketKind.Fortunato: return "FORTUNATO";
             case TicketKind.Gold: return "DORATO";
+            case TicketKind.Diamond: return "DIAMANTE";
             default: return "MISTERIOSO";
         }
     }
@@ -88,17 +77,20 @@ public sealed class ScratchGameManager : MonoBehaviour
             case ScratchSymbolManager.MatchTier.Pair: return "COPPIA";
             case ScratchSymbolManager.MatchTier.Triple: return "TRIS";
             case ScratchSymbolManager.MatchTier.Poker: return "POKER";
+            case ScratchSymbolManager.MatchTier.Five: return "CINQUINA";
             default: return "NESSUNA";
         }
     }
 
+    // Provisional prices; comprehensive economy balancing is a separate phase.
     public static int TicketPrice(TicketKind kind)
     {
         switch (kind)
         {
             case TicketKind.Standard: return 0;
-            case TicketKind.Fortunato: return 20;
-            case TicketKind.Gold: return 65;
+            case TicketKind.Fortunato: return 10;
+            case TicketKind.Gold: return 25;
+            case TicketKind.Diamond: return 60;
             default: return int.MaxValue;
         }
     }
@@ -110,9 +102,32 @@ public sealed class ScratchGameManager : MonoBehaviour
             case TicketKind.Standard: return economyManager != null ? economyManager.BasePrize : 10;
             case TicketKind.Fortunato: return 25;
             case TicketKind.Gold: return 45;
+            case TicketKind.Diamond: return 70;
             default: return 0;
         }
     }
+
+    public static int TicketSide(TicketKind kind) =>
+        kind == TicketKind.Standard ? 3 : kind == TicketKind.Fortunato ? 4 : 5;
+
+    public static int SymbolPoolSize(TicketKind kind) => kind == TicketKind.Diamond ? 4 : 7;
+
+    public bool IsTicketUnlocked(TicketKind kind)
+    {
+        switch (kind)
+        {
+            case TicketKind.Standard: return true;
+            case TicketKind.Fortunato: return Level(ScratchSkillTree.SkillId.C3) > 0;
+            case TicketKind.Gold: return Level(ScratchSkillTree.SkillId.C5) > 0;
+            case TicketKind.Diamond: return Level(ScratchSkillTree.SkillId.C7) > 0;
+            default: return false;
+        }
+    }
+
+    public bool CanChooseTicket(TicketKind kind) =>
+        IsTicketUnlocked(kind) && economyManager != null && TicketPrice(kind) <= economyManager.Coins;
+
+    public int CurrentGridSide => TicketSide(currentTicketKind);
 
     public int SelectedCount => selectedCells.Count;
     public int RevealedCount
@@ -127,16 +142,8 @@ public sealed class ScratchGameManager : MonoBehaviour
         }
     }
 
-    public int MaxScratches
-    {
-        get
-        {
-            int extra = Level(ScratchSkillTree.SkillId.C3) > 0 ? 1 : 0;
-            if (Level(ScratchSkillTree.SkillId.C6) > 0) extra++;
-            int available = cellManager != null ? cellManager.CellCount : scratchLimit;
-            return Mathf.Clamp(scratchLimit + extra, 1, Mathf.Max(1, available));
-        }
-    }
+    // A ticket's grid determines both the pick cap and its highest possible match.
+    public int MaxScratches => TicketSide(currentTicketKind);
 
     public ScratchSymbolManager.MatchResult CurrentMatch =>
         !ticketActive ? settledMatch : symbolManager != null ? symbolManager.Evaluate(selectedCells) : default;
@@ -155,18 +162,18 @@ public sealed class ScratchGameManager : MonoBehaviour
             roundActionButton.onClick.AddListener(OnRoundAction);
         else
             Debug.LogError("ScratchGameManager: RoundActionButton missing.", this);
-        timeRemaining = roundDuration;
     }
 
     private void Start()
     {
         if (cellManager == null || symbolManager == null || economyManager == null || skillTree == null)
         {
-            Debug.LogError("ScratchGameManager: M5 manager reference missing.", this);
+            Debug.LogError("ScratchGameManager: core manager reference missing.", this);
             enabled = false;
             return;
         }
         cellManager.CollectCells();
+        cellManager.ConfigureGrid(3);
         RefreshHud();
     }
 
@@ -176,73 +183,43 @@ public sealed class ScratchGameManager : MonoBehaviour
             roundActionButton.onClick.RemoveListener(OnRoundAction);
     }
 
-    private void Update()
-    {
-        if (state != RoundState.Playing)
-            return;
-
-        // Run time is charged only while a scratch ticket is actually playable.
-        // Ticket selection and entry/exit animations must never consume seconds.
-        // Do NOT change Time.timeScale: UI buttons and curtain animations remain live.
-        if (!ticketActive || (presentation != null && !presentation.CanScratch))
-            return;
-
-        timeRemaining = Mathf.Max(0f, timeRemaining - Time.deltaTime);
-        if (timeRemaining <= 0f)
-        {
-            if (ticketActive)
-                FinishTicket(RoundEndReason.TimeExpired);
-            state = RoundState.Finished;
-            RefreshHud();
-            return;
-        }
-        UpdateTimerText();
-    }
-
     public void OnRoundAction()
     {
-        // The post-run curtain owns restart, including the upward animation.
-        if (state == RoundState.Finished && presentation != null)
-            return;
-        // Do not permit END TICKET before its entry animation has finished.
-        if (state == RoundState.Playing && ticketActive &&
-            presentation != null && !presentation.CanScratch)
-            return;
-        if (state != RoundState.Playing) StartNewRun();
-        else if (ticketActive) FinishTicket(RoundEndReason.PlayerEnded);
-        // Between tickets the player MUST select a ticket in the choice panel.
-        // The main action button never silently starts another Standard ticket.
+        if (presentation != null && presentation.ShopOpen) return;
+        if (state == RoundState.Ready) StartNewRun();
+        else if (state == RoundState.Playing && ticketActive &&
+                 (presentation == null || presentation.CanScratch))
+            FinishTicket(RoundEndReason.PlayerEnded);
     }
 
-    /// <summary>Only a new RUN resets the timer to 20 seconds.</summary>
+    /// <summary>Starts the unlimited game session with a free Classic ticket.</summary>
     public void StartNewRun()
     {
-        if (!Application.isPlaying || cellManager == null || state == RoundState.Playing)
+        if (!Application.isPlaying || cellManager == null || state != RoundState.Ready)
             return;
 
-        timeRemaining = roundDuration;
         ticketsCompleted = 0;
         state = RoundState.Playing;
         endReason = RoundEndReason.None;
         ticketNumberInRun = 0;
         ticketActive = false;
-        BeginTicket(TicketKind.Standard, false); // First ticket remains free by default.
+        BeginTicket(TicketKind.Standard, false);
     }
 
     /// <summary>
     /// Only the between-ticket selection panel can request the next ticket.
-    /// Insufficient funds or time never create a new ticket or charge coins.
+    /// Insufficient funds or missing unlocks never create a ticket or charge coins.
     /// </summary>
     public bool ChooseNextTicket(TicketKind kind)
     {
-        if (!WaitingForTicketChoice || TicketPrice(kind) == int.MaxValue)
+        if (!WaitingForTicketChoice || !CanChooseTicket(kind))
             return false;
         return BeginTicket(kind, true);
     }
 
     private bool BeginTicket(TicketKind kind, bool charge)
     {
-        if (state != RoundState.Playing || ticketActive || timeRemaining <= 0f)
+        if (state != RoundState.Playing || ticketActive || !IsTicketUnlocked(kind))
             return false;
 
         int cost = charge ? TicketPrice(kind) : 0;
@@ -251,21 +228,21 @@ public sealed class ScratchGameManager : MonoBehaviour
 
         selectedCells.Clear();
         ticketPayout = 0;
-        lastTimeBonus = 0f;
         settledMatch = default;
         endReason = RoundEndReason.None;
         ticketVoided = false;
 
-        // Select foil artwork BEFORE recreating all sixteen scratch masks.
+        // Resize the authored 25-cell grid before resetting scratch masks and symbols.
+        if (!cellManager.ConfigureGrid(TicketSide(kind))) return false;
         cellManager.PrepareCoverForTicket(kind);
         internalReset = true;
         cellManager.ResetAllCells();
         internalReset = false;
 
-        if (!symbolManager.GenerateRound())
+        if (!symbolManager.GenerateRound(SymbolPoolSize(kind)))
         {
-            Debug.LogError("M5: could not generate a scratch ticket.", this);
-            state = RoundState.Finished;
+            Debug.LogError("V2: could not generate a scratch ticket.", this);
+            if (ticketNumberInRun == 0) state = RoundState.Ready;
             RefreshHud();
             return false;
         }
@@ -274,8 +251,7 @@ public sealed class ScratchGameManager : MonoBehaviour
         // On the main Unity thread no other wallet mutation can interleave.
         if (cost > 0 && !economyManager.TrySpendCoins(cost))
         {
-            Debug.LogError("M5: ticket purchase could not be completed.", this);
-            state = RoundState.Finished;
+            Debug.LogError("V2: ticket purchase could not be completed.", this);
             RefreshHud();
             return false;
         }
@@ -284,7 +260,6 @@ public sealed class ScratchGameManager : MonoBehaviour
         currentTicketId++;
         ticketNumberInRun++;
         ticketActive = true;
-        ticketOpenedAt = timeRemaining;
         economyManager.BeginTicket();
         ApplyPreviews();
         RefreshHud();
@@ -357,44 +332,19 @@ public sealed class ScratchGameManager : MonoBehaviour
         {
             ticketPayout = economyManager.SettleTicket(currentTicketId, settledMatch, fullyCompleted,
                 TicketPrize(currentTicketKind));
-            if (fullyCompleted && reason != RoundEndReason.TimeExpired && timeRemaining > 0f)
-            {
-                ticketsCompleted++;
-                lastTimeBonus = ComputeTimeBonus();
-                timeRemaining += lastTimeBonus;
-            }
+            if (fullyCompleted) ticketsCompleted++;
         }
         RefreshHud();
     }
 
-    private float ComputeTimeBonus()
-    {
-        float bonus = 0f;
-        if (ticketsCompleted == 1 && Level(ScratchSkillTree.SkillId.T1) > 0)
-            bonus += 0.5f;
-        if (ticketsCompleted == 3 && Level(ScratchSkillTree.SkillId.T2) > 0)
-            bonus += 1f;
-        if (ticketsCompleted % 4 == 0)
-            bonus += Level(ScratchSkillTree.SkillId.T3);
-
-        // T4-T8 replace one another; never add +1+2+3+4+5.
-        int recoveredFromPicks = Level(ScratchSkillTree.SkillId.T8) > 0 && MaxScratches >= 5 ? 5 :
-            Level(ScratchSkillTree.SkillId.T7) > 0 && MaxScratches >= 4 ? 4 :
-            Level(ScratchSkillTree.SkillId.T6) > 0 && MaxScratches >= 4 ? 3 :
-            Level(ScratchSkillTree.SkillId.T5) > 0 && MaxScratches >= 4 ? 2 :
-            Level(ScratchSkillTree.SkillId.T4) > 0 && MaxScratches >= 4 ? 1 : 0;
-        bonus += recoveredFromPicks;
-        return bonus;
-    }
-
     private void ApplyPreviews()
     {
-        ScratchCell[] cells = GetComponentsInChildren<ScratchCell>(true);
+        ScratchCell[] cells = cellManager.ActiveCells;
         for (int i = 0; i < cells.Length; i++)
             cells[i].SetPreview(null);
 
-        int count = Level(ScratchSkillTree.SkillId.C7) > 0 ? cells.Length :
-            Level(ScratchSkillTree.SkillId.C5) > 0 ? 2 + Level(ScratchSkillTree.SkillId.C5) :
+        int count = Level(ScratchSkillTree.SkillId.C6) > 0 ? 5 :
+            Level(ScratchSkillTree.SkillId.C4) > 0 ? 3 :
             Level(ScratchSkillTree.SkillId.C2) > 0 ? 2 :
             Level(ScratchSkillTree.SkillId.C1) > 0 ? 1 : 0;
 
@@ -413,22 +363,16 @@ public sealed class ScratchGameManager : MonoBehaviour
 
     private void RefreshHud()
     {
-        // The skill curtain is shown only after the run ends.
-        bool shouldShowTree = state == RoundState.Finished;
-        if (skillTreePanel != null && skillTreePanel.activeSelf != shouldShowTree)
-            skillTreePanel.SetActive(shouldShowTree);
-
         UpdateTimerText();
         if (scratchProgress != null)
             scratchProgress.text = $"SCELTE {selectedCells.Count}/{MaxScratches}   |   GRATTATE {RevealedCount}/{MaxScratches}";
 
         if (roundActionLabel != null)
             roundActionLabel.text = state == RoundState.Ready ? "SI PARTE!"
-                : state == RoundState.Finished ? "RIGIOCA!"
                 : ticketActive ? "PASSA OLTRE" : "SCEGLI IL BIGLIETTO";
 
         if (roundActionButton != null)
-            roundActionButton.interactable = state != RoundState.Playing || ticketActive;
+            roundActionButton.interactable = state == RoundState.Ready || ticketActive;
 
         if (matchResultText != null)
         {
@@ -436,35 +380,28 @@ public sealed class ScratchGameManager : MonoBehaviour
             string win = CombinationName(match.Tier);
             matchResultText.text = state == RoundState.Ready ? "PRONTO A FARE IL COLPACCIO?"
                 : ticketActive
-                    ? match.IsMatch ? $"{win} x{match.Multiplier}  -  {match.Symbol}" : "CERCA I SIMBOLI UGUALI!"
-                : match.IsMatch ? $"{win} x{match.Multiplier}   +{ticketPayout} MONETE"
+                    ? match.IsMatch ? $"{win} x{match.Multiplier} - {match.Symbol}" : "CERCA I SIMBOLI UGUALI!"
+                : match.IsMatch ? $"{win} x{match.Multiplier} +{ticketPayout} MONETE"
                 : ticketPayout > 0 ? $"PREMIO DI CONSOLAZIONE! +{ticketPayout}"
                 : "PECCATO! RITENTA!";
         }
 
         if (boardSubtitle != null)
-        {
             boardSubtitle.text = state == RoundState.Ready
-                ? "20 secondi di fortuna. Quanti biglietti riuscirai a grattare?"
-                : state == RoundState.Finished
-                    ? $"TEMPO SCADUTO! {ticketsCompleted} biglietti completati. Ora scegli i tuoi bonus!"
-                    : ticketActive
-                        ? ticketVoided ? "Questo biglietto di prova non assegna premi."
-                            : $"Biglietto {ticketNumberInRun} - {TicketDisplayName(currentTicketKind)}. Hai {MaxScratches} caselle da grattare!"
-                        : $"+{ticketPayout} monete, +{lastTimeBonus:0.0}s bonus! Scegli il prossimo biglietto!";
-        }
+                ? "Gratta senza tempo limite, migliora le abilita' e sblocca biglietti!"
+                : ticketActive
+                    ? ticketVoided ? "Questo biglietto di prova non assegna premi."
+                    : $"{TicketDisplayName(currentTicketKind)} {CurrentGridSide}x{CurrentGridSide} - {MaxScratches} caselle da grattare!"
+                    : $"+{ticketPayout} monete! Scegli il prossimo biglietto o apri i potenziamenti.";
+
         Changed?.Invoke();
     }
 
     private void UpdateTimerText()
     {
-        if (timerValue != null)
-            timerValue.text = $"{Mathf.CeilToInt(Mathf.Max(0f, timeRemaining)):00}s";
+        // The former timer panel has become a scene-authored shop button.
+        if (timerValue != null) timerValue.text = "APRI SHOP";
     }
 
-    private void OnValidate()
-    {
-        roundDuration = Mathf.Max(1f, roundDuration);
-        scratchLimit = Mathf.Max(1, scratchLimit);
-    }
+
 }

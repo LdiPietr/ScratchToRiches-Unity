@@ -1,4 +1,5 @@
 using UnityEngine;
+using System;
 
 /// <summary>
 /// Global scratch configuration. Attach this to the Canvas containing the
@@ -42,7 +43,7 @@ public sealed class ScratchCellManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Cache an opaque art sample for all sixteen scratch masks.
+    /// Cache an opaque art sample for active scratch masks.
     /// The source PNG supplies the RGB details; mask erasing retains the
     /// original alpha behavior and the 85 percent completion threshold.
     /// </summary>
@@ -101,6 +102,10 @@ public sealed class ScratchCellManager : MonoBehaviour
 
     [Header("Auto-collected cells (Canvas children)")]
     [SerializeField] private ScratchCell[] cells = new ScratchCell[0];
+    [SerializeField] private RectTransform gridRoot;
+    private ScratchCell[] activeCells = Array.Empty<ScratchCell>();
+    public ScratchCell[] ActiveCells => activeCells;
+
 
     private ScratchSkillTree skills;
     private ScratchGameManager game;
@@ -118,7 +123,7 @@ public sealed class ScratchCellManager : MonoBehaviour
         {
             if (game == null) game = GetComponent<ScratchGameManager>();
             int radius = brushRadius + 2 * SkillLevel(ScratchSkillTree.SkillId.G1);
-            if (game != null && game.TicketActive && game.TicketElapsed < 3f)
+            if (game != null && game.TicketActive && game.SelectedCount <= 1)
                 radius += 3 * SkillLevel(ScratchSkillTree.SkillId.G5);
             return Mathf.Clamp(radius, 1, 128);
         }
@@ -131,7 +136,7 @@ public sealed class ScratchCellManager : MonoBehaviour
     public float ScratchPercentage => scratchPercentage;
     public int TextureResolution => textureResolution;
     public Color CoatingColor => coatingColor;
-    public int CellCount => cells == null ? 0 : cells.Length;
+    public int CellCount => activeCells.Length;
 
     private void Reset()
     {
@@ -151,11 +156,49 @@ public sealed class ScratchCellManager : MonoBehaviour
     public void CollectCells()
     {
         cells = GetComponentsInChildren<ScratchCell>(true);
+        Array.Sort(cells, (a, b) => string.CompareOrdinal(a.name, b.name));
         foreach (ScratchCell cell in cells)
             cell.SetManager(this);
 
         if (Application.isPlaying && cells.Length == 0)
             Debug.LogWarning("ScratchCellManager found no ScratchCell components under the Canvas.", this);
+    }
+
+    /// <summary>Activates only authored scene cells. No runtime UI creation.</summary>
+    public bool ConfigureGrid(int side)
+    {
+        if (side < 3 || side > 5) return false;
+        CollectCells();
+        int required = side * side;
+        if (cells.Length < required)
+        {
+            Debug.LogError($"Grid {side}x{side} needs {required} authored cells, found {cells.Length}.", this);
+            return false;
+        }
+        if (gridRoot == null) gridRoot = cells[0].transform.parent as RectTransform;
+        if (gridRoot == null) return false;
+        const float total = 532f;
+        const float gap = 12f;
+        float size = (total - (side - 1) * gap) / side;
+        float step = size + gap;
+        activeCells = new ScratchCell[required];
+        for (int i = 0; i < cells.Length; i++)
+        {
+            bool show = i < required;
+            if (show)
+            {
+                RectTransform rect = cells[i].GetComponent<RectTransform>();
+                rect.SetParent(gridRoot, false);
+                rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0.5f, 0.5f);
+                rect.anchoredPosition = new Vector2((i % side - (side - 1) * 0.5f) * step,
+                    ((side - 1) * 0.5f - i / side) * step);
+                rect.localScale = Vector3.one * (size / 124f);
+                activeCells[i] = cells[i];
+            }
+            if (cells[i].gameObject.activeSelf != show)
+                cells[i].gameObject.SetActive(show);
+        }
+        return true;
     }
 
     /// <summary>Restore every cover with the current Inspector settings.</summary>
@@ -168,8 +211,7 @@ public sealed class ScratchCellManager : MonoBehaviour
             return;
         }
 
-        CollectCells();
-        foreach (ScratchCell cell in cells)
+        foreach (ScratchCell cell in activeCells)
             cell.ResetScratch();
 
         // Inspector resets in Play Mode must also clear round pick counters.

@@ -10,13 +10,13 @@ using UnityEngine;
 [RequireComponent(typeof(ScratchEconomyManager))]
 public sealed class ScratchSkillTree : MonoBehaviour
 {
-    public enum Branch { Grattamento, Caselle, Economia, Tempo }
+    public enum Branch { Grattamento, Caselle, Economia, Fortuna }
     public enum SkillId
     {
         G1, G2, G3, G4, G5, G6, G7, G8,
         C1, C2, C3, C4, C5, C6, C7, C8,
         E1, E2, E3, E4, E5, E6, E7, E8,
-        T1, T2, T3, T4, T5, T6, T7, T8
+        F1, F2, F3, F4, F5, F6, F7, F8
     }
 
     public readonly struct Requirement
@@ -57,20 +57,20 @@ public sealed class ScratchSkillTree : MonoBehaviour
         new Definition(SkillId.G2, "Partenza sprint", "Il primo tocco gratta 4 pixel in più per livello.", 3, 35, true, new Requirement(SkillId.G1, 2)),
         new Definition(SkillId.G3, "Grattata doppia", "Una passata in più per ogni livello sbloccato!", 3, 80, true, new Requirement(SkillId.G2)),
         new Definition(SkillId.G4, "Super pennello", "Fino a 2 strisce extra in un solo movimento!", 2, 175, true, new Requirement(SkillId.G3, 2)),
-        new Definition(SkillId.G5, "Scatto turbo", "Nei primi 3 secondi il pennello cresce di 3 pixel per livello.", 3, 300, true, new Requirement(SkillId.G4)),
+        new Definition(SkillId.G5, "Primo colpo", "Sulla prima casella scelta, +3 pixel per livello al pennello.", 3, 300, true, new Requirement(SkillId.G4)),
         new Definition(SkillId.G6, "Grattino aiutante", "Un piccolo aiutante gratta una casella per te!", 3, 750, false, new Requirement(SkillId.G5, 2)),
         new Definition(SkillId.G7, "Pilota automatico", "Le caselle che scegli si grattano da sole!", 3, 1600, false, new Requirement(SkillId.G6, 2)),
         new Definition(SkillId.G8, "Tempesta d'argento", "Una valanga di grattate su più caselle!", 1, 5000, false, new Requirement(SkillId.G7, 3)),
 
         // Caselle — previews plus extra picks (no changes to 4x4 board size).
-        new Definition(SkillId.C1, "Occhiolino fortunato", "Una casella lascia intravedere il simbolo nascosto!", 1, 25, true),
-        new Definition(SkillId.C2, "Doppio occhiolino", "Due caselle svelano un pochino il loro segreto!", 1, 65, true, new Requirement(SkillId.C1)),
-        new Definition(SkillId.C3, "Quarta chance", "Ora puoi grattare 4 caselle per biglietto!", 1, 140, true, new Requirement(SkillId.C2)),
-        new Definition(SkillId.C4, "Cambio idea!", "Puoi cambiare una casella che non hai ancora grattato.", 1, 240, false, new Requirement(SkillId.C3)),
-        new Definition(SkillId.C5, "Vista da falco", "Intravedrai prima 3, poi 4 simboli nascosti!", 2, 320, true, new Requirement(SkillId.C3)),
-        new Definition(SkillId.C6, "Quinta chance", "Ora puoi grattare ben 5 caselle per biglietto!", 1, 850, true, new Requirement(SkillId.C5, 2)),
-        new Definition(SkillId.C7, "Tutto in vista!", "Tutte le 16 caselle diventano semitrasparenti!", 1, 1800, true, new Requirement(SkillId.C6)),
-        new Definition(SkillId.C8, "Tocco magico", "Cambia un simbolo nascosto per tentare il colpaccio!", 1, 5000, false, new Requirement(SkillId.C7)),
+        new Definition(SkillId.C1, "Occhiolino fortunato", "Anteprima di un simbolo nascosto.", 1, 25, true),
+        new Definition(SkillId.C2, "Doppio occhiolino", "Anteprima di due simboli nascosti.", 1, 65, true, new Requirement(SkillId.C1)),
+        new Definition(SkillId.C3, "Sblocca Fortunato", "Sblocca il biglietto 4x4, quattro scelte e il poker.", 1, 140, true, new Requirement(SkillId.C2))
+        new Definition(SkillId.C4, "Occhio allenato", "Anteprima di tre simboli nascosti.", 1, 240, true, new Requirement(SkillId.C3))
+        new Definition(SkillId.C5, "Sblocca Dorato", "Sblocca il biglietto 5x5, cinque scelte e la cinquina.", 1, 850, true, new Requirement(SkillId.C4))
+        new Definition(SkillId.C6, "Occhio di falco", "Anteprima di cinque simboli nascosti.", 1, 1800, true, new Requirement(SkillId.C5))
+        new Definition(SkillId.C7, "Sblocca Diamante", "Super biglietto 5x5 con soli quattro simboli differenti per volta.", 1, 5000, true, new Requirement(SkillId.C6), new Requirement(SkillId.E4))
+        new Definition(SkillId.C8, "Tocco magico", "In futuro: cambia un simbolo nascosto.", 1, 8500, false, new Requirement(SkillId.C7))
 
         // Economia — existing M4 payout becomes upgrade-aware.
         new Definition(SkillId.E1, "Pioggia di monete", "+2 monete al premio base per ogni livello.", 5, 15, true),
@@ -82,18 +82,18 @@ public sealed class ScratchSkillTree : MonoBehaviour
         new Definition(SkillId.E7, "Super moltiplicatore", "Le tue vincite diventano ancora più ricche!", 3, 2000, false, new Requirement(SkillId.E6, 3)),
         new Definition(SkillId.E8, "Cascata di monete", "Le vincite consecutive fanno crescere il bottino!", 1, 5500, false, new Requirement(SkillId.E7, 3)),
 
-        // Tempo — one global timer; upgrades add time only on real goals.
-        new Definition(SkillId.T1, "Mezzo secondo d'oro", "Primo biglietto completo: +0,5 secondi!", 1, 30, true),
-        new Definition(SkillId.T2, "Terzo colpo!", "Completa 3 biglietti e guadagni +1 secondo!", 1, 100, true, new Requirement(SkillId.T1)),
-        new Definition(SkillId.T3, "Ritmo da campione", "Ogni 4 biglietti completi: +1 secondo per livello!", 2, 235, true, new Requirement(SkillId.T2)),
-        new Definition(SkillId.T4, "Un secondo in tasca", "Completa 4 caselle e recuperi 1 secondo!", 1, 500, true, new Requirement(SkillId.T3), new Requirement(SkillId.C3)),
-        new Definition(SkillId.T5, "Ancora un po'!", "Completa 4 caselle e recuperi 2 secondi totali!", 1, 950, true, new Requirement(SkillId.T4)),
-        new Definition(SkillId.T6, "Tempo prezioso", "Completa 4 caselle e recuperi 3 secondi totali!", 1, 1800, true, new Requirement(SkillId.T5)),
-        new Definition(SkillId.T7, "Quattro secondi!", "Completa 4 caselle e recuperi 4 secondi totali!", 1, 3500, true, new Requirement(SkillId.T6)),
-        new Definition(SkillId.T8, "Cinque secondi d'oro", "Completa 5 caselle e recuperi 5 secondi totali!", 1, 7000, true, new Requirement(SkillId.T7), new Requirement(SkillId.C6))
+        // Fortuna is visible in the planned progression, not purchasable yet.
+        new Definition(SkillId.F1, "Istinto fortunato", "Futuro: migliora il valore medio dei biglietti.", 1, 900, false),
+        new Definition(SkillId.F2, "Simboli affini", "Futuro: aumenta la probabilita' di una coppia.", 1, 1400, false, new Requirement(SkillId.F1)),
+        new Definition(SkillId.F3, "Tris favorito", "Futuro: distribuzioni favorevoli al tris.", 1, 2500, false, new Requirement(SkillId.F2)),
+        new Definition(SkillId.F4, "Poker scelto", "Futuro: distribuzioni favorevoli al poker.", 1, 4000, false, new Requirement(SkillId.F3)),
+        new Definition(SkillId.F5, "Cinquina d'oro", "Futuro: distribuzioni favorevoli alla cinquina.", 1, 7000, false, new Requirement(SkillId.F4)),
+        new Definition(SkillId.F6, "Riscrivi il destino", "Futuro: migliora le probabilita' del biglietto.", 1, 12000, false, new Requirement(SkillId.F5)),
+        new Definition(SkillId.F7, "Jackpot imminente", "Futuro: bonus per vincite speciali.", 1, 20000, false, new Requirement(SkillId.F6)),
+        new Definition(SkillId.F8, "Fortuna assoluta", "Futuro game changer di endgame.", 1, 35000, false, new Requirement(SkillId.F7))
     };
 
-    public const string SavePrefix = "STR_M5_Skill_";
+    public const string SavePrefix = "STR_V2_Skill_";
     private readonly int[] levels = new int[32];
     private ScratchEconomyManager economy;
     private ScratchGameManager game;
@@ -146,7 +146,7 @@ public sealed class ScratchSkillTree : MonoBehaviour
         return definition.Implemented &&
                GetLevel(id) < definition.MaxLevel &&
                RequirementsMet(id) &&
-               game != null && game.State == ScratchGameManager.RoundState.Finished &&
+               game != null &&
                economy != null && economy.Coins >= GetPrice(id);
     }
 
@@ -165,9 +165,9 @@ public sealed class ScratchSkillTree : MonoBehaviour
     [ContextMenu("RESET ALL M5 PROGRESSION (Play Mode)")]
     public void ResetProgress()
     {
-        if (!Application.isPlaying || (game != null && game.State == ScratchGameManager.RoundState.Playing))
+        if (!Application.isPlaying || (game != null && game.TicketActive))
         {
-            Debug.LogWarning("Reset progression requires Play Mode outside a running game.", this);
+            Debug.LogWarning("Reset progression requires Play Mode outside an active ticket.", this);
             return;
         }
         for (int i = 0; i < levels.Length; i++)

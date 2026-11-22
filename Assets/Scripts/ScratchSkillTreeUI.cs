@@ -24,7 +24,7 @@ public sealed class ScratchSkillTreeUI : MonoBehaviour
     [SerializeField] private Button[] nodeButtons = new Button[8];
     [SerializeField] private TMP_Text[] nodeLabels = new TMP_Text[8];
     [SerializeField] private Image[] nodeIcons = new Image[8];
-    // Order: 8 Gratta, 8 Scopri, 8 Incassa, 8 Tempo.
+    // Order: 8 Gratta, 8 Scopri, 8 Incassa, 8 Fortuna.
     // Folder names Tickets/Luck are art categories, not gameplay logic.
     [SerializeField] private Sprite[] upgradeSprites = new Sprite[32];
 
@@ -41,7 +41,7 @@ public sealed class ScratchSkillTreeUI : MonoBehaviour
 
     private static readonly string[] branchNames =
     {
-        "GRATTA!", "SCOPRI!", "INCASSA!", "PIU' TEMPO!"
+        "GRATTA!", "BIGLIETTI!", "INCASSA!", "FORTUNA!"
     };
 
     private static readonly Color[] branchColors =
@@ -212,9 +212,7 @@ public sealed class ScratchSkillTreeUI : MonoBehaviour
         string status = !current.Implemented ? "PRESTO IN ARRIVO!"
             : owned >= current.MaxLevel ? "POTENZIAMENTO AL MASSIMO!"
             : !skills.RequirementsMet(CurrentId) ? skills.RequirementText(CurrentId)
-            : game.State == ScratchGameManager.RoundState.Playing
-                ? "FINISCI LA PARTITA E TORNA QUI!"
-                : economy.Coins < skills.GetPrice(CurrentId) ? "TI SERVONO PIU' MONETE!"
+            : economy.Coins < skills.GetPrice(CurrentId) ? "TI SERVONO PIU' MONETE!"
                 : "PUOI PRENDERLO! TIENI PREMUTO.";
         if (statusLabel != null)
             statusLabel.text = status;

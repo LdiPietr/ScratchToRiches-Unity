@@ -1,5 +1,39 @@
 # Scratch to Riches
 
+## V2 — Gameplay incrementale continuativo (22 novembre 2026)
+
+**Questa sezione descrive il design attuale.** Le milestone M2-M7 riportate sotto sono cronologia del prototipo a tempo e non rappresentano piu' le regole del gioco principale.
+
+- **Nessun timer di partita.** La produzione continua fino a quando il giocatore desidera. `SI PARTE!` avvia il primo Classico gratuito; `PASSA OLTRE` termina anticipatamente un biglietto, liquidando soltanto i match di caselle completamente grattate. Completate tutte le scelte, si incassa automaticamente e si passa alla scelta del biglietto successivo.
+- **Quattro biglietti a sblocco progressivo** nel ramo `BIGLIETTI!`:
+  - Classico: 3×3, 7 simboli possibili, 3 caselle grattabili, coppia/tris. Disponibile da subito e gratuito.
+  - Fortunato: 4×4, 7 simboli, 4 caselle, fino al poker. Abilita' `C3 Sblocca Fortunato`.
+  - Dorato: 5×5, 7 simboli, 5 caselle, fino alla cinquina. Abilita' `C5 Sblocca Dorato`.
+  - Diamante: 5×5, soltanto 4 simboli differenti estratti ogni biglietto dal pool di 7, 5 caselle, fino alla cinquina. Abilita' `C7 Sblocca Diamante` con prerequisiti avanzati.
+- Lo stesso biglietto paga **solo il match piu' alto** fra le caselle interamente grattate. `CINQUINA x5` e' il nuovo risultato massimo.
+- Per acquistare gli upgrade **apri POTENZIAMENTI / APRI SHOP** in alto e usa la pressione prolungata sui nodi. `TORNA AL GIOCO` chiude lo shop senza interrompere la sessione. Gli acquisti sono permessi durante il gioco; mentre lo shop e' aperto la grattatura e' sospesa.
+- I quattro rami sono `GRATTA!`, `BIGLIETTI!`, `INCASSA!`, `FORTUNA!`. Il vecchio ramo Tempo e' stato eliminato. Le abilita' Fortuna e automazione sono **visibili ma non ancora implementate**. I tre sblocchi biglietto sono operativi.
+- **Prezzi provvisori**, da bilanciare dopo il test: Classico 0 / premio base 10; Fortunato 10 / 25; Dorato 25 / 45; Diamante 60 / 70 monete. Un premio e' moltiplicato per x2, x3, x4 o x5 secondo il match; le abilita' Economia lo modificano.
+- L'attuale grafica Diamante **riutilizza provvisoriamente** il fondale e la cornice del Dorato: non e' ancora stato generato un artwork specifico Diamante.
+- La scena `Assets/Scenes/ScratchToRiches.unity` contiene **25 caselle serializzate**, nessuna UI costruita a runtime. `ScratchCellManager.ConfigureGrid` ridispone e attiva solo le prime 9/16/25 mantenendo sprite, coperture e interazione. I progressi V2 usano `STR_V2_Skill_`, separati dalle vecchie abilita' Tempo; il portafoglio delle monete esistente resta persistente.
+- **Automazione rinviata:** non rientra in questa implementazione. La modalita' Sprint 20 secondi resta una possibile modalita' separata futura, non implementata qui.
+
+### Collaudo V2 (Unity 6000.5.4f1, Play Mode)
+
+1. Apri `Assets/Scenes/ScratchToRiches.unity`, poi `Tools > Scratch to Riches > Audit V2 Scene` e verifica che il report non presenti errori.
+2. Avvia `SI PARTE!`: griglia 3×3, solo Classico disponibile, nessun timer o fine partita automatica.
+3. Gratta tre caselle complete all'85% o premi `PASSA OLTRE`; verifica incasso una sola volta e selezione dei quattro biglietti.
+4. Controlla che Fortunato/Dorato/Diamante siano visibili ma non selezionabili prima degli sblocchi, anche con monete sufficienti.
+5. Apri `APRI SHOP` durante un biglietto, acquista C1→C2→C3 tenendo premuto e torna al gioco. Alla selezione successiva deve essere disponibile Fortunato (4×4, 4 scelte).
+6. Acquista C4→C5 e controlla Dorato (5×5, 5 scelte), quindi C6 ed E1→E2→E3→E4→C7 per Diamante.
+7. Sul Diamante verifica che in ognuno dei 25 simboli appaiano **al massimo quattro immagini differenti** e che cinque caselle completamente grattate producano sempre almeno una coppia.
+8. Usa i pattern Editor di coppia/tris/poker/cinquina, impostandoli **prima** di aprire un biglietto, e controlla pagamento x2/x3/x4/x5 e mancata liquidazione dei match parzialmente grattati.
+9. Alterna i biglietti per controllare ripristino delle coperture, layout, prezzi, salvataggio delle abilita' dopo riavvio di Play Mode e assenza di errori Console.
+
+**Stato verifica:** file C# e serializzazione YAML controllati staticamente su GitHub. La compilazione e il collaudo effettivo in Unity Editor restano da eseguire.
+
+---
+
 Progetto Unity per il prototipo **Scratch to Riches**.
 
 ## Apertura

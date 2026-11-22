@@ -64,7 +64,7 @@ public sealed class ScratchEconomyManager : MonoBehaviour
                 ? 1.0 + 0.1 * Level(ScratchSkillTree.SkillId.E2)
                 : match.Tier == ScratchSymbolManager.MatchTier.Triple
                     ? 1.0 + 0.15 * Level(ScratchSkillTree.SkillId.E3)
-                    : match.Tier == ScratchSymbolManager.MatchTier.Poker
+                    : (match.Tier == ScratchSymbolManager.MatchTier.Poker || match.Tier == ScratchSymbolManager.MatchTier.Five)
                         ? 1.0 + 0.2 * Level(ScratchSkillTree.SkillId.E4) : 1.0;
             long requested = (long)Math.Ceiling(rewardBase * (double)match.Multiplier * multiplier);
             AwardCoins(requested);

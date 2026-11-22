@@ -4,8 +4,7 @@ using UnityEngine.Events;
 using UnityEngine.UI;
 
 /// <summary>
-/// Displays the three scene-authored ticket cards BETWEEN tickets only.
-/// Ticket selection pauses the run clock; it does not change the skill tree.
+/// Displays four scene-authored ticket cards. Locked tickets remain visible.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class ScratchTicketChoiceUI : MonoBehaviour
@@ -15,8 +14,8 @@ public sealed class ScratchTicketChoiceUI : MonoBehaviour
     [SerializeField] private ScratchEconomyManager economy;
     [SerializeField] private ScratchFlowPresentation presentation;
     [SerializeField] private GameObject choicePanel;
-    [SerializeField] private Button[] ticketButtons = new Button[3];
-    [SerializeField] private TMP_Text[] ticketDetails = new TMP_Text[3];
+    [SerializeField] private Button[] ticketButtons = new Button[4];
+    [SerializeField] private TMP_Text[] ticketDetails = new TMP_Text[4];
     [SerializeField] private TMP_Text statusLabel;
 
     private UnityAction[] buttonActions;
@@ -34,16 +33,16 @@ public sealed class ScratchTicketChoiceUI : MonoBehaviour
     private void Start()
     {
         if (game == null || economy == null || choicePanel == null ||
-            ticketButtons == null || ticketButtons.Length != 3 ||
-            ticketDetails == null || ticketDetails.Length != 3)
+            ticketButtons == null || ticketButtons.Length != 4 ||
+            ticketDetails == null || ticketDetails.Length != 4)
         {
             Debug.LogError("ScratchTicketChoiceUI: missing managers or card references.", this);
             enabled = false;
             return;
         }
 
-        buttonActions = new UnityAction[3];
-        for (int i = 0; i < 3; i++)
+        buttonActions = new UnityAction[4];
+        for (int i = 0; i < 4; i++)
         {
             if (ticketButtons[i] == null || ticketDetails[i] == null)
             {
@@ -79,7 +78,7 @@ public sealed class ScratchTicketChoiceUI : MonoBehaviour
 
     private void Choose(int index)
     {
-        if (index < 0 || index >= 3 || !game.WaitingForTicketChoice)
+        if (index < 0 || index >= 4 || !game.WaitingForTicketChoice)
             return;
 
         game.ChooseNextTicket((ScratchGameManager.TicketKind)index);
@@ -93,22 +92,23 @@ public sealed class ScratchTicketChoiceUI : MonoBehaviour
 
         bool show = game.WaitingForTicketChoice &&
             (presentation == null || presentation.CanShowTicketChoices);
-        for (int i = 0; i < 3; i++)
+        for (int i = 0; i < 4; i++)
         {
             var kind = (ScratchGameManager.TicketKind)i;
             int cost = ScratchGameManager.TicketPrice(kind);
             int prize = game.TicketPrize(kind);
+            bool unlocked = game.IsTicketUnlocked(kind);
             if (ticketDetails[i] != null)
-                ticketDetails[i].text = cost == 0
-                    ? $"GRATIS!\nPREMIO BASE {prize}"
-                    : $"COSTO {cost} MONETE\nPREMIO BASE {prize}";
-
+                ticketDetails[i].text = !unlocked
+                    ? "BLOCCATO!\nSBLOCCA NELLE ABILITA'"
+                    : $"{ScratchGameManager.TicketSide(kind)}x{ScratchGameManager.TicketSide(kind)} - {ScratchGameManager.TicketSide(kind)} SCELTE\n" +
+                      $"COSTO {cost} | PREMIO {prize}";
             if (ticketButtons[i] != null)
-                ticketButtons[i].interactable = show && economy.Coins >= cost;
+                ticketButtons[i].interactable = show && unlocked && economy.Coins >= cost;
         }
 
         if (statusLabel != null)
-            statusLabel.text = $"TEMPO IN PAUSA   •   {economy.Coins:N0} MONETE DISPONIBILI";
+            statusLabel.text = $"SCEGLI IL PROSSIMO BIGLIETTO   •   {economy.Coins:N0} MONETE DISPONIBILI";
 
         if (choicePanel.activeSelf != show)
             choicePanel.SetActive(show);

@@ -82,7 +82,8 @@ public sealed class ScratchWinJuice : MonoBehaviour
         {
             case ScratchSymbolManager.MatchTier.Pair: combinationBackdrop.sprite = pairBadge; break;
             case ScratchSymbolManager.MatchTier.Triple: combinationBackdrop.sprite = tripleBadge; break;
-            case ScratchSymbolManager.MatchTier.Poker: combinationBackdrop.sprite = pokerBadge; break;
+            case ScratchSymbolManager.MatchTier.Poker:
+            case ScratchSymbolManager.MatchTier.Five: combinationBackdrop.sprite = pokerBadge; break;
             default: combinationBackdrop.sprite = neutralBadge; break;
         }
     }

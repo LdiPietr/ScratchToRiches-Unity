@@ -4,9 +4,7 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// Scene-authored M5 presentation. Ticket motions, side HUD and the full-screen
-/// post-run curtain do not create UI objects at runtime. The run clock is
-/// paused between tickets and while a ticket is flying in/out.
+/// Scene-authored ticket animations and player-invoked shop overlay. No countdown.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class ScratchFlowPresentation : MonoBehaviour
@@ -32,6 +30,7 @@ public sealed class ScratchFlowPresentation : MonoBehaviour
     [SerializeField] private RectTransform ticketTransform;
     [SerializeField] private CanvasGroup ticketCanvasGroup;
     [SerializeField] private Button primaryActionButton;
+    [SerializeField] private Button shopButton;
     [SerializeField, Range(0.1f, 1.2f)] private float ticketTravelDuration = 0.36f;
 
     [Header("Full-screen skill curtain")]
@@ -45,6 +44,7 @@ public sealed class ScratchFlowPresentation : MonoBehaviour
     [SerializeField] private TMP_Text rightInformation;
 
     private Phase phase = Phase.Idle;
+    private Phase phaseBeforeShop = Phase.Idle;
     private Vector2 ticketHome;
     private Vector2 curtainHome;
     private int seenTicketNumber;
@@ -54,6 +54,7 @@ public sealed class ScratchFlowPresentation : MonoBehaviour
     private string previousRight;
 
     public bool CanScratch => phase == Phase.TicketLive;
+    public bool ShopOpen => phase == Phase.CurtainDescending || phase == Phase.CurtainVisible || phase == Phase.CurtainAscending;
     public bool CanShowTicketChoices => phase == Phase.Choosing;
 
     private void Awake()
@@ -82,7 +83,7 @@ public sealed class ScratchFlowPresentation : MonoBehaviour
     {
         if (game == null || economy == null || ticketChooser == null ||
             ticketTransform == null || ticketCanvasGroup == null ||
-            curtainObject == null || curtainRect == null || continueButton == null)
+            curtainObject == null || curtainRect == null || continueButton == null || shopButton == null)
         {
             Debug.LogError("ScratchFlowPresentation: missing scene references.", this);
             enabled = false;
@@ -92,6 +93,7 @@ public sealed class ScratchFlowPresentation : MonoBehaviour
         game.Changed += HandleGameChanged;
         economy.Changed += UpdateInformation;
         continueButton.onClick.AddListener(ContinueAfterUpgrades);
+        shopButton.onClick.AddListener(OpenShop);
         subscribed = true;
         UpdateInformation();
         HandleGameChanged();
@@ -103,32 +105,20 @@ public sealed class ScratchFlowPresentation : MonoBehaviour
         game.Changed -= HandleGameChanged;
         economy.Changed -= UpdateInformation;
         continueButton.onClick.RemoveListener(ContinueAfterUpgrades);
+        shopButton.onClick.RemoveListener(OpenShop);
     }
 
     private void Update()
     {
         UpdateInformation();
+        if (shopButton != null) shopButton.interactable = phase == Phase.Idle || phase == Phase.TicketLive || phase == Phase.Choosing;
     }
 
     private void HandleGameChanged()
     {
         UpdateInformation();
 
-        if (game.State == ScratchGameManager.RoundState.Finished)
-        {
-            if (phase == Phase.TicketLeaving ||
-                phase == Phase.CurtainDescending ||
-                phase == Phase.CurtainVisible ||
-                phase == Phase.CurtainAscending)
-                return;
-
-            StopMotion();
-            if (phase == Phase.Choosing || phase == Phase.Idle)
-                motion = StartCoroutine(DescendCurtain());
-            else
-                motion = StartCoroutine(FlyOutTicket());
-            return;
-        }
+        if (ShopOpen) return;
 
         if (game.State != ScratchGameManager.RoundState.Playing)
             return;
@@ -138,9 +128,9 @@ public sealed class ScratchFlowPresentation : MonoBehaviour
             seenTicketNumber = game.TicketNumber;
             // Swap artwork before the ticket flies in, never mid-scratch.
             if (ticketArtwork != null && ticketArtworkSprites != null &&
-                ticketArtworkSprites.Length == 3)
+                ticketArtworkSprites.Length >= 3)
                 ticketArtwork.sprite =
-                    ticketArtworkSprites[Mathf.Clamp((int)game.CurrentTicketKind, 0, 2)];
+                    ticketArtworkSprites[Mathf.Clamp((int)game.CurrentTicketKind, 0, ticketArtworkSprites.Length - 1)];
             ApplyCellFrames(game.CurrentTicketKind);
             UpdateTicketTypeLabel(game.CurrentTicketKind);
             StopMotion();
@@ -162,12 +152,16 @@ public sealed class ScratchFlowPresentation : MonoBehaviour
 
     private void ApplyCellFrames(ScratchGameManager.TicketKind kind)
     {
+        // Diamond temporarily uses the gold frame artwork; its mechanics are unique.
         int index = Mathf.Clamp((int)kind, 0, 2);
-        if (appliedCellTicket == index || cellFrameImages == null || cellFrameSprites == null ||
-            cellFrameImages.Length != 16 || cellFrameSprites.Length != 3)
-            return;
-        for (int i = 0; i < cellFrameImages.Length; i++)
-            if (cellFrameImages[i] != null) cellFrameImages[i].sprite = cellFrameSprites[index];
+        if (cellFrameSprites == null || cellFrameSprites.Length != 3) return;
+        ScratchCellManager manager = GetComponent<ScratchCellManager>();
+        if (manager == null) return;
+        foreach (ScratchCell cell in manager.ActiveCells)
+        {
+            Image frame = cell.GetComponent<Image>();
+            if (frame != null) frame.sprite = cellFrameSprites[index];
+        }
         appliedCellTicket = index;
     }
 
@@ -236,15 +230,22 @@ public sealed class ScratchFlowPresentation : MonoBehaviour
 
         ticketCanvasGroup.alpha = 0f;
         motion = null;
-        if (game.State == ScratchGameManager.RoundState.Finished)
-            motion = StartCoroutine(DescendCurtain());
-        else if (game.WaitingForTicketChoice)
+        if (game.WaitingForTicketChoice)
         {
             phase = Phase.Choosing;
             ticketChooser.Refresh();
         }
         else
             phase = Phase.Idle;
+    }
+
+    public void OpenShop()
+    {
+        if (ShopOpen || (phase != Phase.Idle && phase != Phase.TicketLive && phase != Phase.Choosing))
+            return;
+        phaseBeforeShop = phase;
+        StopMotion();
+        motion = StartCoroutine(DescendCurtain());
     }
 
     private IEnumerator DescendCurtain()
@@ -272,15 +273,13 @@ public sealed class ScratchFlowPresentation : MonoBehaviour
 
     public void ContinueAfterUpgrades()
     {
-        if (phase != Phase.CurtainVisible ||
-            game.State != ScratchGameManager.RoundState.Finished)
-            return;
+        if (phase != Phase.CurtainVisible) return;
 
         StopMotion();
-        motion = StartCoroutine(RaiseCurtainAndRestart());
+        motion = StartCoroutine(RaiseCurtainAndReturn());
     }
 
-    private IEnumerator RaiseCurtainAndRestart()
+    private IEnumerator RaiseCurtainAndReturn()
     {
         phase = Phase.CurtainAscending;
         continueButton.interactable = false;
@@ -295,29 +294,29 @@ public sealed class ScratchFlowPresentation : MonoBehaviour
         }
         curtainObject.SetActive(false);
         curtainRect.anchoredPosition = curtainHome;
-        phase = Phase.Idle;
+        phase = phaseBeforeShop;
+        ticketCanvasGroup.blocksRaycasts = phase == Phase.TicketLive;
+        if (primaryActionButton != null)
+            primaryActionButton.interactable = game.State == ScratchGameManager.RoundState.Ready
+                || (game.TicketActive && phase == Phase.TicketLive);
+        ticketChooser.Refresh();
         motion = null;
-        // Ticket numbering restarts from 1 on each run. Without resetting
-        // this marker, a single-ticket previous run would skip the new entry.
-        seenTicketNumber = 0;
-        game.StartNewRun();
     }
 
     private void UpdateInformation()
     {
         if (game == null || economy == null) return;
-        bool clockPaused = game.State == ScratchGameManager.RoundState.Playing &&
-            (!game.TicketActive || !CanScratch);
-        string left = $"{(game.State == ScratchGameManager.RoundState.Ready ? "PRONTO A PARTIRE" : clockPaused ? "TEMPO CONGELATO" : "IL TEMPO VOLA!")}\n" +
-            $"{game.TimeRemaining:0.0} secondi\n\n" +
+        string left = (game.State == ScratchGameManager.RoundState.Ready ? "PRONTO A PARTIRE" : "GIOCO CONTINUO") + "\n" +
+            "SENZA LIMITE DI TEMPO\n\n" +
             $"BIGLIETTO N. {(game.TicketNumber == 0 ? "-" : game.TicketNumber.ToString())}\n" +
             $"BIGLIETTI FINITI  {game.TicketsCompleted}\n\n" +
             $"SCELTE  {game.SelectedCount}/{game.MaxScratches}\n" +
             $"GRATTATE  {game.RevealedCount}/{game.MaxScratches}";
-        string right = $"IN GIOCO\n{ScratchGameManager.TicketDisplayName(game.CurrentTicketKind)}\n\n" +
+        string right = $"IN GIOCO\n{ScratchGameManager.TicketDisplayName(game.CurrentTicketKind)} " +
+            $"{game.CurrentGridSide}x{game.CurrentGridSide}\n\n" +
             $"PREMIO BASE  {game.TicketPrize(game.CurrentTicketKind)}\n" +
             $"ULTIMA VINCITA  +{game.TicketPayout}\n" +
-            $"SECONDI EXTRA  +{game.LastTimeBonus:0.0}s\n\n" +
+            $"BIGLIETTI SBLOCCATI  {(game.IsTicketUnlocked(ScratchGameManager.TicketKind.Fortunato) ? 2 : 1) + (game.IsTicketUnlocked(ScratchGameManager.TicketKind.Gold) ? 1 : 0) + (game.IsTicketUnlocked(ScratchGameManager.TicketKind.Diamond) ? 1 : 0)} / 4\n\n" +
             $"IL TUO BOTTINO  {economy.Coins:N0}";
 
         if (leftInformation != null && left != previousLeft)
