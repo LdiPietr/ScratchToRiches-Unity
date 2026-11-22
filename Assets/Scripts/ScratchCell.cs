@@ -27,6 +27,7 @@ public sealed class ScratchCell : MonoBehaviour, IPointerDownHandler, IDragHandl
     private bool hasPreviousPixel;
     private Vector2Int previousPixel;
     private bool firstStrokeUsed;
+    private bool titanThisGesture;
     private bool previewActive;
     private bool preparingTicket;
     private string currentSymbolLabel = string.Empty;
@@ -57,6 +58,7 @@ public sealed class ScratchCell : MonoBehaviour, IPointerDownHandler, IDragHandl
         currentSymbolLabel = string.Empty;
         if (symbolImage != null) symbolImage.enabled = false;
         if (symbolText != null) symbolText.enabled = false;
+        if (indexText != null) indexText.gameObject.SetActive(false);
         if (scratchImage != null)
         {
             scratchImage.enabled = true;
@@ -79,6 +81,7 @@ public sealed class ScratchCell : MonoBehaviour, IPointerDownHandler, IDragHandl
         preparingTicket = false;
         if (symbolImage != null) symbolImage.enabled = symbolImage.sprite != null;
         if (symbolText != null) symbolText.enabled = true;
+        UpdateJollyArtwork();
         return true;
     }
 
@@ -90,12 +93,7 @@ public sealed class ScratchCell : MonoBehaviour, IPointerDownHandler, IDragHandl
     public void SetPreview(string symbol)
     {
         previewActive = !string.IsNullOrEmpty(symbol);
-        if (indexText != null)
-        {
-            indexText.text = string.Empty;
-            if (indexText.gameObject.activeSelf)
-                indexText.gameObject.SetActive(false);
-        }
+        UpdateJollyArtwork();
         RefreshCoverOpacity();
     }
 
@@ -113,6 +111,7 @@ public sealed class ScratchCell : MonoBehaviour, IPointerDownHandler, IDragHandl
     public void SetSymbol(string symbol, Sprite artwork = null)
     {
         currentSymbolLabel = symbol ?? string.Empty;
+        UpdateJollyArtwork();
         if (symbolImage != null)
         {
             symbolImage.sprite = artwork;
@@ -125,6 +124,25 @@ public sealed class ScratchCell : MonoBehaviour, IPointerDownHandler, IDragHandl
         }
         if (symbolImage == null && symbolText == null)
             Debug.LogError("ScratchCell: missing both Image and TextMeshPro symbol renderers.", this);
+    }
+
+    private void UpdateJollyArtwork()
+    {
+        if (indexText == null) return;
+        bool jolly = currentSymbolLabel == "JOLLY";
+        indexText.text = jolly ? "JOLLY" : string.Empty;
+        if (jolly)
+        {
+            // The authored CellIndex text becomes the joker artwork. Keep it
+            // BEHIND the coating, never above it or hidden symbols would leak.
+            indexText.transform.SetSiblingIndex(1);
+            indexText.rectTransform.anchoredPosition = Vector2.zero;
+            indexText.rectTransform.sizeDelta = new Vector2(132f, 60f);
+            indexText.alignment = TMPro.TextAlignmentOptions.Center;
+            indexText.fontSize = 32f;
+            indexText.color = new Color(1f, 0.71f, 0.12f, 1f);
+        }
+        indexText.gameObject.SetActive(jolly && !preparingTicket);
     }
 
     public float RevealedPercentage =>
@@ -186,6 +204,7 @@ public sealed class ScratchCell : MonoBehaviour, IPointerDownHandler, IDragHandl
         pointerDown = false;
         hasPreviousPixel = false;
         firstStrokeUsed = false;
+        titanThisGesture = false;
 
         Color32[] pixels = manager.GetCoverPixels();
         if (pixels.Length != count)
@@ -224,6 +243,23 @@ public sealed class ScratchCell : MonoBehaviour, IPointerDownHandler, IDragHandl
             return;
 
         EraseRoutine(eventData);
+        if (manager != null)
+            manager.RedirectDragToSelectedCell(this, eventData);
+    }
+
+    /// <summary>Continue the SAME physical drag into another already selected cell.</summary>
+    public bool ScratchFromSelectedDrag(PointerEventData eventData)
+    {
+        if (completed || scratchImage == null || scratchTexture == null ||
+            gameManager == null || !gameManager.IsCellSelected(this) || scratchRect == null)
+            return false;
+        if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                scratchRect, eventData.position, eventData.pressEventCamera, out Vector2 local) ||
+            !scratchRect.rect.Contains(local))
+            return false;
+        hasPreviousPixel = false;
+        EraseRoutine(eventData);
+        return true;
     }
 
     public void OnPointerUp(PointerEventData eventData)
@@ -232,6 +268,7 @@ public sealed class ScratchCell : MonoBehaviour, IPointerDownHandler, IDragHandl
         {
             pointerDown = false;
             hasPreviousPixel = false;
+            titanThisGesture = false;
         }
     }
 
@@ -239,6 +276,7 @@ public sealed class ScratchCell : MonoBehaviour, IPointerDownHandler, IDragHandl
     {
         pointerDown = false;
         hasPreviousPixel = false;
+        titanThisGesture = false;
     }
 
     private void EraseRoutine(PointerEventData eventData)
@@ -267,6 +305,14 @@ public sealed class ScratchCell : MonoBehaviour, IPointerDownHandler, IDragHandl
             return;
         }
 
+        if (!titanThisGesture && pointerDown &&
+            (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift)))
+        {
+            ScratchSkillTree tree = gameManager != null
+                ? gameManager.GetComponent<ScratchSkillTree>() : null;
+            titanThisGesture = tree != null && tree.TryConsumeManualTitanCharge();
+        }
+
         int size = scratchTexture.width;
         int pixelX = Mathf.Clamp(Mathf.FloorToInt(Mathf.InverseLerp(rect.xMin, rect.xMax, point.x) * size), 0, size - 1);
         int pixelY = Mathf.Clamp(Mathf.FloorToInt(Mathf.InverseLerp(rect.yMin, rect.yMax, point.y) * size), 0, size - 1);
@@ -279,6 +325,8 @@ public sealed class ScratchCell : MonoBehaviour, IPointerDownHandler, IDragHandl
             : 1;
 
         int radius = manager.EffectiveBrushRadius;
+        if (titanThisGesture)
+            radius = Mathf.Clamp(Mathf.RoundToInt(radius * 2.5f), 1, 128);
         if (!firstStrokeUsed)
         {
             radius = Mathf.Clamp(radius + manager.FirstStrokeBonus, 1, 128);
@@ -286,7 +334,8 @@ public sealed class ScratchCell : MonoBehaviour, IPointerDownHandler, IDragHandl
         }
 
         bool changed = false;
-        int additional = manager.AdditionalScratchStripes;
+        int additional = manager.AdditionalScratchStripes +
+            (titanThisGesture ? 3 : 0);
         for (int i = 1; i <= steps; i++)
         {
             float t = (float)i / steps;
@@ -297,9 +346,16 @@ public sealed class ScratchCell : MonoBehaviour, IPointerDownHandler, IDragHandl
             // Skill tree double/multi-pass: parallel strokes, clamped inside mask.
             for (int stripe = 1; stripe <= additional; stripe++)
             {
-                int offset = Mathf.Max(1, radius) * ((stripe + 1) / 2);
+                int offset = 12 * ((stripe + 1) / 2);
                 if ((stripe & 1) == 0) offset = -offset;
                 changed |= EraseStamp(x + offset, y, radius);
+            }
+            if (manager.FanModeEnabled)
+            {
+                // G04: two converging manual strips around the main track.
+                int fanOffset = Mathf.RoundToInt(18f * (1f - t));
+                changed |= EraseStamp(x - fanOffset, y, radius);
+                changed |= EraseStamp(x + fanOffset, y, radius);
             }
         }
 

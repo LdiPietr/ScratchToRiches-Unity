@@ -95,6 +95,20 @@ public sealed class ScratchSkillTree : MonoBehaviour
 
     public const string SavePrefix = "STR_V2_Skill_";
     private readonly int[] levels = new int[32];
+    private Dictionary<string, int> stableLevels;
+    private const string StableSavePrefix = "STR_GDDV2_Skill_";
+    private const string MigratedKey = "STR_GDDV2_Migrated_01";
+    private const string TitanChargesKey = "STR_GDDV2_TitanCharges";
+    private const string TitanProgressKey = "STR_GDDV2_TitanProgress";
+    private const string TitanUsedKey = "STR_GDDV2_TitanUsed";
+    private const string JollyBonusKey = "STR_GDDV2_JollyGoldBonus";
+    private const string JollyUsedKey = "STR_GDDV2_JollyUsed";
+    private int jollyGoldGuarantees;
+    private int jollyUsedCount;
+    private int titanCharges;
+    private int titanChargeProgress;
+    private int titanUsedCount;
+    public const bool DemoEdition = true;
     private ScratchEconomyManager economy;
     private ScratchGameManager game;
 
@@ -107,59 +121,223 @@ public sealed class ScratchSkillTree : MonoBehaviour
         game = GetComponent<ScratchGameManager>();
         for (int i = 0; i < levels.Length; i++)
             levels[i] = Mathf.Clamp(PlayerPrefs.GetInt(SavePrefix + i, 0), 0, definitions[i].MaxLevel);
+        EnsureStableLevels();
     }
 
-    public int GetLevel(SkillId id) => levels[(int)id];
-
-    public int GetPrice(SkillId id)
+    public static string StableId(SkillId legacyId)
     {
-        Definition definition = definitions[(int)id];
-        int level = GetLevel(id);
-        if (level >= definition.MaxLevel)
-            return 0;
-        double value = definition.InitialPrice * Math.Pow(1.8, level);
-        return value >= int.MaxValue ? int.MaxValue : Math.Max(1, (int)Math.Ceiling(value));
+        string name = legacyId.ToString();
+        if (name.Length < 2) return string.Empty;
+        return name.Substring(0, 1) + int.Parse(name.Substring(1)).ToString("D2");
     }
 
-    public bool RequirementsMet(SkillId id)
+    private void EnsureStableLevels()
     {
-        foreach (Requirement requirement in definitions[(int)id].Requirements)
-            if (GetLevel(requirement.Id) < requirement.Level)
+        if (stableLevels != null) return;
+        stableLevels = new Dictionary<string, int>(StringComparer.Ordinal);
+        titanCharges = Mathf.Clamp(PlayerPrefs.GetInt(TitanChargesKey, 0), 0, 3);
+        titanChargeProgress = Mathf.Clamp(PlayerPrefs.GetInt(TitanProgressKey, 0), 0, 4);
+        titanUsedCount = Mathf.Max(0, PlayerPrefs.GetInt(TitanUsedKey, 0));
+        jollyGoldGuarantees = Mathf.Clamp(PlayerPrefs.GetInt(JollyBonusKey, 0), 0, 3);
+        jollyUsedCount = Mathf.Max(0, PlayerPrefs.GetInt(JollyUsedKey, 0));
+        foreach (ScratchSkillCatalogV2.Entry entry in ScratchSkillCatalogV2.All)
+            stableLevels.Add(entry.id, Mathf.Clamp(
+                PlayerPrefs.GetInt(StableSavePrefix + entry.id, 0), 0, entry.maxLevel));
+
+        // One-time import. Existing V2 values take precedence, and legacy
+        // unimplemented skills (notably old G6/G7/G8) are never imported.
+        if (PlayerPrefs.GetInt(MigratedKey, 0) == 0)
+        {
+            string[] oldImplemented =
+            {
+                "G01", "G02", "G03", "G04", "G05",
+                "C01", "C02", "C03", "C04", "C05", "C06", "C07",
+                "E01", "E02", "E03", "E04", "E05"
+            };
+            foreach (string id in oldImplemented)
+            {
+                ScratchSkillCatalogV2.Entry entry = ScratchSkillCatalogV2.Find(id);
+                int legacy = ((int)(id[0] == 'G' ? 0 : id[0] == 'C' ? 1 :
+                    id[0] == 'E' ? 2 : 3) * 8) + int.Parse(id.Substring(1)) - 1;
+                int value = Mathf.Clamp(PlayerPrefs.GetInt(SavePrefix + legacy, 0),
+                    0, entry.maxLevel);
+                if (stableLevels[id] == 0 && value > 0)
+                {
+                    stableLevels[id] = value;
+                    PlayerPrefs.SetInt(StableSavePrefix + id, value);
+                }
+            }
+            PlayerPrefs.SetInt(MigratedKey, 1);
+            PlayerPrefs.Save();
+        }
+    }
+
+    public IReadOnlyList<ScratchSkillCatalogV2.Entry> Catalog => ScratchSkillCatalogV2.All;
+
+    public int GetLevel(SkillId id) => GetLevel(StableId(id));
+
+    public int GetLevel(string stableId)
+    {
+        EnsureStableLevels();
+        ScratchSkillCatalogV2.Entry entry = ScratchSkillCatalogV2.Find(stableId);
+        // A saved former full-game unlock cannot bypass the demo's edition lock.
+        if (entry == null || (DemoEdition && !entry.demoEligible)) return 0;
+        return stableLevels.TryGetValue(stableId, out int value) ? value : 0;
+    }
+
+    public int GetPrice(SkillId id) => GetPrice(StableId(id));
+
+    public int GetPrice(string stableId)
+    {
+        ScratchSkillCatalogV2.Entry entry = ScratchSkillCatalogV2.Find(stableId);
+        if (entry == null || GetLevel(stableId) >= entry.maxLevel) return 0;
+        double price = entry.initialPrice * Math.Pow(1.5, GetLevel(stableId));
+        return price >= int.MaxValue ? int.MaxValue :
+            Math.Max(1, (int)Math.Ceiling(price));
+    }
+
+    public bool RequirementsMet(SkillId id) => RequirementsMet(StableId(id));
+
+    public bool RequirementsMet(string stableId)
+    {
+        ScratchSkillCatalogV2.Entry entry = ScratchSkillCatalogV2.Find(stableId);
+        if (entry == null) return false;
+        foreach (string raw in (entry.prerequisites ?? "").Split(';'))
+        {
+            if (string.IsNullOrEmpty(raw)) continue;
+            string[] parts = raw.Split(':');
+            if (parts.Length != 2 || !int.TryParse(parts[1], out int required) ||
+                GetLevel(parts[0]) < required)
                 return false;
+        }
         return true;
     }
 
-    public string RequirementText(SkillId id)
+    public string RequirementText(SkillId id) => RequirementText(StableId(id));
+
+    public string RequirementText(string stableId)
     {
-        foreach (Requirement requirement in definitions[(int)id].Requirements)
+        ScratchSkillCatalogV2.Entry entry = ScratchSkillCatalogV2.Find(stableId);
+        if (entry == null) return "ABILITA' NON TROVATA";
+        foreach (string raw in (entry.prerequisites ?? "").Split(';'))
         {
-            if (GetLevel(requirement.Id) >= requirement.Level)
-                continue;
-            return "Prima migliora " + definitions[(int)requirement.Id].Title + " al livello " + requirement.Level + "!";
+            if (string.IsNullOrEmpty(raw)) continue;
+            string[] parts = raw.Split(':');
+            if (GetLevel(parts[0]) < int.Parse(parts[1]))
+            {
+                ScratchSkillCatalogV2.Entry previous = ScratchSkillCatalogV2.Find(parts[0]);
+                return "Prima " + previous.title + " livello " + parts[1];
+            }
         }
         return string.Empty;
     }
 
-    public bool CanPurchase(SkillId id)
+    public bool CanPurchase(SkillId id) => CanPurchase(StableId(id));
+
+    public bool CanPurchase(string stableId)
     {
-        Definition definition = definitions[(int)id];
-        return definition.Implemented &&
-               GetLevel(id) < definition.MaxLevel &&
-               RequirementsMet(id) &&
-               game != null &&
-               economy != null && economy.Coins >= GetPrice(id);
+        ScratchSkillCatalogV2.Entry entry = ScratchSkillCatalogV2.Find(stableId);
+        return entry != null && (!DemoEdition || entry.demoEligible) &&
+            ScratchSkillCatalogV2.EffectImplemented(stableId) &&
+            GetLevel(stableId) < entry.maxLevel &&
+            RequirementsMet(stableId) &&
+            game != null && economy != null &&
+            economy.Coins >= GetPrice(stableId);
     }
 
-    public bool TryPurchase(SkillId id)
+    public bool TryPurchase(SkillId id) => TryPurchase(StableId(id));
+
+    public bool TryPurchase(string stableId)
     {
-        if (!CanPurchase(id) || !economy.TrySpendCoins(GetPrice(id)))
+        if (!CanPurchase(stableId) || !economy.TrySpendCoins(GetPrice(stableId)))
             return false;
-        int index = (int)id;
-        levels[index]++;
-        PlayerPrefs.SetInt(SavePrefix + index, levels[index]);
+        EnsureStableLevels();
+        stableLevels[stableId]++;
+        PlayerPrefs.SetInt(StableSavePrefix + stableId, stableLevels[stableId]);
+        if (stableId == "G08" && stableLevels[stableId] == 1)
+        {
+            // V2 capstone: one charge is available IMMEDIATELY on purchase.
+            titanCharges = Mathf.Max(1, titanCharges);
+            titanChargeProgress = 0;
+            PlayerPrefs.SetInt(TitanChargesKey, titanCharges);
+            PlayerPrefs.SetInt(TitanProgressKey, titanChargeProgress);
+        }
+        if (stableId == "F04" && stableLevels[stableId] == 1)
+        {
+            // Three authentic Golden tickets with a guaranteed visible joker.
+            jollyGoldGuarantees = 3;
+            PlayerPrefs.SetInt(JollyBonusKey, jollyGoldGuarantees);
+        }
+        // Keep legacy indices mirrored while gameplay and QA transition to IDs.
+        if (stableId.Length == 3 && stableId[0] != 'A' &&
+            int.TryParse(stableId.Substring(1), out int number) && number <= 8)
+        {
+            int group = stableId[0] == 'G' ? 0 : stableId[0] == 'C' ? 1 :
+                stableId[0] == 'E' ? 2 : 3;
+            int index = group * 8 + number - 1;
+            if (index >= 0 && index < levels.Length)
+            {
+                levels[index] = stableLevels[stableId];
+                PlayerPrefs.SetInt(SavePrefix + index, levels[index]);
+            }
+        }
+        PlayerPrefs.Save();
+        if ((stableId == "G08" || stableId == "F04") && game != null)
+            game.OnDemoCapstonePurchased();
+        Changed?.Invoke();
+        return true;
+    }
+
+    public int JollyGoldGuaranteesRemaining =>
+        GetLevel("F04") > 0 ? jollyGoldGuarantees : 0;
+    public int JollyActivationCount => jollyUsedCount;
+
+    public void OnGoldenJollyTicketPurchased()
+    {
+        if (GetLevel("F04") <= 0 || jollyGoldGuarantees <= 0) return;
+        jollyGoldGuarantees--;
+        PlayerPrefs.SetInt(JollyBonusKey, jollyGoldGuarantees);
+        PlayerPrefs.Save();
+    }
+
+    public void OnJollyScratched()
+    {
+        if (GetLevel("F04") <= 0) return;
+        jollyUsedCount++;
+        PlayerPrefs.SetInt(JollyUsedKey, jollyUsedCount);
+        PlayerPrefs.Save();
+        Changed?.Invoke();
+    }
+
+    public int TitanCharges => GetLevel("G08") > 0 ? titanCharges : 0;
+    public int TitanActivationCount => titanUsedCount;
+
+    /// <summary>Manual input only; pressing SHIFT while scratching consumes one charge.</summary>
+    public bool TryConsumeManualTitanCharge()
+    {
+        if (GetLevel("G08") == 0 || titanCharges <= 0) return false;
+        titanCharges--;
+        titanUsedCount++;
+        PlayerPrefs.SetInt(TitanChargesKey, titanCharges);
+        PlayerPrefs.SetInt(TitanUsedKey, titanUsedCount);
         PlayerPrefs.Save();
         Changed?.Invoke();
         return true;
+    }
+
+    public void OnCompletedScratchCell()
+    {
+        if (GetLevel("G08") == 0) return;
+        titanChargeProgress++;
+        if (titanChargeProgress >= 5)
+        {
+            titanChargeProgress = 0;
+            titanCharges = Mathf.Min(3, titanCharges + 1);
+        }
+        PlayerPrefs.SetInt(TitanProgressKey, titanChargeProgress);
+        PlayerPrefs.SetInt(TitanChargesKey, titanCharges);
+        PlayerPrefs.Save();
+        Changed?.Invoke();
     }
 
     [ContextMenu("RESET ALL M5 PROGRESSION (Play Mode)")]
@@ -170,12 +348,27 @@ public sealed class ScratchSkillTree : MonoBehaviour
             Debug.LogWarning("Reset progression requires Play Mode outside an active ticket.", this);
             return;
         }
+        EnsureStableLevels();
+        foreach (ScratchSkillCatalogV2.Entry entry in ScratchSkillCatalogV2.All)
+        {
+            stableLevels[entry.id] = 0;
+            PlayerPrefs.DeleteKey(StableSavePrefix + entry.id);
+        }
         for (int i = 0; i < levels.Length; i++)
         {
             levels[i] = 0;
             PlayerPrefs.DeleteKey(SavePrefix + i);
         }
+        PlayerPrefs.SetInt(MigratedKey, 1);
+        titanCharges = titanChargeProgress = titanUsedCount = 0;
+        jollyGoldGuarantees = jollyUsedCount = 0;
+        PlayerPrefs.DeleteKey(JollyBonusKey);
+        PlayerPrefs.DeleteKey(JollyUsedKey);
+        PlayerPrefs.DeleteKey(TitanChargesKey);
+        PlayerPrefs.DeleteKey(TitanProgressKey);
+        PlayerPrefs.DeleteKey(TitanUsedKey);
         economy?.ResetWallet();
+        game?.ResetDemoMilestone();
         PlayerPrefs.Save();
         Changed?.Invoke();
     }

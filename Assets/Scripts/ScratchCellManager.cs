@@ -110,6 +110,7 @@ public sealed class ScratchCellManager : MonoBehaviour
 
     private ScratchSkillTree skills;
     private ScratchGameManager game;
+    private bool fanModeEnabled = true;
 
     private int SkillLevel(ScratchSkillTree.SkillId id)
     {
@@ -132,9 +133,34 @@ public sealed class ScratchCellManager : MonoBehaviour
 
     public int FirstStrokeBonus => 4 * SkillLevel(ScratchSkillTree.SkillId.G2);
     public int AdditionalScratchStripes =>
-        Mathf.Clamp(SkillLevel(ScratchSkillTree.SkillId.G3) +
-                    SkillLevel(ScratchSkillTree.SkillId.G4), 0, 5);
-    public float ScratchPercentage => scratchPercentage;
+        Mathf.Clamp(SkillLevel(ScratchSkillTree.SkillId.G3), 0, 2);
+    public bool FanModeEnabled =>
+        SkillLevel(ScratchSkillTree.SkillId.G4) > 0 && fanModeEnabled;
+    public bool ContinuousDragEnabled =>
+        SkillLevel(ScratchSkillTree.SkillId.G7) > 0;
+
+    private void Update()
+    {
+        // F toggles the manual fan; it never scratches autonomously.
+        if (Application.isPlaying && SkillLevel(ScratchSkillTree.SkillId.G4) > 0 &&
+            Input.GetKeyDown(KeyCode.F))
+            fanModeEnabled = !fanModeEnabled;
+    }
+
+    public void RedirectDragToSelectedCell(ScratchCell origin,
+        UnityEngine.EventSystems.PointerEventData pointer)
+    {
+        if (!ContinuousDragEnabled || game == null || pointer == null) return;
+        foreach (ScratchCell other in activeCells)
+        {
+            if (other == null || other == origin || other.IsComplete ||
+                !game.IsCellSelected(other)) continue;
+            if (other.ScratchFromSelectedDrag(pointer)) return;
+        }
+    }
+    // G06 Bordo pulito: 85 -> 80 -> 75 percent; still requires a manual gesture.
+    public float ScratchPercentage =>
+        Mathf.Clamp(scratchPercentage - 5f * SkillLevel(ScratchSkillTree.SkillId.G6), 1f, 100f);
     public int TextureResolution => textureResolution;
     public Color CoatingColor => coatingColor;
     public int CellCount => activeCells.Length;

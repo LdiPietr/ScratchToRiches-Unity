@@ -3,7 +3,7 @@ using UnityEditor;
 using UnityEngine;
 
 /// <summary>
-/// Read-only validation of scene wiring and the four-ticket V2 design.
+/// Read-only validation of five-tab GDD V2 demo scene wiring.
 /// This does not run gameplay and never modifies the authored scene.
 /// </summary>
 public static class ScratchV2SceneAudit
@@ -88,13 +88,49 @@ public static class ScratchV2SceneAudit
               "ticket grid sides 3/4/5/5", ref errors);
         Check(ScratchGameManager.SymbolPoolSize(ScratchGameManager.TicketKind.Diamond) == 4,
               "Diamond four-symbol pool", ref errors);
-        Check(ScratchSkillTree.All.Count == 32 &&
-              ScratchSkillTree.All[(int)ScratchSkillTree.SkillId.C3].Implemented &&
-              ScratchSkillTree.All[(int)ScratchSkillTree.SkillId.C5].Implemented &&
-              ScratchSkillTree.All[(int)ScratchSkillTree.SkillId.C7].Implemented,
-              "unlock skills in the 32-node tree", ref errors);
+        Check(ScratchSkillCatalogV2.All.Count == 90,
+              "GDD V2 contains exactly 90 catalog entries", ref errors);
+        int availableInDemo = 0;
+        int missingImplementation = 0;
+        int implementedOutsideDemo = 0;
+        foreach (ScratchSkillCatalogV2.Entry entry in ScratchSkillCatalogV2.All)
+        {
+            if (entry.demoEligible)
+            {
+                availableInDemo++;
+                if (!ScratchSkillCatalogV2.EffectImplemented(entry.id))
+                    missingImplementation++;
+            }
+            else if (ScratchSkillCatalogV2.EffectImplemented(entry.id))
+                implementedOutsideDemo++;
+        }
+        Check(availableInDemo == 24, "24 demo-eligible / 66 full-game-only nodes", ref errors);
+        Check(missingImplementation == 0, "all 24 demo effects implemented", ref errors);
+        Check(implementedOutsideDemo == 0, "no full-game-only upgrade enabled", ref errors);
+        Check(ScratchSkillTree.DemoEdition, "demo edition gating enabled", ref errors);
 
-        if (errors == 0) Debug.Log("V2 AUDIT PASS: authored cells, symbols, four tickets, unlocks and shop are wired.");
+        ScratchSkillTreeUI tree = manager.GetComponent<ScratchSkillTreeUI>();
+        Check(tree != null, "skill tree interface component", ref errors);
+        if (tree != null)
+        {
+            SerializedObject so = new SerializedObject(tree);
+            SerializedProperty tabs = so.FindProperty("branchButtons");
+            SerializedProperty nodes = so.FindProperty("nodeButtons");
+            Check(tabs != null && tabs.arraySize == 5, "five authored skill tabs", ref errors);
+            Check(nodes != null && nodes.arraySize == 8, "eight authored reusable skill slots", ref errors);
+            if (tabs != null && tabs.arraySize == 5)
+                for (int i = 0; i < tabs.arraySize; i++)
+                    Check(tabs.GetArrayElementAtIndex(i).objectReferenceValue != null,
+                        "authored tab " + (i + 1), ref errors);
+            foreach (string field in new[] { "previousPageButton", "nextPageButton", "pageLabel" })
+            {
+                SerializedProperty prop = so.FindProperty(field);
+                Check(prop != null && prop.objectReferenceValue != null,
+                    "authored page navigation: " + field, ref errors);
+            }
+        }
+
+        if (errors == 0) Debug.Log("V2 AUDIT PASS: 90-node catalog, five tabs, paging, authored cells and ticket UI wired.");
         else Debug.LogError("V2 AUDIT FAILED: " + errors + " error(s). See Console for details.");
     }
 

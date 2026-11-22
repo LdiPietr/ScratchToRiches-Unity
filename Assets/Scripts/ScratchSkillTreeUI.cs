@@ -1,11 +1,11 @@
-using System;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// Scene-authored, tabbed four-branch skill tree. No runtime UI builders;
-/// button, Image and TMP references are all serialized in the Unity scene.
+/// GDD V2: five authored branch tabs and eight authored reusable slot views.
+/// Pages expose all 90 catalog nodes without creating UI at runtime.
+/// Holding a node purchases only an implemented, demo-eligible effect.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class ScratchSkillTreeUI : MonoBehaviour
@@ -15,41 +15,42 @@ public sealed class ScratchSkillTreeUI : MonoBehaviour
     [SerializeField] private ScratchEconomyManager economy;
     [SerializeField] private ScratchGameManager game;
 
-    [Header("Four tree tabs")]
-    [SerializeField] private Button[] branchButtons = new Button[4];
-    [SerializeField] private TMP_Text[] branchLabels = new TMP_Text[4];
-    [SerializeField] private Image[] branchIcons = new Image[4];
+    [Header("Five authored tree tabs")]
+    [SerializeField] private Button[] branchButtons = new Button[5];
+    [SerializeField] private TMP_Text[] branchLabels = new TMP_Text[5];
+    [SerializeField] private Image[] branchIcons = new Image[5];
 
-    [Header("Eight nodes of the selected branch")]
+    [Header("Eight reusable authored slots per page")]
     [SerializeField] private Button[] nodeButtons = new Button[8];
     [SerializeField] private TMP_Text[] nodeLabels = new TMP_Text[8];
     [SerializeField] private Image[] nodeIcons = new Image[8];
-    // Order: 8 Gratta, 8 Scopri, 8 Incassa, 8 Fortuna.
-    // Folder names Tickets/Luck are art categories, not gameplay logic.
     [SerializeField] private Sprite[] upgradeSprites = new Sprite[32];
 
-    [Header("Node details and purchase")]
+    [Header("Authored page navigation")]
+    [SerializeField] private Button previousPageButton;
+    [SerializeField] private Button nextPageButton;
+    [SerializeField] private TMP_Text pageLabel;
+
+    [Header("Authored details and purchase display")]
     [SerializeField] private TMP_Text selectedTitle;
     [SerializeField] private TMP_Text selectedDescription;
     [SerializeField] private TMP_Text statusLabel;
     [SerializeField] private Button purchaseButton;
     [SerializeField] private TMP_Text purchaseLabel;
 
-    private ScratchSkillTree.Branch selectedBranch;
+    private int branchIndex;
+    private int pageIndex;
     private int selectedSlot;
     private bool subscribed;
-
-    private static readonly string[] branchNames =
-    {
-        "GRATTA!", "BIGLIETTI!", "INCASSA!", "FORTUNA!"
-    };
+    private const int PageSize = 8;
 
     private static readonly Color[] branchColors =
     {
-        new Color(0.26f, 0.71f, 1f),
+        new Color(0.26f, 0.71f, 1.00f),
         new Color(0.90f, 0.35f, 0.95f),
         new Color(1.00f, 0.72f, 0.29f),
-        new Color(0.33f, 0.94f, 0.60f)
+        new Color(0.33f, 0.94f, 0.60f),
+        new Color(0.63f, 0.70f, 0.96f)
     };
 
     private void Awake()
@@ -62,28 +63,30 @@ public sealed class ScratchSkillTreeUI : MonoBehaviour
     private void Start()
     {
         if (skills == null || economy == null || game == null ||
-            branchButtons == null || branchButtons.Length != 4 ||
-            nodeButtons == null || nodeButtons.Length != 8 ||
-            branchLabels == null || branchLabels.Length != 4 ||
-            nodeLabels == null || nodeLabels.Length != 8 || purchaseButton == null)
+            branchButtons == null || branchButtons.Length != 5 ||
+            branchLabels == null || branchLabels.Length != 5 ||
+            nodeButtons == null || nodeButtons.Length != PageSize ||
+            nodeLabels == null || nodeLabels.Length != PageSize ||
+            previousPageButton == null || nextPageButton == null || pageLabel == null)
         {
-            Debug.LogError("ScratchSkillTreeUI: incomplete scene references.", this);
+            Debug.LogError("ScratchSkillTreeUI V2: missing authored tab/page references; run the scene audit.", this);
             enabled = false;
             return;
         }
 
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < ScratchSkillCatalogV2.BranchCount; i++)
         {
             int branch = i;
             branchButtons[i].onClick.AddListener(() => SelectBranch(branch));
         }
-        for (int i = 0; i < 8; i++)
+        for (int i = 0; i < PageSize; i++)
         {
             int slot = i;
             nodeButtons[i].onClick.AddListener(() => SelectSlot(slot));
         }
-        // Purchasing is now performed exclusively via hold gestures on nodes.
-        purchaseButton.gameObject.SetActive(false);
+        previousPageButton.onClick.AddListener(PreviousPage);
+        nextPageButton.onClick.AddListener(NextPage);
+        if (purchaseButton != null) purchaseButton.gameObject.SetActive(false);
         skills.Changed += Refresh;
         economy.Changed += Refresh;
         game.Changed += Refresh;
@@ -93,134 +96,186 @@ public sealed class ScratchSkillTreeUI : MonoBehaviour
 
     private void OnDestroy()
     {
-        if (subscribed)
-        {
-            skills.Changed -= Refresh;
-            economy.Changed -= Refresh;
-            game.Changed -= Refresh;
-        }
-        if (branchButtons != null)
-            for (int i = 0; i < branchButtons.Length; i++)
-                if (branchButtons[i] != null) branchButtons[i].onClick.RemoveAllListeners();
-        if (nodeButtons != null)
-            for (int i = 0; i < nodeButtons.Length; i++)
-                if (nodeButtons[i] != null) nodeButtons[i].onClick.RemoveAllListeners();
-        // The old instant-buy button remains serialized but inactive.
+        if (!subscribed) return;
+        skills.Changed -= Refresh;
+        economy.Changed -= Refresh;
+        game.Changed -= Refresh;
+        for (int i = 0; i < branchButtons.Length; i++)
+            if (branchButtons[i] != null) branchButtons[i].onClick.RemoveAllListeners();
+        for (int i = 0; i < nodeButtons.Length; i++)
+            if (nodeButtons[i] != null) nodeButtons[i].onClick.RemoveAllListeners();
+        if (previousPageButton != null) previousPageButton.onClick.RemoveAllListeners();
+        if (nextPageButton != null) nextPageButton.onClick.RemoveAllListeners();
     }
+
+    public int BranchIndex => branchIndex;
+    public int PageIndex => pageIndex;
 
     public void SelectBranch(int branch)
     {
-        selectedBranch = (ScratchSkillTree.Branch)Mathf.Clamp(branch, 0, 3);
+        branchIndex = Mathf.Clamp(branch, 0, ScratchSkillCatalogV2.BranchCount - 1);
+        pageIndex = 0;
         selectedSlot = 0;
         Refresh();
     }
 
     public void SelectSlot(int slot)
     {
-        selectedSlot = Mathf.Clamp(slot, 0, 7);
+        if (slot < 0 || slot >= PageSize || EntryForSlot(slot) == null) return;
+        selectedSlot = slot;
         Refresh();
     }
 
-    public void PurchaseSelected()
+    private int PageCount => (ScratchSkillCatalogV2.CountForBranch(branchIndex) + PageSize - 1) / PageSize;
+
+    public void PreviousPage()
     {
-        if (skills.TryPurchase(CurrentId))
-            Refresh();
+        if (pageIndex <= 0) return;
+        pageIndex--;
+        selectedSlot = 0;
+        Refresh();
     }
 
-    private ScratchSkillTree.SkillId CurrentId =>
-        (ScratchSkillTree.SkillId)((int)selectedBranch * 8 + selectedSlot);
+    public void NextPage()
+    {
+        if (pageIndex >= PageCount - 1) return;
+        pageIndex++;
+        selectedSlot = 0;
+        Refresh();
+    }
 
-    public int BranchIndex => (int)selectedBranch;
+    private ScratchSkillCatalogV2.Entry EntryForSlot(int slot) =>
+        ScratchSkillCatalogV2.At(branchIndex, pageIndex * PageSize + slot);
+
+    private ScratchSkillCatalogV2.Entry SelectedEntry => EntryForSlot(selectedSlot);
 
     public bool CanHoldPurchase(int slot)
     {
-        if (skills == null || slot < 0 || slot >= 8) return false;
-        var id = (ScratchSkillTree.SkillId)((int)selectedBranch * 8 + slot);
-        return skills.CanPurchase(id);
+        ScratchSkillCatalogV2.Entry entry = slot >= 0 && slot < PageSize ? EntryForSlot(slot) : null;
+        return entry != null && skills != null && skills.CanPurchase(entry.id);
     }
 
     public void PurchaseHeldNode(int slot)
     {
         if (!CanHoldPurchase(slot)) return;
         SelectSlot(slot);
-        if (skills.TryPurchase(CurrentId)) Refresh();
+        ScratchSkillCatalogV2.Entry entry = SelectedEntry;
+        if (entry != null && skills.TryPurchase(entry.id)) Refresh();
+    }
+
+    public void PurchaseSelected()
+    {
+        ScratchSkillCatalogV2.Entry entry = SelectedEntry;
+        if (entry != null && skills.TryPurchase(entry.id)) Refresh();
+    }
+
+    private string Status(ScratchSkillCatalogV2.Entry entry, int level)
+    {
+        if (entry == null) return string.Empty;
+        if (ScratchSkillTree.DemoEdition && !entry.demoEligible)
+            return "VERSIONE COMPLETA";
+        if (!ScratchSkillCatalogV2.EffectImplemented(entry.id))
+            return "NON ANCORA IMPLEMENTATO";
+        if (level >= entry.maxLevel) return "AL MASSIMO";
+        if (!skills.RequirementsMet(entry.id)) return "REQUISITI MANCANTI";
+        if (economy.Coins < skills.GetPrice(entry.id)) return "MONETE INSUFFICIENTI";
+        return "TIENI PREMUTO - " + skills.GetPrice(entry.id).ToString("N0");
     }
 
     public void Refresh()
     {
         if (skills == null || economy == null || game == null ||
-            nodeButtons == null || nodeButtons.Length != 8)
+            nodeButtons == null || nodeButtons.Length != PageSize)
             return;
-
-        for (int branch = 0; branch < 4; branch++)
+        for (int b = 0; b < ScratchSkillCatalogV2.BranchCount; b++)
         {
-            if (branchIcons != null && branch < branchIcons.Length && branchIcons[branch] != null)
-                branchIcons[branch].color = branch == (int)selectedBranch
-                    ? Color.white : new Color(1f, 1f, 1f, 0.65f);
-            if (branchLabels[branch] != null)
+            if (branchLabels != null && b < branchLabels.Length && branchLabels[b] != null)
             {
-                branchLabels[branch].text = branchNames[branch];
-                branchLabels[branch].color = branch == (int)selectedBranch ? new Color(0.42f, 0.19f, 0.10f) : new Color(0.17f, 0.17f, 0.20f);
+                branchLabels[b].text = ScratchSkillCatalogV2.BranchNames[b];
+                branchLabels[b].color = b == branchIndex
+                    ? new Color(0.30f, 0.19f, 0.10f) : new Color(0.17f, 0.17f, 0.20f);
             }
-            if (branchButtons[branch] != null && branchButtons[branch].targetGraphic is Image tabImage)
-                tabImage.color = branch == (int)selectedBranch
-                    ? new Color(1f, 0.91f, 0.68f) : new Color(0.91f, 0.89f, 0.83f);
+            if (branchIcons != null && b < branchIcons.Length && branchIcons[b] != null)
+                branchIcons[b].color = b == branchIndex ? Color.white :
+                    new Color(1f, 1f, 1f, 0.65f);
+            if (branchButtons[b] != null && branchButtons[b].targetGraphic is Image image)
+                image.color = b == branchIndex
+                    ? new Color(1f, 0.91f, 0.68f)
+                    : new Color(0.91f, 0.89f, 0.83f);
         }
 
-        for (int index = 0; index < 8; index++)
+        for (int i = 0; i < PageSize; i++)
         {
-            ScratchSkillTree.SkillId id = (ScratchSkillTree.SkillId)((int)selectedBranch * 8 + index);
-            ScratchSkillTree.Definition def = ScratchSkillTree.All[(int)id];
-            int level = skills.GetLevel(id);
-            string state = !def.Implemented ? "IN ARRIVO!"
-                : level >= def.MaxLevel ? "AL MASSIMO!"
-                : !skills.RequirementsMet(id) ? "DA SBLOCCARE"
-                : economy.Coins < skills.GetPrice(id) ? "SERVONO PIU' MONETE"
-                : $"TIENI PREMUTO - {skills.GetPrice(id):N0} MONETE";
+            ScratchSkillCatalogV2.Entry entry = EntryForSlot(i);
+            bool exists = entry != null;
+            if (nodeButtons[i] != null)
+                nodeButtons[i].gameObject.SetActive(exists);
+            if (!exists) continue;
 
-            if (nodeIcons != null && index < nodeIcons.Length && nodeIcons[index] != null)
+            int level = skills.GetLevel(entry.id);
+            bool fullOnly = ScratchSkillTree.DemoEdition && !entry.demoEligible;
+            bool implemented = ScratchSkillCatalogV2.EffectImplemented(entry.id);
+            bool requirements = skills.RequirementsMet(entry.id);
+            if (nodeLabels[i] != null)
+                nodeLabels[i].text = entry.id + "  " + entry.title.ToUpperInvariant() +
+                    "  " + level + "/" + entry.maxLevel + "\n" + Status(entry, level);
+            if (nodeIcons != null && i < nodeIcons.Length && nodeIcons[i] != null)
             {
-                int artworkIndex = (int)id;
-                if (upgradeSprites != null && artworkIndex < upgradeSprites.Length)
-                    nodeIcons[index].sprite = upgradeSprites[artworkIndex];
-                nodeIcons[index].color = !def.Implemented
-                    ? new Color(1f, 1f, 1f, 0.38f)
-                    : !skills.RequirementsMet(id) ? new Color(1f, 1f, 1f, 0.67f)
+                // Temporary scene-authored placeholders. The GDD's 90 unique
+                // artworks will replace these before publishing the demo.
+                int artIndex = branchIndex == 4 ? 7 :
+                    branchIndex * 8 + (pageIndex * PageSize + i) % 8;
+                if (upgradeSprites != null && artIndex >= 0 &&
+                    artIndex < upgradeSprites.Length)
+                    nodeIcons[i].sprite = upgradeSprites[artIndex];
+                nodeIcons[i].color = fullOnly
+                    ? new Color(1f, 1f, 1f, 0.42f)
+                    : !implemented ? new Color(1f, 1f, 1f, 0.60f)
+                    : !requirements ? new Color(1f, 1f, 1f, 0.72f)
                     : Color.white;
             }
-            if (nodeLabels[index] != null)
-                nodeLabels[index].text = $"{def.Title.ToUpperInvariant()}  {level}/{def.MaxLevel}\n{state}";
-
-            if (nodeButtons[index] != null && nodeButtons[index].targetGraphic is Image background)
-            {
-                bool selected = index == selectedSlot;
-                background.color = selected ? new Color(1f, 0.91f, 0.69f)
-                    : level == def.MaxLevel ? new Color(0.85f, 0.94f, 0.79f)
-                    : !def.Implemented ? new Color(0.64f, 0.65f, 0.64f)
-                    : !skills.RequirementsMet(id) ? new Color(0.79f, 0.78f, 0.75f)
+            if (nodeButtons[i] != null && nodeButtons[i].targetGraphic is Image background)
+                background.color = i == selectedSlot
+                    ? new Color(1f, 0.91f, 0.69f)
+                    : fullOnly ? new Color(0.67f, 0.68f, 0.72f)
+                    : !implemented ? new Color(0.85f, 0.80f, 0.71f)
+                    : level >= entry.maxLevel ? new Color(0.85f, 0.94f, 0.79f)
+                    : !requirements ? new Color(0.79f, 0.78f, 0.75f)
                     : Color.white;
-            }
         }
 
-        ScratchSkillTree.Definition current = ScratchSkillTree.All[(int)CurrentId];
-        int owned = skills.GetLevel(CurrentId);
+        if (pageLabel != null)
+            pageLabel.text = "PAGINA " + (pageIndex + 1) + "/" + PageCount +
+                "   |   " + ScratchSkillCatalogV2.CountForBranch(branchIndex) + " ABILITA'";
+        if (previousPageButton != null) previousPageButton.interactable = pageIndex > 0;
+        if (nextPageButton != null) nextPageButton.interactable = pageIndex < PageCount - 1;
+
+        ScratchSkillCatalogV2.Entry selected = SelectedEntry;
+        if (selected == null) return;
+        int owned = skills.GetLevel(selected.id);
         if (selectedTitle != null)
-            selectedTitle.text = $"{current.Title.ToUpperInvariant()}   {owned}/{current.MaxLevel}";
+            selectedTitle.text = selected.id + "   " + selected.title.ToUpperInvariant() +
+                "   " + owned + "/" + selected.maxLevel;
         if (selectedDescription != null)
-            selectedDescription.text = current.Description + (skills.CanPurchase(CurrentId) ? "\nTIENI PREMUTO PER ACQUISTARE" : string.Empty);
-
-        string status = !current.Implemented ? "PRESTO IN ARRIVO!"
-            : owned >= current.MaxLevel ? "POTENZIAMENTO AL MASSIMO!"
-            : !skills.RequirementsMet(CurrentId) ? skills.RequirementText(CurrentId)
-            : economy.Coins < skills.GetPrice(CurrentId) ? "TI SERVONO PIU' MONETE!"
-                : "PUOI PRENDERLO! TIENI PREMUTO.";
+        {
+            selectedDescription.text = selected.description;
+            if (selected.id == "G04")
+                selectedDescription.text += "\nTasto F: attiva/disattiva il ventaglio.";
+            else if (selected.id == "G08")
+                selectedDescription.text += "\nSHIFT + grattatura: usa una carica Titanico.";
+            else if (selected.id == "F04")
+                selectedDescription.text += "\nIl JOLLY vale solo se grattato, non basta vederlo.";
+        }
         if (statusLabel != null)
+        {
+            string status = Status(selected, owned);
+            if (status == "REQUISITI MANCANTI")
+                status = skills.RequirementText(selected.id);
             statusLabel.text = status;
+        }
         if (purchaseLabel != null)
-            purchaseLabel.text = owned >= current.MaxLevel ? "AL MASSIMO!"
-                : !current.Implemented ? "IN ARRIVO"
-                : $"TIENI PREMUTO  {skills.GetPrice(CurrentId):N0}";
+            purchaseLabel.text = Status(selected, owned);
         if (purchaseButton != null)
-            purchaseButton.interactable = skills.CanPurchase(CurrentId);
+            purchaseButton.interactable = skills.CanPurchase(selected.id);
     }
 }

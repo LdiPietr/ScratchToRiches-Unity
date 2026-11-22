@@ -1,3 +1,32 @@
+## V2.9 — Demo GDD V2: catalogo 90 nodi, 24 giocabili, cinque rami (22 novembre 2026)
+
+**Scopo:** integrare il design V2 approvato senza creare UI a runtime, eliminare i blocchi degli upgrade non ancora implementati e offrire una demo dal finale basato sulle azioni invece che su un timer.
+
+**Catalogo:** la risorsa versionata `Assets/Resources/SkillCatalogV2.json` contiene esattamente 90 nodi dai dati GDD V2: 20 Grattatura, 20 Biglietti, 20 Economia, 20 Fortuna e 10 Automazione. Di questi **24 sono acquistabili nella demo** (G01–G08, C01–C06, E01–E06, F01–F04) con prezzi base, max livelli e prerequisiti del GDD; gli altri **66 rimangono visibili** ma mostrano `VERSIONE COMPLETA` e non possono consumare monete. L'automazione e' disponibile soltanto nel gioco completo, in late game e facoltativa. Il Diamante (C07) e' una prospettiva visibile nel catalogo, non acquistabile nella demo.
+
+**Scena:** cinque tab di navigazione, otto slot esistenti riutilizzati su piu' pagine, controlli `INDIETRO` e `AVANTI` e contatore pagina; tutti gli oggetti sono serializzati dentro `Assets/Scenes/ScratchToRiches.unity`, non creati a runtime. Per ora alcune icone dei nuovi nodi riutilizzano artwork esistente: **le 90 icone definitive e la revisione delle proporzioni devono ancora essere realizzate**.
+
+**Salvataggi:** chiavi di abilita' stabili `STR_GDDV2_Skill_G01` eccetera; importazione dei livelli esistenti una sola volta dai vecchi indici `STR_V2_Skill_*` con clamp al nuovo massimo. Non si tenta di importare vecchi upgrade mai implementati (per esempio il vecchio G6). I livelli dei nodi fuori demo non danno accesso a contenuti bloccati anche se salvati in precedenza. Reset progressi cancella sia i vecchi dati sia quelli nuovi.
+
+**Meccaniche disponibili nella demo:**
+- G01–G03 e G05: pennello piu' largo, primo tocco, strisce parallele, primo colpo (controlli e parametri GDD)
+- G04: modalita' a ventaglio manuale; **tasto F** per attivarla/disattivarla
+- G06: soglia 85% → 80% → 75%, senza grattatura automatica
+- G07: un gesto continuo puo' proseguire fra **caselle gia' selezionate**, senza superare il numero massimo di scelte
+- G08 — **Colpo titanico**: una carica gratuita appena acquistato; tenere **SHIFT mentre si gratta** per attivarla manualmente, raggio x2.5 e tre strisce extra, una nuova carica ogni cinque caselle completate (fino a tre conservate)
+- C01–C06: progressione delle anteprime reali 1/2/3/5, Fortunato e Dorato
+- E01–E04: incrementi dei premi; E05 compensazione sulle sconfitte, E06 bonus per vincite consecutive fino a +20%
+- F01–F03: un simbolo favorito scelto a caso per ogni biglietto, pesi crescenti 1.15 / 1.35 / 1.60
+- F04 — **Segno jolly**: jolly reale sul biglietto, conteggiato come simbolo della combinazione vincente soltanto se grattato; i primi tre Dorato acquistati dopo l'abilita' hanno un jolly garantito e mostrato da una anteprima gratuita. Successivamente 10% di probabilita' di generare un jolly per biglietto. Temporaneamente il jolly usa un testo TMP `JOLLY` dietro la copertura; sprite esclusivo ancora da produrre.
+
+**Finale demo:** si attiva dopo G08 o F04; dopo *tre nuovi Dorato completamente grattati* e almeno un uso effettivo dell'abilita' finale mostra `DemoEndOverlay` nella scena, blocca il proseguimento e mantiene il salvataggio. Nessun timer arbitrario. I tre Dorato iniziano a contare soltanto quando acquistati **dopo** il capstone.
+
+**Editor QA:** `Tools > Scratch to Riches > Audit V2 Scene` verifica catalogo, cinque schede, paginazione e riferimenti; l'autoplay legacy e' limitato a Classico/Fortunato/Dorato perche' il Diamante e' fuori demo. Il vecchio autoplay non e' una misura della durata della nuova demo e non esercita i potenziamenti finali; servono un test mirato dei capstone e un playtest umano per certificare l'obiettivo di **20–25 minuti**.
+
+**Stato della verifica:** sorgenti e YAML sono sottoposti a controlli statici e strutturali sul repository. **Compilazione e Play Mode nella versione Unity del progetto non sono ancora stati eseguiti**, quindi la revisione non va ancora considerata una build pronta da distribuire.
+
+---
+
 # Scratch to Riches
 
 ## V2.8 — Riserva economica per biglietti e recupero dopo le perdite (22 novembre 2026)

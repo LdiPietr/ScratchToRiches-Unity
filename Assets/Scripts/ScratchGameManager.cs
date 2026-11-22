@@ -32,6 +32,19 @@ public sealed class ScratchGameManager : MonoBehaviour
     [SerializeField] private TMP_Text roundActionLabel;
     [SerializeField] private GameObject skillTreePanel;
     [SerializeField] private ScratchFlowPresentation presentation;
+    [Header("Authored demo ending - hidden until milestone")]
+    [SerializeField] private GameObject demoEndOverlay;
+    private const string DemoActiveKey = "STR_GDDV2_DemoCapstoneActive";
+    private const string DemoGoldKey = "STR_GDDV2_DemoGoldTickets";
+    private const string DemoTitanBaseKey = "STR_GDDV2_DemoTitanBaseline";
+    private const string DemoJollyBaseKey = "STR_GDDV2_DemoJollyBaseline";
+    private const string DemoDoneKey = "STR_GDDV2_DemoFinished";
+    private bool demoCapstoneActive;
+    private bool demoFinished;
+    private int demoGoldCompleted;
+    private int demoExcludedTicketId = -1;
+    private int titanActivationBaseline;
+    private int jollyActivationBaseline;
 
     private readonly HashSet<ScratchCell> selectedCells = new HashSet<ScratchCell>();
     private RoundState state = RoundState.Ready;
@@ -54,6 +67,8 @@ public sealed class ScratchGameManager : MonoBehaviour
     public int TicketNumber => ticketNumberInRun;
     public int TicketsCompleted => ticketsCompleted;
     public int TicketPayout => ticketPayout;
+    public bool DemoFinished => demoFinished;
+    public int DemoFinalGoldTickets => demoGoldCompleted;
     public TicketKind CurrentTicketKind => currentTicketKind;
     public bool WaitingForTicketChoice => state == RoundState.Playing && !ticketActive && ticketNumberInRun > 0;
 
@@ -152,6 +167,13 @@ public sealed class ScratchGameManager : MonoBehaviour
 
     private void Awake()
     {
+        demoCapstoneActive = PlayerPrefs.GetInt(DemoActiveKey, 0) == 1;
+        demoGoldCompleted = Mathf.Clamp(PlayerPrefs.GetInt(DemoGoldKey, 0), 0, 3);
+        titanActivationBaseline = Mathf.Max(0, PlayerPrefs.GetInt(DemoTitanBaseKey, 0));
+        jollyActivationBaseline = Mathf.Max(0, PlayerPrefs.GetInt(DemoJollyBaseKey, 0));
+        demoFinished = PlayerPrefs.GetInt(DemoDoneKey, 0) == 1;
+        if (demoFinished) state = RoundState.Finished;
+        if (demoEndOverlay != null) demoEndOverlay.SetActive(demoFinished);
         if (cellManager == null) cellManager = GetComponent<ScratchCellManager>();
         if (symbolManager == null) symbolManager = GetComponent<ScratchSymbolManager>();
         if (economyManager == null) economyManager = GetComponent<ScratchEconomyManager>();
@@ -174,6 +196,9 @@ public sealed class ScratchGameManager : MonoBehaviour
         }
         cellManager.CollectCells();
         cellManager.ConfigureGrid(3);
+        if (!demoCapstoneActive && skillTree != null &&
+            (skillTree.GetLevel("G08") > 0 || skillTree.GetLevel("F04") > 0))
+            OnDemoCapstonePurchased();
         RefreshHud();
     }
 
@@ -190,6 +215,38 @@ public sealed class ScratchGameManager : MonoBehaviour
         else if (state == RoundState.Playing && ticketActive &&
                  (presentation == null || presentation.CanScratch))
             FinishTicket(RoundEndReason.PlayerEnded);
+    }
+
+    public void OnDemoCapstonePurchased()
+    {
+        if (!ScratchSkillTree.DemoEdition || demoCapstoneActive || demoFinished)
+            return;
+        demoCapstoneActive = true;
+        demoGoldCompleted = 0;
+        // A ticket that was already running when the capstone was bought
+        // is NOT one of the three post-purchase Gold tickets.
+        demoExcludedTicketId = ticketActive ? currentTicketId : -1;
+        titanActivationBaseline = skillTree != null ? skillTree.TitanActivationCount : 0;
+        jollyActivationBaseline = skillTree != null ? skillTree.JollyActivationCount : 0;
+        PlayerPrefs.SetInt(DemoActiveKey, 1);
+        PlayerPrefs.SetInt(DemoGoldKey, 0);
+        PlayerPrefs.SetInt(DemoTitanBaseKey, titanActivationBaseline);
+        PlayerPrefs.SetInt(DemoJollyBaseKey, jollyActivationBaseline);
+        PlayerPrefs.Save();
+    }
+
+    public void ResetDemoMilestone()
+    {
+        demoCapstoneActive = demoFinished = false;
+        demoGoldCompleted = titanActivationBaseline = jollyActivationBaseline = 0;
+        demoExcludedTicketId = -1;
+        foreach (string key in new[] { DemoActiveKey, DemoGoldKey,
+            DemoTitanBaseKey, DemoJollyBaseKey, DemoDoneKey })
+            PlayerPrefs.DeleteKey(key);
+        if (state == RoundState.Finished) state = RoundState.Ready;
+        if (demoEndOverlay != null) demoEndOverlay.SetActive(false);
+        PlayerPrefs.Save();
+        RefreshHud();
     }
 
     /// <summary>Starts the unlimited game session with a free Classic ticket.</summary>
@@ -246,7 +303,7 @@ public sealed class ScratchGameManager : MonoBehaviour
         cellManager.ResetAllCells();
         internalReset = false;
 
-        if (!symbolManager.GenerateRound(SymbolPoolSize(kind)))
+        if (!symbolManager.GenerateRound(SymbolPoolSize(kind), kind))
         {
             Debug.LogError("V2: could not generate a scratch ticket.", this);
             if (ticketNumberInRun == 0) state = RoundState.Ready;
@@ -266,6 +323,8 @@ public sealed class ScratchGameManager : MonoBehaviour
         }
 
         currentTicketKind = kind;
+        if (symbolManager.GuaranteedJollyThisTicket && kind == TicketKind.Gold)
+            skillTree?.OnGoldenJollyTicketPurchased();
         currentTicketId++;
         ticketNumberInRun++;
         ticketActive = true;
@@ -276,6 +335,9 @@ public sealed class ScratchGameManager : MonoBehaviour
         RefreshHud();
         return true;
     }
+
+    public bool IsCellSelected(ScratchCell cell) =>
+        cell != null && selectedCells.Contains(cell);
 
     public bool TrySelectCell(ScratchCell cell)
     {
@@ -298,8 +360,13 @@ public sealed class ScratchGameManager : MonoBehaviour
 
     public void OnCellCompleted(ScratchCell cell)
     {
-        if (state != RoundState.Playing || !ticketActive || !selectedCells.Contains(cell))
+        if (state != RoundState.Playing || !ticketActive || !selectedCells.Contains(cell) ||
+            cell == null || !cell.IsComplete)
             return;
+        // Complete() calls only once; duplicate callbacks after settlement cannot recharge.
+        skillTree?.OnCompletedScratchCell();
+        if (symbolManager != null && cell == symbolManager.JollyCell)
+            skillTree?.OnJollyScratched();
         if (selectedCells.Count == MaxScratches && RevealedCount == MaxScratches)
             FinishTicket(RoundEndReason.AllCellsRevealed);
         else
@@ -337,13 +404,30 @@ public sealed class ScratchGameManager : MonoBehaviour
         {
             settledMatch = default;
             ticketPayout = economyManager.SettleTicket(currentTicketId, settledMatch, false,
-                TicketPrize(currentTicketKind));
+                TicketPrize(currentTicketKind), TicketPrice(currentTicketKind));
         }
         else
         {
             ticketPayout = economyManager.SettleTicket(currentTicketId, settledMatch, fullyCompleted,
-                TicketPrize(currentTicketKind));
+                TicketPrize(currentTicketKind), TicketPrice(currentTicketKind));
             if (fullyCompleted) ticketsCompleted++;
+        }
+        if (!ticketVoided && fullyCompleted && currentTicketKind == TicketKind.Gold &&
+            demoCapstoneActive && !demoFinished && currentTicketId != demoExcludedTicketId)
+        {
+            demoGoldCompleted = Mathf.Min(3, demoGoldCompleted + 1);
+            PlayerPrefs.SetInt(DemoGoldKey, demoGoldCompleted);
+            bool activated = skillTree != null &&
+                (skillTree.TitanActivationCount > titanActivationBaseline ||
+                 skillTree.JollyActivationCount > jollyActivationBaseline);
+            if (demoGoldCompleted >= 3 && activated)
+            {
+                demoFinished = true;
+                state = RoundState.Finished;
+                PlayerPrefs.SetInt(DemoDoneKey, 1);
+                if (demoEndOverlay != null) demoEndOverlay.SetActive(true);
+            }
+            PlayerPrefs.Save();
         }
         RefreshHud();
     }
@@ -359,9 +443,12 @@ public sealed class ScratchGameManager : MonoBehaviour
             Level(ScratchSkillTree.SkillId.C2) > 0 ? 2 :
             Level(ScratchSkillTree.SkillId.C1) > 0 ? 1 : 0;
 
-        // Unique random positions, not always the top-left corner.
+        // The joker preview from F04 is an EXTRA free preview. Never waste one
+        // of the regular C-branch preview slots on the same cell.
+        ScratchCell joker = symbolManager != null ? symbolManager.JollyCell : null;
         List<int> available = new List<int>(cells.Length);
-        for (int i = 0; i < cells.Length; i++) available.Add(i);
+        for (int i = 0; i < cells.Length; i++)
+            if (cells[i] != joker) available.Add(i);
         for (int i = 0; i < Mathf.Min(count, cells.Length); i++)
         {
             int chosen = UnityEngine.Random.Range(0, available.Count);
@@ -370,16 +457,23 @@ public sealed class ScratchGameManager : MonoBehaviour
             if (symbolManager.TryGetSymbol(cell, out string symbol))
                 cell.SetPreview(symbol);
         }
+        if (joker != null && symbolManager.GuaranteedJollyThisTicket)
+            joker.SetPreview("JOLLY");
     }
 
     private void RefreshHud()
     {
         UpdateTimerText();
         if (scratchProgress != null)
+        {
             scratchProgress.text = $"SCELTE {selectedCells.Count}/{MaxScratches}   |   GRATTATE {RevealedCount}/{MaxScratches}";
+            if (skillTree != null && skillTree.GetLevel("G08") > 0)
+                scratchProgress.text += "   |   SHIFT+GRATTA: TITANICO " + skillTree.TitanCharges;
+        }
 
         if (roundActionLabel != null)
             roundActionLabel.text = state == RoundState.Ready ? "SI PARTE!"
+                : state == RoundState.Finished ? "FINE DEMO"
                 : ticketActive ? "PASSA OLTRE" : "SCEGLI IL BIGLIETTO";
 
         if (roundActionButton != null)
@@ -389,7 +483,9 @@ public sealed class ScratchGameManager : MonoBehaviour
         {
             ScratchSymbolManager.MatchResult match = CurrentMatch;
             string win = CombinationName(match.Tier);
-            matchResultText.text = state == RoundState.Ready ? "PRONTO A FARE IL COLPACCIO?"
+            matchResultText.text = state == RoundState.Finished
+                ? "DEMO COMPLETATA! SEI APPENA DIVENTATO INARRESTABILE."
+                : state == RoundState.Ready ? "PRONTO A FARE IL COLPACCIO?"
                 : ticketActive
                     ? match.IsMatch ? $"{win} x{match.Multiplier} - {match.Symbol}" : "CERCA I SIMBOLI UGUALI!"
                 : match.IsMatch ? $"{win} x{match.Multiplier} +{ticketPayout} MONETE"
@@ -398,7 +494,9 @@ public sealed class ScratchGameManager : MonoBehaviour
         }
 
         if (boardSubtitle != null)
-            boardSubtitle.text = state == RoundState.Ready
+            boardSubtitle.text = state == RoundState.Finished
+                ? "FINE DEMO - L'ALBERO COMPLETO TI ASPETTA NEL GIOCO FINALE!"
+                : state == RoundState.Ready
                 ? "Gratta senza tempo limite, migliora le abilita' e sblocca biglietti!"
                 : ticketActive
                     ? ticketVoided ? "Questo biglietto di prova non assegna premi."

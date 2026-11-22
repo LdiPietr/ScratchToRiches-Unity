@@ -50,6 +50,9 @@ public sealed class ScratchSymbolManager : MonoBehaviour
 
     private readonly Dictionary<ScratchCell, int> currentSymbols = new Dictionary<ScratchCell, int>();
     private int[] previousLayout;
+    private const int JollyId = 7;
+    public ScratchCell JollyCell { get; private set; }
+    public bool GuaranteedJollyThisTicket { get; private set; }
 
     public int SymbolCount => symbolLabels == null ? 0 : symbolLabels.Length;
 
@@ -57,9 +60,9 @@ public sealed class ScratchSymbolManager : MonoBehaviour
     {
         label = string.Empty;
         if (cell == null || !currentSymbols.TryGetValue(cell, out int id) ||
-            symbolLabels == null || id < 0 || id >= symbolLabels.Length)
+            symbolLabels == null || id < 0 || id > JollyId)
             return false;
-        label = symbolLabels[id];
+        label = id == JollyId ? "JOLLY" : symbolLabels[id];
         return true;
     }
 
@@ -67,7 +70,8 @@ public sealed class ScratchSymbolManager : MonoBehaviour
     /// One call per new ticket; all active symbols remain fixed until the next ticket.
     /// Ensures that two consecutive RANDOM full boards cannot be identical.
     /// </summary>
-    public bool GenerateRound(int poolSize = 7)
+    public bool GenerateRound(int poolSize = 7,
+        ScratchGameManager.TicketKind ticketKind = ScratchGameManager.TicketKind.Standard)
     {
         if (cellManager == null)
             cellManager = GetComponent<ScratchCellManager>();
@@ -133,8 +137,29 @@ public sealed class ScratchSymbolManager : MonoBehaviour
             int temp = pool[i]; pool[i] = pool[pick]; pool[pick] = temp;
         }
         int[] layout = new int[cells.Length];
+        ScratchSkillTree skillTree = GetComponent<ScratchSkillTree>();
+        float favoredWeight = skillTree != null && skillTree.GetLevel(ScratchSkillTree.SkillId.F3) > 0
+            ? 1.60f : skillTree != null && skillTree.GetLevel(ScratchSkillTree.SkillId.F2) > 0
+            ? 1.35f : skillTree != null && skillTree.GetLevel(ScratchSkillTree.SkillId.F1) > 0
+            ? 1.15f : 1f;
+        int favoredIndex = UnityEngine.Random.Range(0, poolSize);
         for (int i = 0; i < layout.Length; i++)
-            layout[i] = pool[UnityEngine.Random.Range(0, poolSize)];
+        {
+            if (favoredWeight <= 1f)
+            {
+                layout[i] = pool[UnityEngine.Random.Range(0, poolSize)];
+                continue;
+            }
+            // One favored symbol per ticket; outcomes are still random.
+            float roll = UnityEngine.Random.value * (poolSize - 1f + favoredWeight);
+            int selected = pool[poolSize - 1];
+            for (int j = 0; j < poolSize; j++)
+            {
+                roll -= j == favoredIndex ? favoredWeight : 1f;
+                if (roll < 0f) { selected = pool[j]; break; }
+            }
+            layout[i] = selected;
+        }
 
 #if UNITY_EDITOR
         bool forced = editorTestPattern != TestPattern.Random;
@@ -158,11 +183,36 @@ public sealed class ScratchSymbolManager : MonoBehaviour
                 layout[0] = pool[(Array.IndexOf(pool, layout[0]) + 1) % poolSize];
         }
 
+        JollyCell = null;
+        GuaranteedJollyThisTicket = false;
+        ScratchSkillTree activeSkills = GetComponent<ScratchSkillTree>();
+        if (activeSkills != null && activeSkills.GetLevel("F04") > 0)
+        {
+            bool allowedToAddJolly = true;
+#if UNITY_EDITOR
+            allowedToAddJolly = editorTestPattern == TestPattern.Random;
+#endif
+            if (allowedToAddJolly)
+            {
+                GuaranteedJollyThisTicket =
+                    ticketKind == ScratchGameManager.TicketKind.Gold &&
+                    activeSkills.JollyGoldGuaranteesRemaining > 0;
+                if (GuaranteedJollyThisTicket || UnityEngine.Random.value < 0.10f)
+                    layout[UnityEngine.Random.Range(0, layout.Length)] = JollyId;
+            }
+        }
+
         currentSymbols.Clear();
         for (int i = 0; i < cells.Length; i++)
         {
             currentSymbols.Add(cells[i], layout[i]);
-            cells[i].SetSymbol(symbolLabels[layout[i]], symbolSprites[layout[i]]);
+            if (layout[i] == JollyId)
+            {
+                JollyCell = cells[i];
+                cells[i].SetSymbol("JOLLY", null);
+            }
+            else
+                cells[i].SetSymbol(symbolLabels[layout[i]], symbolSprites[layout[i]]);
         }
 
         previousLayout = (int[])layout.Clone();
@@ -181,12 +231,18 @@ public sealed class ScratchSymbolManager : MonoBehaviour
         Dictionary<int, int> counts = new Dictionary<int, int>();
         int bestSymbol = -1;
         int bestCount = 0;
+        int scratchedJollies = 0;
 
         foreach (ScratchCell cell in selectedCells)
         {
             if (cell == null || !cell.IsComplete || !currentSymbols.TryGetValue(cell, out int symbol))
                 continue;
 
+            if (symbol == JollyId)
+            {
+                scratchedJollies++;
+                continue;
+            }
             counts.TryGetValue(symbol, out int count);
             count++;
             counts[symbol] = count;
@@ -198,6 +254,9 @@ public sealed class ScratchSymbolManager : MonoBehaviour
             }
         }
 
+        // A scratched joker counts as the strongest other revealed symbol,
+        // but the un-scratched joker never counts.
+        if (bestSymbol >= 0) bestCount += scratchedJollies;
         MatchTier tier = bestCount >= 5 ? MatchTier.Five
             : bestCount == 4 ? MatchTier.Poker
             : bestCount == 3 ? MatchTier.Triple

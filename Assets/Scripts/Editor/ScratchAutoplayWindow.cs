@@ -51,9 +51,9 @@ public sealed class ScratchAutoplayWindow : EditorWindow
             ScratchSkillTree.SkillId.G2, ScratchSkillTree.SkillId.G3,
             ScratchSkillTree.SkillId.C1, ScratchSkillTree.SkillId.C2,
             ScratchSkillTree.SkillId.C3 },
-        new[] { ScratchSkillTree.SkillId.G3, ScratchSkillTree.SkillId.G4,
-            ScratchSkillTree.SkillId.G5, ScratchSkillTree.SkillId.C4,
-            ScratchSkillTree.SkillId.C5 },
+        // G04/G07 are not yet implemented in the scene; this legacy functional
+        // tester covers ticket mechanics, not the new demo capstone.
+        new[] { ScratchSkillTree.SkillId.C4, ScratchSkillTree.SkillId.C5 },
         new[] { ScratchSkillTree.SkillId.C6, ScratchSkillTree.SkillId.E1,
             ScratchSkillTree.SkillId.E1, ScratchSkillTree.SkillId.E1,
             ScratchSkillTree.SkillId.E2, ScratchSkillTree.SkillId.E3,
@@ -154,7 +154,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         }
 
         if (!EditorUtility.DisplayDialog("Reset Scratch to Riches V2",
-                "Eliminare tutte le monete e i 32 livelli salvati? Questa azione e' irreversibile.", "RESET", "Annulla"))
+                "Eliminare tutte le monete e i livelli delle 90 abilita' salvati? Questa azione e' irreversibile.", "RESET", "Annulla"))
             return;
 
         PlayerPrefs.DeleteKey("STR_M5_Wallet");
@@ -164,8 +164,20 @@ public sealed class ScratchAutoplayWindow : EditorWindow
             PlayerPrefs.DeleteKey("STR_V2_Skill_" + i);
             PlayerPrefs.DeleteKey("STR_M5_Skill_" + i);
         }
+        foreach (ScratchSkillCatalogV2.Entry entry in ScratchSkillCatalogV2.All)
+            PlayerPrefs.DeleteKey("STR_GDDV2_Skill_" + entry.id);
+        foreach (string key in new[]
+        {
+            "STR_GDDV2_Migrated_01", "STR_GDDV2_TitanCharges",
+            "STR_GDDV2_TitanProgress", "STR_GDDV2_TitanUsed",
+            "STR_GDDV2_JollyGoldBonus", "STR_GDDV2_JollyUsed",
+            "STR_GDDV2_WinStreak", "STR_GDDV2_DemoCapstoneActive",
+            "STR_GDDV2_DemoGoldTickets", "STR_GDDV2_DemoTitanBaseline",
+            "STR_GDDV2_DemoJollyBaseline", "STR_GDDV2_DemoFinished"
+        })
+            PlayerPrefs.DeleteKey(key);
         PlayerPrefs.Save();
-        Debug.Log("STR V2: wallet e progressione resettati. Avvia Play Mode per iniziare da zero.");
+        Debug.Log("STR V2: wallet e 90 abilita' resettati. Avvia Play Mode per iniziare da zero.");
     }
 
     private void OnEnable()
@@ -188,10 +200,10 @@ public sealed class ScratchAutoplayWindow : EditorWindow
 
     private void OnGUI()
     {
-        EditorGUILayout.LabelField("TEST COMPLETO DEI QUATTRO BIGLIETTI", EditorStyles.boldLabel);
+        EditorGUILayout.LabelField("TEST BIGLIETTI DISPONIBILI NELLA DEMO", EditorStyles.boldLabel);
         EditorGUILayout.HelpBox(
             "Avvia la scena in Play Mode. Il test usa vere grattate UI e acquisti tramite pressione prolungata. " +
-            "Si ferma da solo dopo Classico, Fortunato, Dorato e Diamante.", MessageType.Info);
+            "Si ferma dopo Classico, Fortunato e Dorato: Diamante e' visibile ma bloccato nella demo.", MessageType.Info);
 
         using (new EditorGUI.DisabledScope(running))
         {
@@ -250,7 +262,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
 
         GUILayout.Space(8);
         EditorGUILayout.LabelField("Stato: " + lastStatus, EditorStyles.wordWrappedLabel);
-        EditorGUILayout.LabelField("Biglietti test: " + tickets + " / 18  |  Farm: " + farmTickets);
+        EditorGUILayout.LabelField("Biglietti test: " + tickets + " / 13  |  Farm: " + farmTickets);
         EditorGUILayout.LabelField("Partite casuali: " + naturalTicketsPlayed +
             " | QA forzate: " + forcedTicketsPlayed);
         EditorGUILayout.LabelField("Primi movimenti diversi: " + uniqueFirstChoices.Count);
@@ -729,12 +741,12 @@ public sealed class ScratchAutoplayWindow : EditorWindow
             ChooseNext(now);
             return;
         }
-        if (stage == 3)
+        if (stage == 2)
         {
             Finish(assertionsFailed == 0,
                 autoplayMode == AutoplayMode.SimulazioneReale
-                    ? "18 biglietti casuali su quattro categorie, con sblocchi completati; nessuna combinazione forzata."
-                    : "Completati tutti e quattro i biglietti e i test combinazione forzata.");
+                    ? "13 biglietti casuali su tre categorie demo; nessuna combinazione forzata."
+                    : "Completati tre tier della demo e i test combinazione forzata.");
             return;
         }
         stage++;
@@ -1202,7 +1214,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
             "Seed effettivo: " + actualSeed + "\n" +
             "Seed nuovo a ogni avvio: " + freshSeedEachRun + "\n" +
             "Durata reale (s): " + (Time.realtimeSinceStartup - startedAt).ToString("F2", CultureInfo.InvariantCulture) + "\n" +
-            "Biglietti di test: " + tickets + "/18\n" +
+            "Biglietti di test: " + tickets + "/13\n" +
             "Biglietti farm: " + farmTickets + "\n" +
             "Biglietti giocati totali: " + (tickets + farmTickets) + "\n" +
             "Biglietti con combinazione NON forzata: " + naturalTicketsPlayed + "\n" +

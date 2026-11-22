@@ -21,7 +21,9 @@ public sealed class ScratchEconomyManager : MonoBehaviour
     private long totalEarned;
     private int lastSettledTicketId;
     private int lastTicketWin;
+    private int consecutiveWinningTickets;
     private ScratchSkillTree skills;
+    private const string StreakKey = "STR_GDDV2_WinStreak";
 
     public event Action Changed;
     public int Coins => coins;
@@ -37,6 +39,7 @@ public sealed class ScratchEconomyManager : MonoBehaviour
         long.TryParse(PlayerPrefs.GetString(TotalKey, "0"), out totalEarned);
         lastSettledTicketId = 0;
         lastTicketWin = 0;
+        consecutiveWinningTickets = Mathf.Clamp(PlayerPrefs.GetInt(StreakKey, 0), 0, 4);
         RefreshWallet();
     }
 
@@ -48,7 +51,7 @@ public sealed class ScratchEconomyManager : MonoBehaviour
 
     /// <summary>One M3 match per ticket, never one reward per scratch gesture.</summary>
     public int SettleTicket(int ticketId, ScratchSymbolManager.MatchResult match,
-        bool allPicksCompleted, int ticketBasePrize = 0)
+        bool allPicksCompleted, int ticketBasePrize = 0, int ticketPrice = 0)
     {
         if (ticketId <= 0 || ticketId <= lastSettledTicketId)
             return 0;
@@ -67,11 +70,19 @@ public sealed class ScratchEconomyManager : MonoBehaviour
                     : (match.Tier == ScratchSymbolManager.MatchTier.Poker || match.Tier == ScratchSymbolManager.MatchTier.Five)
                         ? 1.0 + 0.2 * Level(ScratchSkillTree.SkillId.E4) : 1.0;
             long requested = (long)Math.Ceiling(rewardBase * (double)match.Multiplier * multiplier);
+            if (Level(ScratchSkillTree.SkillId.E6) > 0 && consecutiveWinningTickets > 0)
+                requested = (long)Math.Ceiling(requested *
+                    (1.0 + 0.05 * Mathf.Min(4, consecutiveWinningTickets)));
             AwardCoins(requested);
+            consecutiveWinningTickets = Mathf.Min(4, consecutiveWinningTickets + 1);
         }
-        else if (allPicksCompleted)
+        else
         {
-            AwardCoins(3L * Level(ScratchSkillTree.SkillId.E5));
+            consecutiveWinningTickets = 0;
+            int parachuteLevel = Level(ScratchSkillTree.SkillId.E5);
+            if (allPicksCompleted && parachuteLevel > 0)
+                AwardCoins(3L * parachuteLevel +
+                    (long)Math.Ceiling(Math.Max(0, ticketPrice) * 0.2));
         }
 
         Save();
@@ -120,6 +131,8 @@ public sealed class ScratchEconomyManager : MonoBehaviour
         totalEarned = 0;
         lastTicketWin = 0;
         lastSettledTicketId = 0;
+        consecutiveWinningTickets = 0;
+        PlayerPrefs.DeleteKey(StreakKey);
         PlayerPrefs.DeleteKey(WalletKey);
         PlayerPrefs.DeleteKey(TotalKey);
         PlayerPrefs.Save();
@@ -146,6 +159,7 @@ public sealed class ScratchEconomyManager : MonoBehaviour
     private void Save()
     {
         PlayerPrefs.SetInt(WalletKey, coins);
+        PlayerPrefs.SetInt(StreakKey, consecutiveWinningTickets);
         PlayerPrefs.SetString(TotalKey, totalEarned.ToString());
         PlayerPrefs.Save();
     }
