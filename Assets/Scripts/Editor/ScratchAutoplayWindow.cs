@@ -581,18 +581,25 @@ public sealed class ScratchAutoplayWindow : EditorWindow
     {
         double rewardBase = game.TicketPrize(game.CurrentTicketKind) +
             2 * skills.GetLevel(ScratchSkillTree.SkillId.E1);
-        double consolation = 3 * skills.GetLevel(ScratchSkillTree.SkillId.E5);
+        int e5 = skills.GetLevel(ScratchSkillTree.SkillId.E5);
+        double consolation = e5 > 0 ? 3 * e5 +
+            Math.Ceiling(Math.Max(0, ticketCost) * 0.2) : 0;
         double pair = Math.Ceiling(rewardBase * 2 *
             (1.0 + 0.1 * skills.GetLevel(ScratchSkillTree.SkillId.E2)));
         double triple = Math.Ceiling(rewardBase * 3 *
             (1.0 + 0.15 * skills.GetLevel(ScratchSkillTree.SkillId.E3)));
         double betterBonus = 1.0 + 0.2 * skills.GetLevel(ScratchSkillTree.SkillId.E4);
-        return new[]
+        double poker = Math.Ceiling(rewardBase * 4 * betterBonus);
+        double five = Math.Ceiling(rewardBase * 5 * betterBonus);
+        if (skills.GetLevel(ScratchSkillTree.SkillId.E6) > 0 && streakBeforeTicket > 0)
         {
-            consolation, consolation, pair, triple,
-            Math.Ceiling(rewardBase * 4 * betterBonus),
-            Math.Ceiling(rewardBase * 5 * betterBonus)
-        };
+            double streakBonus = 1.0 + 0.05 * Mathf.Min(4, streakBeforeTicket);
+            pair = Math.Ceiling(pair * streakBonus);
+            triple = Math.Ceiling(triple * streakBonus);
+            poker = Math.Ceiling(poker * streakBonus);
+            five = Math.Ceiling(five * streakBonus);
+        }
+        return new[] { consolation, consolation, pair, triple, poker, five };
     }
 
     private static string EvText(double value) => double.IsNegativeInfinity(value) ? "n/a" :
@@ -815,7 +822,11 @@ public sealed class ScratchAutoplayWindow : EditorWindow
     {
         var match = game.CurrentMatch;
         if (!match.IsMatch)
-            return 3 * skills.GetLevel(ScratchSkillTree.SkillId.E5);
+        {
+            int level = skills.GetLevel(ScratchSkillTree.SkillId.E5);
+            return level > 0 ? 3 * level +
+                (int)Math.Ceiling(Math.Max(0, ticketCost) * 0.2) : 0;
+        }
         int rewardBase = game.TicketPrize(game.CurrentTicketKind) +
             2 * skills.GetLevel(ScratchSkillTree.SkillId.E1);
         double extra = match.Tier == ScratchSymbolManager.MatchTier.Pair
@@ -823,7 +834,10 @@ public sealed class ScratchAutoplayWindow : EditorWindow
             : match.Tier == ScratchSymbolManager.MatchTier.Triple
                 ? 1.0 + 0.15 * skills.GetLevel(ScratchSkillTree.SkillId.E3)
                 : 1.0 + 0.2 * skills.GetLevel(ScratchSkillTree.SkillId.E4);
-        return (int)Math.Ceiling(rewardBase * match.Multiplier * extra);
+        double payout = Math.Ceiling(rewardBase * match.Multiplier * extra);
+        if (skills.GetLevel(ScratchSkillTree.SkillId.E6) > 0 && streakBeforeTicket > 0)
+            payout = Math.Ceiling(payout * (1.0 + 0.05 * Mathf.Min(4, streakBeforeTicket)));
+        return (int)Math.Min(int.MaxValue, payout);
     }
 
     private void WaitChoice(float now)
@@ -871,6 +885,130 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         patternIndex = 0;
         purchaseIndex = 0;
         ChangePhase(Phase.OpenShop, (0.5f + (float)random.NextDouble()) / humanSpeed);
+    }
+
+    /// <summary>
+    /// Unlike the legacy 13-ticket QA, the full-demo run continuously earns
+    /// the money for the next planned upgrade and then uses the authored shop.
+    /// It never adds currency, forces outcomes, or grants upgrades directly.
+    /// </summary>
+    private void ContinueFullDemo(float now)
+    {
+        UpdateFullDemoTicketTier();
+        if (purchaseIndex >= FullDemoPlan.Length)
+        {
+            if (skills.GetLevel("F04") == 0)
+            {
+                Fail("Piano terminato senza acquisto del capstone F04.");
+                return;
+            }
+            ChooseNext(now);
+            return;
+        }
+
+        ScratchSkillTree.SkillId next = FullDemoPlan[purchaseIndex];
+        if (!skills.RequirementsMet(next))
+        {
+            Fail("Prerequisiti non soddisfatti per " + next + ": " + skills.RequirementText(next));
+            return;
+        }
+        int required = FundsNeededForNextPurchase();
+        if (economy.Coins < required)
+        {
+            farming = true;
+            farmingForTicket = false;
+            Note("FARM_START", "next=" + next + ";required=" + required +
+                ";wallet=" + economy.Coins + ";remaining_steps=" +
+                (FullDemoPlan.Length - purchaseIndex));
+            lastStatus = "Progressione " + (purchaseIndex + 1) + "/" + FullDemoPlan.Length +
+                ": risparmio per " + next + " (serve " + required + ")";
+            ChooseFarmTicket(now);
+            return;
+        }
+
+        ChangePhase(Phase.OpenShop, (0.3f + (float)random.NextDouble() * 0.3f) / humanSpeed);
+    }
+
+    private void UpdateFullDemoTicketTier()
+    {
+        if (!IsFullDemo) return;
+        stage = game.IsTicketUnlocked(ScratchGameManager.TicketKind.Gold) ? 2 :
+            game.IsTicketUnlocked(ScratchGameManager.TicketKind.Fortunato) ? 1 : 0;
+    }
+
+    private int CountOwnedDemoSkills()
+    {
+        int count = 0;
+        foreach (ScratchSkillCatalogV2.Entry entry in ScratchSkillCatalogV2.All)
+            if (entry.demoEligible && skills.GetLevel(entry.id) > 0) count++;
+        return count;
+    }
+
+    private void ProgressEvent(string eventName, string skillId, int level, int price, string details)
+    {
+        float elapsed = Time.realtimeSinceStartup - startedAt;
+        if (eventName == "SKILL_PURCHASED" &&
+            (skillId == "C03" || skillId == "C05" || skillId == "G08" || skillId == "F04"))
+            milestoneSeconds[skillId] = elapsed;
+        progression.Add(elapsed.ToString("F2", CultureInfo.InvariantCulture) + ";" +
+            Safe(eventName) + ";" + (game != null ? game.TicketNumber.ToString() : "0") + ";" +
+            (game != null ? game.CurrentTicketKind.ToString() : "-") + ";" +
+            (economy != null ? economy.Coins.ToString() : "-") + ";" +
+            (economy != null ? economy.TotalEarned.ToString() : "-") + ";" +
+            Safe(skillId) + ";" + level + ";" + price + ";" + Safe(details));
+    }
+
+    /// <summary>Validate all 26 purchase steps, 24 unique demo effects and all edges.</summary>
+    [MenuItem("Tools/Scratch to Riches/Verifica piano autoplay demo")]
+    private static void TestFullDemoPlan()
+    {
+        if (ValidateFullDemoPlan(out string error))
+            Debug.Log("STR FULL DEMO QA: 26 acquisti, 24 skill demo, prerequisiti PASS.");
+        else
+            Debug.LogError("STR FULL DEMO QA: piano FAIL - " + error);
+    }
+
+    private static bool ValidateFullDemoPlan(out string error)
+    {
+        var owned = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (ScratchSkillTree.SkillId id in FullDemoPlan)
+        {
+            string stableId = ScratchSkillTree.StableId(id);
+            ScratchSkillCatalogV2.Entry entry = ScratchSkillCatalogV2.Find(stableId);
+            if (entry == null || !entry.demoEligible ||
+                !ScratchSkillCatalogV2.EffectImplemented(stableId))
+            {
+                error = "Non acquistabile in demo: " + stableId;
+                return false;
+            }
+            foreach (string raw in (entry.prerequisites ?? "").Split(';'))
+            {
+                if (string.IsNullOrEmpty(raw)) continue;
+                string[] parts = raw.Split(':');
+                if (parts.Length != 2 || !int.TryParse(parts[1], out int required) ||
+                    !owned.TryGetValue(parts[0], out int current) || current < required)
+                {
+                    error = "Prerequisito fuori ordine: " + stableId + " <- " + raw;
+                    return false;
+                }
+            }
+            int next = owned.TryGetValue(stableId, out int level) ? level + 1 : 1;
+            if (next > entry.maxLevel)
+            {
+                error = "Superato livello massimo: " + stableId;
+                return false;
+            }
+            owned[stableId] = next;
+        }
+        if (FullDemoPlan.Length != 26 || owned.Count != 24 ||
+            FullDemoPlan[FullDemoPlan.Length - 1] != ScratchSkillTree.SkillId.F4 ||
+            !owned.ContainsKey("G08") || !owned.ContainsKey("C05"))
+        {
+            error = "Il piano non copre le 24 skill o manca il finale.";
+            return false;
+        }
+        error = string.Empty;
+        return true;
     }
 
     private void BeginShop(float now)
@@ -1367,19 +1505,29 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         }
     }
 
+    private string MilestoneMinute(string skillId)
+    {
+        return milestoneSeconds.TryGetValue(skillId, out float seconds)
+            ? (seconds / 60f).ToString("F2", CultureInfo.InvariantCulture) : "non raggiunto";
+    }
+
     private void WriteReport()
     {
         if (string.IsNullOrEmpty(reportDirectory)) return;
         Directory.CreateDirectory(reportDirectory);
         File.WriteAllLines(Path.Combine(reportDirectory, "tickets.csv"), ledger, Encoding.UTF8);
         File.WriteAllLines(Path.Combine(reportDirectory, "checks.csv"), checks, Encoding.UTF8);
+        if (IsFullDemo)
+            File.WriteAllLines(Path.Combine(reportDirectory, "progression.csv"), progression, Encoding.UTF8);
+        float durationMinutes = (Time.realtimeSinceStartup - startedAt) / 60f;
         string summary = "Scratch to Riches V2 - Auto QA\n" +
             "Stato: " + lastStatus + "\n" +
             "Modalita': " + autoplayMode + "\n" +
             "Seed effettivo: " + actualSeed + "\n" +
             "Seed nuovo a ogni avvio: " + freshSeedEachRun + "\n" +
             "Durata reale (s): " + (Time.realtimeSinceStartup - startedAt).ToString("F2", CultureInfo.InvariantCulture) + "\n" +
-            "Biglietti di test: " + tickets + "/13\n" +
+            "Biglietti di test: " + tickets +
+                (IsFullDemo ? " (nessun numero fisso)" : "/13") + "\n" +
             "Biglietti farm: " + farmTickets + "\n" +
             "Biglietti giocati totali: " + (tickets + farmTickets) + "\n" +
             "Biglietti con combinazione NON forzata: " + naturalTicketsPlayed + "\n" +
@@ -1403,7 +1551,24 @@ public sealed class ScratchAutoplayWindow : EditorWindow
                 deliberatelySkippedPreviews + "\n" +
             "Scelte con anteprima che corrisponde a un simbolo grattato: " + previewMatchingChoices + "\n" +
             "Esplorazioni deliberate: " + randomExplorationChoices + "\n" +
-            "Frames PNG richiesti: " + frameCount + "\n";
+            "Frames PNG richiesti: " + frameCount + "\n" +
+            (IsFullDemo
+                ? "MODALITA' DEMO COMPLETA - 24 SKILL / 26 ACQUISTI\n" +
+                  "Acquisti completati: " + purchaseIndex + "/" + FullDemoPlan.Length + "\n" +
+                  "Skill demo possedute: " + CountOwnedDemoSkills() + "/24\n" +
+                  "DemoFinished reale: " + (game != null && game.DemoFinished) + "\n" +
+                  "Dorati finali: " + (game != null ? game.DemoFinalGoldTickets : 0) + "/3\n" +
+                  "Jolly grattati: " + (skills != null ? skills.JollyActivationCount : 0) + "\n" +
+                  "Durata misurata (min): " + durationMinutes.ToString("F2", CultureInfo.InvariantCulture) + "\n" +
+                  "Obiettivo 20-25 min: " + (durationMinutes >= 20f && durationMinutes <= 25f
+                      ? "NEL TARGET" : "FUORI TARGET: BILANCIARE") + "\n" +
+                  "C03 Fortunato a (min): " + MilestoneMinute("C03") + "\n" +
+                  "C05 Dorato a (min): " + MilestoneMinute("C05") + "\n" +
+                  "G08 Titanico a (min): " + MilestoneMinute("G08") + "\n" +
+                  "F04 Jolly a (min): " + MilestoneMinute("F04") + "\n" +
+                  "Durata non accelerata artificialmente: " + (humanSpeed == 1f) + "\n" +
+                  "File cronologia: progression.csv\n"
+                : string.Empty);
         File.WriteAllText(Path.Combine(reportDirectory, "summary.txt"), summary, Encoding.UTF8);
     }
 
