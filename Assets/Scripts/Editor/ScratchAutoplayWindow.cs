@@ -159,6 +159,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
     private int expectedSkillLevel;
     private int pendingPurchasePrice;
     private int streakBeforeTicket;
+    private float lastUpgradeAt;
     private readonly List<string> progression = new List<string>();
     private readonly Dictionary<string, float> milestoneSeconds = new Dictionary<string, float>();
     private string lastStatus = "Avvia Play Mode, poi START TEST.";
@@ -411,6 +412,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         pendingPurchasePrice = 0;
         streakBeforeTicket = 0;
         startedAt = Time.realtimeSinceStartup;
+        lastUpgradeAt = startedAt;
         lastScreenshotAt = startedAt;
         ledger.Clear();
         checks.Clear();
@@ -471,6 +473,18 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         if (now - startedAt > maxSessionMinutes * 60f)
         {
             Fail("Timeout generale: " + maxSessionMinutes + " minuti.");
+            return;
+        }
+        // The demo is designed for 20-25 minutes. Eight real minutes with no
+        // successful purchase indicates a progression deadlock / bad economy,
+        // not meaningful gameplay. Stop and report rather than farm forever.
+        if (IsFullDemo && purchaseIndex < FullDemoPlan.Length &&
+            now - lastUpgradeAt > 8f * 60f)
+        {
+            Fail("Progressione bloccata: nessun upgrade acquistato da oltre 8 minuti. " +
+                "Prossimo=" + FullDemoPlan[purchaseIndex] +
+                ";wallet=" + economy.Coins + ";target=" + FundsNeededForNextPurchase() +
+                ";biglietti=" + (tickets + farmTickets));
             return;
         }
         if (now - stateSince > 60f)
@@ -1145,6 +1159,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         Note("SKILL_PURCHASED", id.ToString());
         if (IsFullDemo)
         {
+            lastUpgradeAt = Time.realtimeSinceStartup;
             ProgressEvent("SKILL_PURCHASED", ScratchSkillTree.StableId(id),
                 expectedSkillLevel, pendingPurchasePrice,
                 "target_step=" + (purchaseIndex + 1) + "/" + FullDemoPlan.Length);
