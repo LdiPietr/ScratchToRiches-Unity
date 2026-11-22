@@ -1,5 +1,19 @@
 # Scratch to Riches
 
+## V2.7 — Autoplay che decide se sfruttare le anteprime (22 novembre 2026)
+
+**Difetto osservato:** la V2.6 grattava praticamente tutte le celle mostrate in trasparenza: quando non trovava un match immediato, la vecchia strategia sceglieva comunque una qualsiasi anteprima. Questo distorceva i test degli upgrade `C1/C2/C4/C6`.
+
+**Nuova regola:** i biglietti `Random` e quelli ottenuti col farming usano un motore di scelta a **valore atteso del premio finale** (non una regola "anteprima prima"). A ogni casella completata, il bot analizza i simboli gia' rivelati, le anteprime visibili e il numero di scelte residue. Confronta ogni anteprima nota con la possibilita' di grattare una casella coperta; considera anche l'informazione che otterra' dopo quella mossa e le decisioni successive. Se una coperta ha valore atteso maggiore, ignora deliberatamente le anteprime. Per mosse equivalenti sceglie casualmente fra le celle disponibili, invece di favorire sempre l'anteprima.
+
+**Probabilita' senza barare:** Classico/Fortunato/Dorato usano un pool equiprobabile di **sette** simboli. Per il Diamante, il bot sa solo che il pool del singolo biglietto contiene **quattro simboli su sette** e aggiorna la stima in base ai simboli effettivamente visti; non legge il pool interno o le celle coperte. I premi valutati sono quelli reali della partita, inclusi gli upgrade Economia e l'eventuale consolazione E5. Il bot non ha accesso alla mappa dei simboli nascosti.
+
+**Verifiche:** `Tools > Scratch to Riches > Test strategia anteprime` esegue sei scenari teorici senza modificare i salvataggi e senza entrare in Play Mode: anteprima diversa vs casella coperta, anteprima uguale, due anteprime uguali, singola anteprima con due scelte, caso Diamante e confronto a parita' di valore atteso (nessuna preferenza cieca per l'anteprima). In `tickets.csv` gli eventi `CELL_CHOICE` registrano l'azione, le anteprime disponibili e il valore atteso della migliore anteprima rispetto alla casella coperta. `summary.txt` conta anche `Caselle coperte scelte NONOSTANTE anteprime disponibili`.
+
+I biglietti con combinazioni forzate in `QACombinazioniForzate` continuano a usare le posizioni prestabilite per verificare esattamente le vincite, e non vanno considerati test della strategia. Il confronto dei rendimenti degli upgrade richiede piu' partite e dati statistici, non una singola registrazione.
+
+**Nota di collaudo:** il calcolo e' stato verificato sui casi teorici; l'esecuzione reale con Unity Editor, UI e MP4 va ancora provata.
+
 ## V2.6 — Autoplay casuale separato dai test delle combinazioni (22 novembre 2026)
 
 **Motivazione:** il tester precedente usava sempre `seed = 20261122`, resettava `UnityEngine.Random` allo stesso stato a ogni sessione e, dopo i primi biglietti casuali, imponeva artificialmente **coppia, tris, poker, cinquina** nei primi slot. Per questo i video mostravano le stesse prime scelte e vincite ricorrenti: era un test delle formule, NON una simulazione di una vera partita.

@@ -104,6 +104,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
     private int farmTickets;
     private int informedChoices;
     private int previewChoices;
+    private int deliberatelySkippedPreviews;
     private int previewMatchingChoices;
     private int randomExplorationChoices;
     private double lastQaHoldTick;
@@ -324,6 +325,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         videoStatus = recordVideo ? "Avvio in corso" : "Non richiesto";
         videoOutputPath = string.Empty;
         farmTickets = informedChoices = previewChoices = previewMatchingChoices = randomExplorationChoices = 0;
+        deliberatelySkippedPreviews = 0;
         naturalTicketsPlayed = forcedTicketsPlayed = 0;
         Array.Clear(observedRandomResults, 0, observedRandomResults.Length);
         uniqueFirstChoices.Clear();
@@ -490,6 +492,29 @@ public sealed class ScratchAutoplayWindow : EditorWindow
             ? ScratchSymbolManager.TestPattern.Random
             : TestPatterns[tierIndex][ticketIndex];
 
+    // Values reflect the actual payout formula, including economic upgrades
+    // and the E5 consolation prize. Ticket cost is already sunk at this point.
+    private double[] PayoutByMultiplicity()
+    {
+        double rewardBase = game.TicketPrize(game.CurrentTicketKind) +
+            2 * skills.GetLevel(ScratchSkillTree.SkillId.E1);
+        double consolation = 3 * skills.GetLevel(ScratchSkillTree.SkillId.E5);
+        double pair = Math.Ceiling(rewardBase * 2 *
+            (1.0 + 0.1 * skills.GetLevel(ScratchSkillTree.SkillId.E2)));
+        double triple = Math.Ceiling(rewardBase * 3 *
+            (1.0 + 0.15 * skills.GetLevel(ScratchSkillTree.SkillId.E3)));
+        double betterBonus = 1.0 + 0.2 * skills.GetLevel(ScratchSkillTree.SkillId.E4);
+        return new[]
+        {
+            consolation, consolation, pair, triple,
+            Math.Ceiling(rewardBase * 4 * betterBonus),
+            Math.Ceiling(rewardBase * 5 * betterBonus)
+        };
+    }
+
+    private static string EvText(double value) => double.IsNegativeInfinity(value) ? "n/a" :
+        value.ToString("F3", CultureInfo.InvariantCulture);
+
     private void PrepareCell()
     {
         ScratchCell[] cells = cellManager.ActiveCells;
@@ -499,16 +524,25 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         {
             int remaining = game.MaxScratches - game.RevealedCount;
             ScratchAutoplayPreviewStrategy.Choice choice =
-                ScratchAutoplayPreviewStrategy.Choose(cells, remaining, random);
+                ScratchAutoplayPreviewStrategy.Choose(cells, remaining,
+                    ScratchGameManager.SymbolPoolSize(game.CurrentTicketKind),
+                    PayoutByMultiplicity(), random);
             activeCell = choice.Cell;
             informedChoices++;
             if (choice.UsesPreview) previewChoices++;
-            else randomExplorationChoices++;
+            else
+            {
+                randomExplorationChoices++;
+                if (choice.VisiblePreviews > 0) deliberatelySkippedPreviews++;
+            }
             if (choice.MatchesRevealed) previewMatchingChoices++;
-            Note("CELL_CHOICE", "mode=STRATEGIC;cell=" + activeCell.name +
+            Note("CELL_CHOICE", "mode=EXPECTED_VALUE;cell=" + activeCell.name +
                 ";visiblePreviews=" + choice.VisiblePreviews +
                 ";usedPreview=" + choice.UsesPreview +
                 ";matchedRevealed=" + choice.MatchesRevealed +
+                ";expectedPayout=" + choice.ExpectedPayout.ToString("F3", CultureInfo.InvariantCulture) +
+                ";unknownExpected=" + EvText(choice.ExploreExpectedPayout) +
+                ";previewExpected=" + EvText(choice.BestPreviewExpectedPayout) +
                 ";decision=" + choice.Reason);
         }
         else
@@ -1080,6 +1114,8 @@ public sealed class ScratchAutoplayWindow : EditorWindow
             "Audio: " + (recordVideo && recordGameAudio) + "\n" +
             "Scelte ragionate (partite casuali): " + informedChoices + "\n" +
             "Scelte con anteprima: " + previewChoices + "\n" +
+            "Caselle coperte scelte NONOSTANTE anteprime disponibili: " +
+                deliberatelySkippedPreviews + "\n" +
             "Scelte con anteprima che corrisponde a un simbolo grattato: " + previewMatchingChoices + "\n" +
             "Esplorazioni deliberate: " + randomExplorationChoices + "\n" +
             "Frames PNG richiesti: " + frameCount + "\n";
