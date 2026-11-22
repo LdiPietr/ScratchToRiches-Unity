@@ -232,8 +232,15 @@ public sealed class ScratchGameManager : MonoBehaviour
         endReason = RoundEndReason.None;
         ticketVoided = false;
 
-        // Resize the authored 25-cell grid before resetting scratch masks and symbols.
-        if (!cellManager.ConfigureGrid(TicketSide(kind))) return false;
+        // Hide all symbol artwork BEFORE any active-cell geometry changes.
+        // This prevents the prior or next ticket's symbols from flashing while
+        // the coating textures and sprites are being replaced.
+        cellManager.BeginTicketVisualPreparation();
+        if (!cellManager.ConfigureGrid(TicketSide(kind)))
+        {
+            cellManager.EndTicketVisualPreparation();
+            return false;
+        }
         cellManager.PrepareCoverForTicket(kind);
         internalReset = true;
         cellManager.ResetAllCells();
@@ -243,6 +250,7 @@ public sealed class ScratchGameManager : MonoBehaviour
         {
             Debug.LogError("V2: could not generate a scratch ticket.", this);
             if (ticketNumberInRun == 0) state = RoundState.Ready;
+            cellManager.EndTicketVisualPreparation();
             RefreshHud();
             return false;
         }
@@ -252,6 +260,7 @@ public sealed class ScratchGameManager : MonoBehaviour
         if (cost > 0 && !economyManager.TrySpendCoins(cost))
         {
             Debug.LogError("V2: ticket purchase could not be completed.", this);
+            cellManager.EndTicketVisualPreparation();
             RefreshHud();
             return false;
         }
@@ -262,6 +271,8 @@ public sealed class ScratchGameManager : MonoBehaviour
         ticketActive = true;
         economyManager.BeginTicket();
         ApplyPreviews();
+        if (!cellManager.EndTicketVisualPreparation())
+            Debug.LogError("V2: one or more scratch masks are not ready before showing symbols.", this);
         RefreshHud();
         return true;
     }

@@ -28,10 +28,59 @@ public sealed class ScratchCell : MonoBehaviour, IPointerDownHandler, IDragHandl
     private Vector2Int previousPixel;
     private bool firstStrokeUsed;
     private bool previewActive;
+    private bool preparingTicket;
+    private string currentSymbolLabel = string.Empty;
     private const float PreviewCoverOpacity = 0.75f;
 
     public bool IsComplete => completed;
     public bool HasSymbolDisplay => symbolImage != null || symbolText != null;
+    public bool IsPreviewVisible => previewActive && !completed;
+
+    /// <summary>
+    /// Player-accessible knowledge only. Other hidden symbol labels stay private.
+    /// </summary>
+    public bool TryGetVisibleSymbol(out string label)
+    {
+        label = (previewActive || completed) && !preparingTicket ? currentSymbolLabel : string.Empty;
+        return !string.IsNullOrEmpty(label);
+    }
+
+    /// <summary>
+    /// Keep every symbol renderer hidden while swapping ticket geometry, coating
+    /// and symbol data. Inactive authored cells participate as well.
+    /// </summary>
+    public void BeginTicketVisualPreparation()
+    {
+        preparingTicket = true;
+        previewActive = false;
+        completed = false;
+        currentSymbolLabel = string.Empty;
+        if (symbolImage != null) symbolImage.enabled = false;
+        if (symbolText != null) symbolText.enabled = false;
+        if (scratchImage != null)
+        {
+            scratchImage.enabled = true;
+            scratchImage.color = Color.white;
+        }
+    }
+
+    /// <summary>Only reveal the symbol layer after its opaque scratch mask exists.</summary>
+    public bool EndTicketVisualPreparation()
+    {
+        if (!preparingTicket) return false;
+        if (scratchImage == null || scratchTexture == null || scratchImage.texture != scratchTexture)
+        {
+            Debug.LogError("ScratchCell: cannot reveal symbol layer without a prepared scratch cover.", this);
+            return false;
+        }
+        scratchImage.enabled = true;
+        scratchImage.raycastTarget = true;
+        RefreshCoverOpacity();
+        preparingTicket = false;
+        if (symbolImage != null) symbolImage.enabled = symbolImage.sprite != null;
+        if (symbolText != null) symbolText.enabled = true;
+        return true;
+    }
 
     /// <summary>
     /// Preview skills reveal the real artwork beneath a translucent scratch
@@ -63,13 +112,17 @@ public sealed class ScratchCell : MonoBehaviour, IPointerDownHandler, IDragHandl
     /// </summary>
     public void SetSymbol(string symbol, Sprite artwork = null)
     {
+        currentSymbolLabel = symbol ?? string.Empty;
         if (symbolImage != null)
         {
             symbolImage.sprite = artwork;
-            symbolImage.enabled = artwork != null;
+            symbolImage.enabled = artwork != null && !preparingTicket;
         }
         if (symbolText != null)
+        {
             symbolText.text = artwork == null ? symbol : string.Empty;
+            symbolText.enabled = !preparingTicket;
+        }
         if (symbolImage == null && symbolText == null)
             Debug.LogError("ScratchCell: missing both Image and TextMeshPro symbol renderers.", this);
     }
@@ -87,7 +140,10 @@ public sealed class ScratchCell : MonoBehaviour, IPointerDownHandler, IDragHandl
 
     private void Start()
     {
-        ResetScratch();
+        // Dynamically activated 4x4 / 5x5 cells may have been fully prepared
+        // earlier in the same frame by ScratchGameManager. Do not reset their
+        // fresh masks or erase a preview when Start runs for the first time.
+        if (scratchTexture == null) ResetScratch();
     }
 
     /// <summary>
@@ -126,6 +182,7 @@ public sealed class ScratchCell : MonoBehaviour, IPointerDownHandler, IDragHandl
         erasedPixels = new bool[count];
         erasedPixelCount = 0;
         completed = false;
+        previewActive = false; // The previous ticket's transparency must NEVER survive reset.
         pointerDown = false;
         hasPreviousPixel = false;
         firstStrokeUsed = false;
@@ -144,6 +201,8 @@ public sealed class ScratchCell : MonoBehaviour, IPointerDownHandler, IDragHandl
         // Avoid local tint multiplying the manager's global coating color.
         RefreshCoverOpacity();
         scratchImage.texture = scratchTexture;
+        scratchImage.enabled = true;
+        scratchImage.raycastTarget = true;
         scratchRect = scratchImage.rectTransform;
         enabled = true;
     }

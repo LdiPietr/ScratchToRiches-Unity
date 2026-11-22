@@ -1,5 +1,15 @@
 # Scratch to Riches
 
+## V2.5 — Anteprime sfruttate dall'autoplay e nessun flash di simboli (22 novembre 2026)
+
+**Bug di gameplay/visual individuato:** `ScratchCell.ResetScratch()` ricreava la copertura ma non cancellava `previewActive`; i simboli potevano quindi apparire per un breve istante mentre si caricava il biglietto seguente. Inoltre una casella della 4x4 o della 5x5 attivata per la prima volta chiamava `Start() -> ResetScratch()` anche dopo che il manager l'aveva gia' preparata, cancellando le anteprime nuove.
+
+**Fix:** `ScratchGameManager` chiama `BeginTicketVisualPreparation` **prima** di variare la dimensione della griglia: la visualizzazione dei simboli viene temporaneamente spenta sulle 25 celle. Dopo `ResetAllCells`, `GenerateRound` e `ApplyPreviews`, `EndTicketVisualPreparation` riattiva i simboli **solo se la patina e' stata generata**. `ResetScratch` reimposta `previewActive=false`, attiva la `RawImage` della copertura e conserva il suo stato prima del render. `Start()` ora resetta solo le celle prive di texture, evitando sovrascritture in ritardo. Nessun builder runtime introdotto.
+
+**Decisioni ragionate nei biglietti casuali:** il tester non usa piu' esclusivamente scelte casuali. Legge soltanto `ScratchCell.TryGetVisibleSymbol()`, che espone i simboli sulle caselle gia' completamente grattate e sulle caselle con anteprima attiva. Preferisce anteprime che completano una coppia/tris, oppure due anteprime uguali se ci sono abbastanza scelte residue; se l'ultima scelta e' una preview con simbolo noto non corrispondente, puo' preferire un'altra casella sconosciuta. Questo e' un **modello euristico di giocatore**, non un ottimizzatore perfetto della probabilita' o un accesso ai simboli nascosti.
+
+**Test:** i biglietti con pattern forzato (coppia/tris/poker/cinquina) continuano a selezionare le posizioni deterministiche, per mantenere gli assertion test. I biglietti **Random** e quelli ottenuti durante il farming usano la nuova strategia. `tickets.csv` registra `CELL_CHOICE` con modalita', anteprime disponibili, motivo e scelta; `summary.txt` conta le scelte ragionate, le anteprime sfruttate e le esplorazioni. A ogni biglietto `checks.csv` verifica il numero di anteprime effettive, il divieto di leggere simboli non scoperti e la presenza di patine integre. La conferma visiva che non ci siano flash richiede ancora un video ottenuto in Play Mode.
+
 ## V2.4 — Registrazione video completa con Unity Recorder (22 novembre 2026)
 
 Il test autoplay puo' ora produrre **direttamente un file `autoplay.mp4` H.264** senza FFmpeg, insieme a `tickets.csv`, `checks.csv` e `summary.txt`. La dipendenza `com.unity.recorder: 5.1.8` e' dichiarata in `Packages/manifest.json` per Unity 6000.5: Unity Package Manager la recupera all'apertura/refresh del progetto (serve accesso Internet durante la prima installazione).

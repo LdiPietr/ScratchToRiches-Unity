@@ -25,16 +25,19 @@ public sealed class ScratchAutoplayWindow : EditorWindow
 
     private static readonly ScratchSymbolManager.TestPattern[][] TestPatterns =
     {
-        new[] { ScratchSymbolManager.TestPattern.Pair, ScratchSymbolManager.TestPattern.Triple,
-            ScratchSymbolManager.TestPattern.Random, ScratchSymbolManager.TestPattern.Random },
-        new[] { ScratchSymbolManager.TestPattern.Pair, ScratchSymbolManager.TestPattern.Triple,
-            ScratchSymbolManager.TestPattern.Poker, ScratchSymbolManager.TestPattern.Random },
-        new[] { ScratchSymbolManager.TestPattern.Pair, ScratchSymbolManager.TestPattern.Triple,
-            ScratchSymbolManager.TestPattern.Poker, ScratchSymbolManager.TestPattern.Five,
-            ScratchSymbolManager.TestPattern.Random },
-        new[] { ScratchSymbolManager.TestPattern.Pair, ScratchSymbolManager.TestPattern.Triple,
-            ScratchSymbolManager.TestPattern.Poker, ScratchSymbolManager.TestPattern.Five,
-            ScratchSymbolManager.TestPattern.Random }
+        // Open each tier with a REAL strategic ticket so newly unlocked
+        // previews are used immediately and visible in the captured video.
+        // Deterministic forced-combination assertions follow afterwards.
+        new[] { ScratchSymbolManager.TestPattern.Random, ScratchSymbolManager.TestPattern.Pair,
+            ScratchSymbolManager.TestPattern.Triple, ScratchSymbolManager.TestPattern.Random },
+        new[] { ScratchSymbolManager.TestPattern.Random, ScratchSymbolManager.TestPattern.Pair,
+            ScratchSymbolManager.TestPattern.Triple, ScratchSymbolManager.TestPattern.Poker },
+        new[] { ScratchSymbolManager.TestPattern.Random, ScratchSymbolManager.TestPattern.Pair,
+            ScratchSymbolManager.TestPattern.Triple, ScratchSymbolManager.TestPattern.Poker,
+            ScratchSymbolManager.TestPattern.Five },
+        new[] { ScratchSymbolManager.TestPattern.Random, ScratchSymbolManager.TestPattern.Pair,
+            ScratchSymbolManager.TestPattern.Triple, ScratchSymbolManager.TestPattern.Poker,
+            ScratchSymbolManager.TestPattern.Five }
     };
 
     private static readonly ScratchSkillTree.SkillId[][] UnlockPlans =
@@ -87,6 +90,10 @@ public sealed class ScratchAutoplayWindow : EditorWindow
     private bool pointerHeld;
     private bool farming;
     private int farmTickets;
+    private int informedChoices;
+    private int previewChoices;
+    private int previewMatchingChoices;
+    private int randomExplorationChoices;
     private double lastQaHoldTick;
     private float humanSpeed = 1f;
     private float nextAction;
@@ -216,6 +223,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         GUILayout.Space(8);
         EditorGUILayout.LabelField("Stato: " + lastStatus, EditorStyles.wordWrappedLabel);
         EditorGUILayout.LabelField("Biglietti test: " + tickets + " / 18  |  Farm: " + farmTickets);
+        EditorGUILayout.LabelField("Scelte ragionate: " + informedChoices + " | Anteprime usate: " + previewChoices);
         EditorGUILayout.LabelField("Verifiche OK: " + assertionsPassed + "    Errori: " + assertionsFailed);
         EditorGUILayout.LabelField("Video: " + videoStatus, EditorStyles.wordWrappedLabel);
         if (running)
@@ -285,7 +293,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         videoValidationPending = false;
         videoStatus = recordVideo ? "Avvio in corso" : "Non richiesto";
         videoOutputPath = string.Empty;
-        farmTickets = 0;
+        farmTickets = informedChoices = previewChoices = previewMatchingChoices = randomExplorationChoices = 0;
         lastQaHoldTick = 0d;
         pointer = null;
         activeCell = null;
@@ -403,6 +411,30 @@ public sealed class ScratchAutoplayWindow : EditorWindow
             Check(unique.Count <= 4 && unique.Count > 0,
                 "diamond_pool", "Simboli diversi sul biglietto=" + unique.Count);
         }
+        int expectedPreviews = skills.GetLevel(ScratchSkillTree.SkillId.C6) > 0 ? 5 :
+            skills.GetLevel(ScratchSkillTree.SkillId.C4) > 0 ? 3 :
+            skills.GetLevel(ScratchSkillTree.SkillId.C2) > 0 ? 2 :
+            skills.GetLevel(ScratchSkillTree.SkillId.C1) > 0 ? 1 : 0;
+        int visible = 0;
+        int unknownLeaked = 0;
+        int incompleteMasks = 0;
+        foreach (ScratchCell cell in cellManager.ActiveCells)
+        {
+            bool canRead = cell.TryGetVisibleSymbol(out _);
+            if (cell.IsPreviewVisible) visible++;
+            else if (!cell.IsComplete && canRead) unknownLeaked++;
+            RawImage coating = cell.GetComponentInChildren<RawImage>(true);
+            if (coating == null || !coating.enabled || coating.texture == null ||
+                cell.RevealedPercentage > 0f)
+                incompleteMasks++;
+        }
+        Check(visible == expectedPreviews, "preview_count",
+            "Anteprime attese=" + expectedPreviews + ", viste=" + visible);
+        Check(unknownLeaked == 0, "no_hidden_symbol_leak",
+            "Simboli segreti leggibili in caselle non grattate=" + unknownLeaked);
+        Check(incompleteMasks == 0, "fresh_coating",
+            "Patine mancanti, disabilitate o gia' grattate=" + incompleteMasks);
+        Note("PREVIEWS_VISIBLE", "count=" + visible + ";previewSkills=" + expectedPreviews);
         ticketStartedAt = now;
         cellIndex = 0;
         PrepareCell();
@@ -413,17 +445,34 @@ public sealed class ScratchAutoplayWindow : EditorWindow
     private void PrepareCell()
     {
         ScratchCell[] cells = cellManager.ActiveCells;
-        bool randomPick = farming || TestPatterns[stage][patternIndex] == ScratchSymbolManager.TestPattern.Random;
-        int index = randomPick ? random.Next(0, cells.Length) : cellIndex;
-        if (randomPick)
+        bool strategic = farming ||
+            TestPatterns[stage][patternIndex] == ScratchSymbolManager.TestPattern.Random;
+
+        if (strategic)
         {
-            // Random ticket: try unselected, incomplete cells.
-            List<ScratchCell> remaining = new List<ScratchCell>();
-            foreach (ScratchCell sc in cells)
-                if (!sc.IsComplete && sc != activeCell) remaining.Add(sc);
-            if (remaining.Count > 0) index = Array.IndexOf(cells, remaining[random.Next(remaining.Count)]);
+            int remaining = game.MaxScratches - game.RevealedCount;
+            ScratchAutoplayPreviewStrategy.Choice choice =
+                ScratchAutoplayPreviewStrategy.Choose(cells, remaining, random);
+            activeCell = choice.Cell;
+            informedChoices++;
+            if (choice.UsesPreview) previewChoices++;
+            else randomExplorationChoices++;
+            if (choice.MatchesRevealed) previewMatchingChoices++;
+            Note("CELL_CHOICE", "mode=STRATEGIC;cell=" + activeCell.name +
+                ";visiblePreviews=" + choice.VisiblePreviews +
+                ";usedPreview=" + choice.UsesPreview +
+                ";matchedRevealed=" + choice.MatchesRevealed +
+                ";decision=" + choice.Reason);
         }
-        activeCell = cells[index];
+        else
+        {
+            // A forced deterministic payout test must select the same fixed
+            // sequence of positions every time. It is not a strategy benchmark.
+            activeCell = cells[cellIndex];
+            Note("CELL_CHOICE", "mode=FIXED_QA;cell=" + activeCell.name +
+                ";reason=force deterministic combination");
+        }
+
         cellStartedAt = Time.realtimeSinceStartup;
         activeCoating = activeCell.GetComponentInChildren<RawImage>(true);
         pointerHeld = false;
@@ -957,6 +1006,10 @@ public sealed class ScratchAutoplayWindow : EditorWindow
             "Video file: " + (recordVideo ? videoOutputPath : "Non richiesto") + "\n" +
             "Formato: " + (recordVideo ? "H.264 MP4, " + videoHeight + "p, " + videoFrameRate + " fps" : "N/A") + "\n" +
             "Audio: " + (recordVideo && recordGameAudio) + "\n" +
+            "Scelte ragionate (partite casuali): " + informedChoices + "\n" +
+            "Scelte con anteprima: " + previewChoices + "\n" +
+            "Scelte con anteprima che corrisponde a un simbolo grattato: " + previewMatchingChoices + "\n" +
+            "Esplorazioni deliberate: " + randomExplorationChoices + "\n" +
             "Frames PNG richiesti: " + frameCount + "\n";
         File.WriteAllText(Path.Combine(reportDirectory, "summary.txt"), summary, Encoding.UTF8);
     }

@@ -105,6 +105,7 @@ public sealed class ScratchCellManager : MonoBehaviour
     [SerializeField] private RectTransform gridRoot;
     private ScratchCell[] activeCells = Array.Empty<ScratchCell>();
     public ScratchCell[] ActiveCells => activeCells;
+    private bool preparingTicket;
 
 
     private ScratchSkillTree skills;
@@ -162,6 +163,23 @@ public sealed class ScratchCellManager : MonoBehaviour
 
         if (Application.isPlaying && cells.Length == 0)
             Debug.LogWarning("ScratchCellManager found no ScratchCell components under the Canvas.", this);
+    }
+
+    public void BeginTicketVisualPreparation()
+    {
+        CollectCells();
+        preparingTicket = true;
+        foreach (ScratchCell cell in cells) cell.BeginTicketVisualPreparation();
+    }
+
+    public bool EndTicketVisualPreparation()
+    {
+        if (!preparingTicket) return false;
+        bool allReady = true;
+        foreach (ScratchCell cell in activeCells)
+            if (!cell.EndTicketVisualPreparation()) allReady = false;
+        preparingTicket = false;
+        return allReady;
     }
 
     /// <summary>Activates only authored scene cells. No runtime UI creation.</summary>
