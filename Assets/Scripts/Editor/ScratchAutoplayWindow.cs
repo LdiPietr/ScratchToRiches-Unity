@@ -25,7 +25,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
 
     // A real-play simulation must never manufacture winning combinations.
     // Forced QA is intentionally repetitive to assert all payout rules.
-    private enum AutoplayMode { SimulazioneReale, QACombinazioniForzate }
+    private enum AutoplayMode { SimulazioneReale, QACombinazioniForzate, ProgressioneDemoCompleta }
 
     private static readonly ScratchSymbolManager.TestPattern[][] TestPatterns =
     {
@@ -61,6 +61,30 @@ public sealed class ScratchAutoplayWindow : EditorWindow
             ScratchSkillTree.SkillId.C7 }
     };
 
+    // A complete, legal player route through every demo-eligible skill, including
+    // the minimum extra levels required by prerequisites. No QA coins or forced wins.
+    // F04 is deliberately last: its three real Golden tickets trigger the ending.
+    private static readonly ScratchSkillTree.SkillId[] FullDemoPlan =
+    {
+        ScratchSkillTree.SkillId.E1, ScratchSkillTree.SkillId.G1,
+        ScratchSkillTree.SkillId.C1, ScratchSkillTree.SkillId.E1,
+        ScratchSkillTree.SkillId.G1, ScratchSkillTree.SkillId.E5,
+        ScratchSkillTree.SkillId.G2, ScratchSkillTree.SkillId.C2,
+        ScratchSkillTree.SkillId.E2, ScratchSkillTree.SkillId.G3,
+        ScratchSkillTree.SkillId.C3, ScratchSkillTree.SkillId.E3,
+        ScratchSkillTree.SkillId.G5, ScratchSkillTree.SkillId.G4,
+        ScratchSkillTree.SkillId.C4, ScratchSkillTree.SkillId.F1,
+        ScratchSkillTree.SkillId.G6, ScratchSkillTree.SkillId.E4,
+        ScratchSkillTree.SkillId.E6, ScratchSkillTree.SkillId.G7,
+        ScratchSkillTree.SkillId.C5, ScratchSkillTree.SkillId.F2,
+        ScratchSkillTree.SkillId.C6, ScratchSkillTree.SkillId.F3,
+        ScratchSkillTree.SkillId.G8, ScratchSkillTree.SkillId.F4
+    };
+
+    private bool IsFullDemo => autoplayMode == AutoplayMode.ProgressioneDemoCompleta;
+    private ScratchSkillTree.SkillId[] ActivePurchasePlan =>
+        IsFullDemo ? FullDemoPlan : UnlockPlans[stage];
+
     private ScratchGameManager game;
     private ScratchSkillTree skills;
     private ScratchEconomyManager economy;
@@ -78,7 +102,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
 
     private Phase phase;
     private bool running;
-    private AutoplayMode autoplayMode = AutoplayMode.SimulazioneReale;
+    private AutoplayMode autoplayMode = AutoplayMode.ProgressioneDemoCompleta;
     private bool qaFunds;
     private bool startFresh = true;
     private bool freshSeedEachRun = true;
@@ -89,7 +113,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
     private int naturalTicketsPlayed;
     private int forcedTicketsPlayed;
     private bool captureFrames;
-    private bool recordVideo = true;
+    private bool recordVideo;
     private bool recordGameAudio;
     private bool videoValidationPending;
     private int videoHeight = 720;
@@ -118,7 +142,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
     private float ticketStartedAt;
     private float cellStartedAt;
     private float lastScreenshotAt;
-    private float maxSessionMinutes = 90f;
+    private float maxSessionMinutes = 120f;
     private int seed = 20261122;
     private int framesPerSecond = 3;
     private int frameCount;
@@ -133,6 +157,10 @@ public sealed class ScratchAutoplayWindow : EditorWindow
     private int ticketCost;
     private int walletBeforeTicket;
     private int expectedSkillLevel;
+    private int pendingPurchasePrice;
+    private int streakBeforeTicket;
+    private readonly List<string> progression = new List<string>();
+    private readonly Dictionary<string, float> milestoneSeconds = new Dictionary<string, float>();
     private string lastStatus = "Avvia Play Mode, poi START TEST.";
     private string reportDirectory;
     private readonly List<string> ledger = new List<string>();
@@ -200,16 +228,23 @@ public sealed class ScratchAutoplayWindow : EditorWindow
 
     private void OnGUI()
     {
-        EditorGUILayout.LabelField("TEST BIGLIETTI DISPONIBILI NELLA DEMO", EditorStyles.boldLabel);
-        EditorGUILayout.HelpBox(
-            "Avvia la scena in Play Mode. Il test usa vere grattate UI e acquisti tramite pressione prolungata. " +
-            "Si ferma dopo Classico, Fortunato e Dorato: Diamante e' visibile ma bloccato nella demo.", MessageType.Info);
+        EditorGUILayout.LabelField("SCRATCH TO RICHES - AUTOPLAY DEMO V2", EditorStyles.boldLabel);
+        EditorGUILayout.HelpBox(IsFullDemo
+            ? "TEST DEMO COMPLETA: parte da zero, acquista tutte le 24 abilita' della demo " +
+              "(incluse le dipendenze), gratta biglietti reali fino al finale G08/F04 " +
+              "e misura la durata effettiva contro l'obiettivo di 20-25 minuti."
+            : "TEST LEGACY: verifica separatamente le tre categorie di biglietti con acquisti e grattate UI.",
+            MessageType.Info);
 
         using (new EditorGUI.DisabledScope(running))
         {
             autoplayMode = (AutoplayMode)EditorGUILayout.EnumPopup("Tipo di test", autoplayMode);
-            qaFunds = EditorGUILayout.ToggleLeft("Credito QA per gli sblocchi (100.000 monete)", qaFunds);
-            startFresh = EditorGUILayout.ToggleLeft("Azzera progressi prima del test (solo Play Mode)", startFresh);
+            if (IsFullDemo) { qaFunds = false; startFresh = true; }
+            using (new EditorGUI.DisabledScope(IsFullDemo))
+            {
+                qaFunds = EditorGUILayout.ToggleLeft("Credito QA per gli sblocchi (100.000 monete)", qaFunds);
+                startFresh = EditorGUILayout.ToggleLeft("Azzera progressi prima del test (solo Play Mode)", startFresh);
+            }
             humanSpeed = EditorGUILayout.Slider("Velocita' gesti (1 = umano)", humanSpeed, 0.5f, 4f);
             freshSeedEachRun = EditorGUILayout.ToggleLeft("Nuova partita casuale a ogni avvio", freshSeedEachRun);
             using (new EditorGUI.DisabledScope(freshSeedEachRun))
@@ -233,10 +268,15 @@ public sealed class ScratchAutoplayWindow : EditorWindow
             EditorGUILayout.HelpBox("SIMULAZIONE REALE: tutti i biglietti hanno simboli casuali. " +
                 "Il bot sceglie usando SOLO grattate e anteprime disponibili; nessun tris, poker o premio viene forzato. " +
                 "Gli sblocchi seguono ancora un piano di test prestabilito.", MessageType.Info);
-        else
+        else if (autoplayMode == AutoplayMode.QACombinazioniForzate)
             EditorGUILayout.HelpBox("QA COMBINAZIONI FORZATE: alcune partite impongono coppia, tris, poker e cinquina " +
                 "e selezionano le stesse posizioni per verificare i pagamenti. La ripetizione e' INTENZIONALE e non " +
                 "misura la fortuna naturale del gioco.", MessageType.Warning);
+        else
+            EditorGUILayout.HelpBox("NESSUN CHEAT: progressi e portafoglio azzerati; 24 skill demo; " +
+                "simboli casuali; scelte solo da grattate e anteprime visibili; " +
+                "finale con tre veri Dorati e almeno un JOLLY grattato. " +
+                "Il test misura la durata, non la forza artificialmente.", MessageType.Info);
 
         if (qaFunds)
             EditorGUILayout.HelpBox("Credito QA: sblocchi rapidi. Non misura l'economia naturale e le monete restano nel wallet fino al reset.", MessageType.Warning);
@@ -262,7 +302,11 @@ public sealed class ScratchAutoplayWindow : EditorWindow
 
         GUILayout.Space(8);
         EditorGUILayout.LabelField("Stato: " + lastStatus, EditorStyles.wordWrappedLabel);
-        EditorGUILayout.LabelField("Biglietti test: " + tickets + " / 13  |  Farm: " + farmTickets);
+        EditorGUILayout.LabelField(IsFullDemo
+            ? "Biglietti: " + (tickets + farmTickets) + " | Skill acquistate: " +
+              purchaseIndex + "/" + FullDemoPlan.Length + " | Gold finale: " +
+              (game != null ? game.DemoFinalGoldTickets : 0) + "/3"
+            : "Biglietti test: " + tickets + " / 13  |  Farm: " + farmTickets);
         EditorGUILayout.LabelField("Partite casuali: " + naturalTicketsPlayed +
             " | QA forzate: " + forcedTicketsPlayed);
         EditorGUILayout.LabelField("Primi movimenti diversi: " + uniqueFirstChoices.Count);
@@ -270,7 +314,10 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         EditorGUILayout.LabelField("Verifiche OK: " + assertionsPassed + "    Errori: " + assertionsFailed);
         EditorGUILayout.LabelField("Video: " + videoStatus, EditorStyles.wordWrappedLabel);
         if (running)
-            EditorGUILayout.LabelField("Fase: " + phase + " | Tier " + (stage + 1) + " | Test " + (patternIndex + 1));
+            EditorGUILayout.LabelField(IsFullDemo
+                ? "Fase: " + phase + " | " + (ScratchGameManager.TicketKind)stage +
+                  " | Upgrade " + (purchaseIndex + 1) + "/" + FullDemoPlan.Length
+                : "Fase: " + phase + " | Tier " + (stage + 1) + " | Test " + (patternIndex + 1));
         if (!string.IsNullOrEmpty(reportDirectory))
         {
             if (GUILayout.Button("Apri cartella registrazioni / report"))
@@ -308,6 +355,17 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         {
             EditorUtility.DisplayDialog("Autoplay", "Scene references incomplete. Run the V2 Scene Audit first.", "OK");
             return;
+        }
+
+        if (IsFullDemo)
+        {
+            qaFunds = false;
+            startFresh = true;
+            if (!ValidateFullDemoPlan(out string planError))
+            {
+                EditorUtility.DisplayDialog("Autoplay", "Piano della demo non valido: " + planError, "OK");
+                return;
+            }
         }
 
         if (startFresh && !EditorUtility.DisplayDialog("Test da zero",
@@ -350,16 +408,22 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         activeCell = null;
         pressedHold = null;
         ticketCost = 0;
+        pendingPurchasePrice = 0;
+        streakBeforeTicket = 0;
         startedAt = Time.realtimeSinceStartup;
         lastScreenshotAt = startedAt;
         ledger.Clear();
         checks.Clear();
+        progression.Clear();
+        milestoneSeconds.Clear();
         reportDirectory = Path.Combine(Application.persistentDataPath, "AutoplayTests",
             DateTime.Now.ToString("yyyyMMdd_HHmmss", CultureInfo.InvariantCulture));
         Directory.CreateDirectory(reportDirectory);
         if (captureFrames) Directory.CreateDirectory(Path.Combine(reportDirectory, "frames"));
         ledger.Add("timestamp;event;ticket;kind;pattern;wallet;cost;payout;match;details");
         checks.Add("timestamp;result;check;details");
+        progression.Add("elapsed_s;event;ticket;kind;wallet;earned;skill_id;level;price;details");
+        ProgressEvent("START", "-", 0, 0, "Fresh natural run");
         running = true;
         Note("START", "mode=" + autoplayMode + ";seed=" + actualSeed +
             ";freshSeed=" + freshSeedEachRun + ";humanSpeed=" + humanSpeed +
@@ -453,7 +517,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
             : (ScratchGameManager.TicketKind)stage;
         Check(game.CurrentTicketKind == expected, "ticket_kind",
             "Atteso=" + expected + " effettivo=" + game.CurrentTicketKind);
-        if (autoplayMode == AutoplayMode.SimulazioneReale)
+        if (autoplayMode != AutoplayMode.QACombinazioniForzate)
             Check(activePattern == ScratchSymbolManager.TestPattern.Random,
                 "no_forced_outcome_in_real_play", "Current symbol pattern: " + activePattern);
         Check(cellManager.ActiveCells.Length == game.CurrentGridSide * game.CurrentGridSide,
@@ -484,6 +548,9 @@ public sealed class ScratchAutoplayWindow : EditorWindow
                 cell.RevealedPercentage > 0f)
                 incompleteMasks++;
         }
+        if (skills.GetLevel("F04") > 0 && symbols.GuaranteedJollyThisTicket &&
+            symbols.JollyCell != null)
+            expectedPreviews++;
         Check(visible == expectedPreviews, "preview_count",
             "Anteprime attese=" + expectedPreviews + ", viste=" + visible);
         Check(unknownLeaked == 0, "no_hidden_symbol_leak",
@@ -492,6 +559,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
             "Patine mancanti, disabilitate o gia' grattate=" + incompleteMasks);
         Note("PREVIEWS_VISIBLE", "count=" + visible + ";previewSkills=" + expectedPreviews);
         ticketStartedAt = now;
+        streakBeforeTicket = economy.ConsecutiveWinningTickets;
         cellIndex = 0;
         PrepareCell();
         Note("TICKET_START", game.CurrentGridSide + "x" + game.CurrentGridSide);
@@ -503,7 +571,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
     /// always select Random and can earn any result (including no win).
     /// </summary>
     private ScratchSymbolManager.TestPattern PlannedPattern(int tierIndex, int ticketIndex) =>
-        autoplayMode == AutoplayMode.SimulazioneReale
+        autoplayMode != AutoplayMode.QACombinazioniForzate
             ? ScratchSymbolManager.TestPattern.Random
             : TestPatterns[tierIndex][ticketIndex];
 
@@ -537,6 +605,26 @@ public sealed class ScratchAutoplayWindow : EditorWindow
 
         if (strategic)
         {
+            // F04 shows its guaranteed joker to the player. Choose it by
+            // inspecting ONLY player-visible previews, never hidden symbol data.
+            ScratchCell visibleJolly = null;
+            if (IsFullDemo)
+                foreach (ScratchCell candidate in cells)
+                    if (!candidate.IsComplete && candidate.IsPreviewVisible &&
+                        candidate.TryGetVisibleSymbol(out string visible) && visible == "JOLLY")
+                    {
+                        visibleJolly = candidate;
+                        break;
+                    }
+            if (visibleJolly != null)
+            {
+                activeCell = visibleJolly;
+                informedChoices++;
+                previewChoices++;
+                Note("CELL_CHOICE", "mode=VISIBLE_JOLLY;cell=" + activeCell.name);
+            }
+            else
+            {
             int remaining = game.MaxScratches - game.RevealedCount;
             ScratchAutoplayPreviewStrategy.Choice choice =
                 ScratchAutoplayPreviewStrategy.Choose(cells, remaining,
@@ -559,6 +647,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
                 ";unknownExpected=" + EvText(choice.ExploreExpectedPayout) +
                 ";previewExpected=" + EvText(choice.BestPreviewExpectedPayout) +
                 ";decision=" + choice.Reason);
+            }
         }
         else
         {
@@ -583,6 +672,27 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         if (!game.TicketActive)
         {
             ValidateTicket();
+            if (!running) return;
+            if (IsFullDemo && game.DemoFinished)
+            {
+                bool ownedAll = CountOwnedDemoSkills() == 24;
+                Check(ownedAll, "all_24_demo_skills_purchased",
+                    "Acquistate " + CountOwnedDemoSkills() + "/24 skill.");
+                Check(forcedTicketsPlayed == 0 && !qaFunds, "full_demo_natural",
+                    "Forzati=" + forcedTicketsPlayed + ";creditoQA=" + qaFunds);
+                Check(game.DemoFinalGoldTickets >= 3, "three_final_gold_tickets",
+                    "Gold post capstone=" + game.DemoFinalGoldTickets);
+                Check(game.State == ScratchGameManager.RoundState.Finished, "authored_demo_end",
+                    "La scena ha completato il milestone finale.");
+                ProgressEvent("DEMO_FINISHED", "-", 0, 0, "End scene reached naturally");
+                Finish(assertionsFailed == 0 && ownedAll, "Fine demo raggiunta naturalmente.");
+                return;
+            }
+            if (IsFullDemo && tickets + farmTickets >= 600)
+            {
+                Fail("Limite sicurezza: 600 biglietti senza completare la demo.");
+                return;
+            }
             ChangePhase(Phase.WaitChoice, 0.6f / humanSpeed);
             return;
         }
@@ -690,6 +800,9 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         }
         else
             forcedTicketsPlayed++;
+        if (IsFullDemo)
+            ProgressEvent("TICKET_SETTLED", "-", 0, ticketCost,
+                "payout=" + game.TicketPayout + ";match=" + game.CurrentMatch.Tier);
         Note(farming ? "FARM_TICKET_END" : "TICKET_END", "match=" + game.CurrentMatch.Tier + ";gain=" + game.TicketPayout +
             ";net=" + (game.TicketPayout - ticketCost) +
             ";seconds=" + (Time.realtimeSinceStartup - ticketStartedAt).ToString("F2", CultureInfo.InvariantCulture));
@@ -735,6 +848,11 @@ public sealed class ScratchAutoplayWindow : EditorWindow
                 ChooseFarmTicket(now);
             return;
         }
+        if (IsFullDemo)
+        {
+            ContinueFullDemo(now);
+            return;
+        }
         patternIndex++;
         if (patternIndex < TestPatterns[stage].Length)
         {
@@ -758,7 +876,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
     private void BeginShop(float now)
     {
         if (!flow.CanShowTicketChoices) return;
-        if (startFresh)
+        if (startFresh && !IsFullDemo)
             Check(!game.IsTicketUnlocked((ScratchGameManager.TicketKind)stage),
                 "locked_before_upgrade", "Tier " + stage + " non acquistabile prima dello sblocco.");
         flow.OpenShop();
@@ -773,7 +891,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
 
     private void StartPurchase(float now)
     {
-        var plan = UnlockPlans[stage];
+        var plan = ActivePurchasePlan;
         if (purchaseIndex >= plan.Length)
         {
             ChangePhase(Phase.CloseShop, 0.35f / humanSpeed);
@@ -835,6 +953,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
             return;
         }
         expectedSkillLevel = skills.GetLevel(id) + 1;
+        pendingPurchasePrice = skills.GetPrice(id);
         if (pointer == null)
             pointer = new PointerEventData(EventSystem.current)
             {
@@ -854,7 +973,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
 
     private void EndPurchase(float now)
     {
-        ScratchSkillTree.SkillId id = UnlockPlans[stage][purchaseIndex];
+        ScratchSkillTree.SkillId id = ActivePurchasePlan[purchaseIndex];
         if (pressedHold == null)
         {
             Fail("Handle del nodo perso durante hold di " + id);
@@ -886,7 +1005,15 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         pressedHold.QaReleaseHold();
         Check(true, "hold_to_buy", id + " livello=" + expectedSkillLevel);
         Note("SKILL_PURCHASED", id.ToString());
-        if (purchaseIndex == UnlockPlans[stage].Length - 1)
+        if (IsFullDemo)
+        {
+            ProgressEvent("SKILL_PURCHASED", ScratchSkillTree.StableId(id),
+                expectedSkillLevel, pendingPurchasePrice,
+                "target_step=" + (purchaseIndex + 1) + "/" + FullDemoPlan.Length);
+            UpdateFullDemoTicketTier();
+        }
+        if ((!IsFullDemo && purchaseIndex == UnlockPlans[stage].Length - 1) ||
+            (IsFullDemo && TicketReserveForCurrentPurchase() > 0))
         {
             int reserve = ScratchGameManager.TicketPrice((ScratchGameManager.TicketKind)stage);
             if (!Check(economy.Coins >= reserve, "next_ticket_cash_reserved",
@@ -925,6 +1052,16 @@ public sealed class ScratchAutoplayWindow : EditorWindow
     // not for every intermediate purchase.
     private int TicketReserveForCurrentPurchase()
     {
+        if (IsFullDemo)
+        {
+            if (purchaseIndex < 0 || purchaseIndex >= FullDemoPlan.Length) return 0;
+            ScratchSkillTree.SkillId id = FullDemoPlan[purchaseIndex];
+            if (id == ScratchSkillTree.SkillId.C3)
+                return ScratchGameManager.TicketPrice(ScratchGameManager.TicketKind.Fortunato);
+            if (id == ScratchSkillTree.SkillId.C5)
+                return ScratchGameManager.TicketPrice(ScratchGameManager.TicketKind.Gold);
+            return 0;
+        }
         if (stage <= 0 || stage >= UnlockPlans.Length ||
             purchaseIndex < 0 || purchaseIndex >= UnlockPlans[stage].Length)
             return 0;
@@ -944,6 +1081,10 @@ public sealed class ScratchAutoplayWindow : EditorWindow
 
     private int FundsNeededForNextPurchase()
     {
+        if (IsFullDemo)
+            return purchaseIndex >= FullDemoPlan.Length ? 0
+                : BudgetRequired(skills.GetPrice(FullDemoPlan[purchaseIndex]),
+                    TicketReserveForCurrentPurchase());
         if (stage <= 0 || stage >= UnlockPlans.Length ||
             purchaseIndex < 0 || purchaseIndex >= UnlockPlans[stage].Length)
             return 0;
@@ -1006,6 +1147,16 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         // Buy and scratch the best previously unlocked tier to earn real coins.
         // Never jump ahead to an unavailable tier while farming.
         var kind = (ScratchGameManager.TicketKind)Mathf.Max(0, stage - 1);
+        if (IsFullDemo)
+        {
+            // Best unlocked ticket the current wallet can afford. A free
+            // Standard ticket always remains available, preventing deadlocks.
+            kind = game.CanChooseTicket(ScratchGameManager.TicketKind.Gold)
+                ? ScratchGameManager.TicketKind.Gold
+                : game.CanChooseTicket(ScratchGameManager.TicketKind.Fortunato)
+                    ? ScratchGameManager.TicketKind.Fortunato
+                    : ScratchGameManager.TicketKind.Standard;
+        }
         if (!game.CanChooseTicket(kind))
             kind = ScratchGameManager.TicketKind.Standard;
         SetPattern(ScratchSymbolManager.TestPattern.Random);
@@ -1024,6 +1175,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
 
     private void ChooseNext(float now)
     {
+        if (IsFullDemo) UpdateFullDemoTicketTier();
         ScratchGameManager.TicketKind kind = (ScratchGameManager.TicketKind)stage;
         if (stage == 0 && !game.IsTicketUnlocked(ScratchGameManager.TicketKind.Fortunato))
         {
@@ -1064,7 +1216,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
 
     private void SetPattern(ScratchSymbolManager.TestPattern pattern)
     {
-        if (autoplayMode == AutoplayMode.SimulazioneReale &&
+        if (autoplayMode != AutoplayMode.QACombinazioniForzate &&
             pattern != ScratchSymbolManager.TestPattern.Random)
             throw new InvalidOperationException("Real-play autoplay cannot force a winning combination.");
         activePattern = pattern;
