@@ -181,6 +181,12 @@ public sealed class ScratchFlowPresentation : MonoBehaviour
         phase = Phase.TicketEntering;
         ticketChooser.Refresh();
         ticketCanvasGroup.blocksRaycasts = false;
+        // Keep the ticket fully opaque from its first visible frame. Fading a
+        // CanvasGroup containing BOTH the silver scratch coat and the hidden
+        // symbol images makes each layer translucent independently, exposing
+        // the symbols through the foil until the fly-in finishes.
+        // Animate only movement, rotation and scale, never group opacity.
+        ticketCanvasGroup.alpha = 1f;
         if (primaryActionButton != null) primaryActionButton.interactable = false;
         Vector2 start = ticketHome + new Vector2(0f, -35f);
         Quaternion startRotation = Quaternion.Euler(0f, 0f, -3f);
@@ -192,7 +198,6 @@ public sealed class ScratchFlowPresentation : MonoBehaviour
             ticketTransform.anchoredPosition = Vector2.LerpUnclamped(start, ticketHome, a);
             ticketTransform.localRotation = Quaternion.SlerpUnclamped(startRotation, Quaternion.identity, a);
             ticketTransform.localScale = Vector3.one * Mathf.Lerp(0.84f, 1f, a);
-            ticketCanvasGroup.alpha = a;
             yield return null;
         }
 
