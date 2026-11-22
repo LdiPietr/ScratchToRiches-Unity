@@ -338,7 +338,13 @@ public sealed class ScratchAutoplayWindow : EditorWindow
     private void StartTest()
     {
         game = UnityEngine.Object.FindAnyObjectByType<ScratchGameManager>();
-        if (game == null || game.State != ScratchGameManager.RoundState.Ready)
+        // A previous completed demo may load in Finished state. Full-demo
+        // replay is allowed because the confirmed reset below also clears
+        // the authored final milestone and restores Ready state.
+        bool completedSavedDemo = IsFullDemo && game != null &&
+            game.State == ScratchGameManager.RoundState.Finished;
+        if (game == null || (game.State != ScratchGameManager.RoundState.Ready &&
+                             !completedSavedDemo))
         {
             EditorUtility.DisplayDialog("Autoplay", "Avvia la scena in Play Mode e lascia il gioco prima di SI PARTE! (stato Ready).", "OK");
             return;
