@@ -288,7 +288,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
 
     private void StartTest()
     {
-        game = UnityEngine.Object.FindFirstObjectByType<ScratchGameManager>();
+        game = UnityEngine.Object.FindAnyObjectByType<ScratchGameManager>();
         if (game == null || game.State != ScratchGameManager.RoundState.Ready)
         {
             EditorUtility.DisplayDialog("Autoplay", "Avvia la scena in Play Mode e lascia il gioco prima di SI PARTE! (stato Ready).", "OK");
@@ -933,6 +933,15 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         return ScratchGameManager.TicketPrice((ScratchGameManager.TicketKind)stage);
     }
 
+    // The target must be stable while farm tickets are purchased: ticketCost
+    // changes to the FARM ticket's price on every scratch.
+    private int FarmingTargetCoins()
+    {
+        if (farmingForTicket)
+            return ScratchGameManager.TicketPrice((ScratchGameManager.TicketKind)stage);
+        return FundsNeededForNextPurchase();
+    }
+
     private int FundsNeededForNextPurchase()
     {
         if (stage <= 0 || stage >= UnlockPlans.Length ||
@@ -959,9 +968,13 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         // Historical regression: 141 coins, C3 costs 140, Fortunato costs 10.
         // 141 is insufficient, 150 is sufficient. The test remains valid even
         // when the live provisional ticket prices are later rebalanced.
-        if (BudgetRequired(140, 10) != 150) failures++;
-        if (141 - 140 >= 10) failures++;
-        if (150 - 140 < 10) failures++;
+        int skillPrice = 140;
+        int nextTicketPrice = 10;
+        int insufficientWallet = 141;
+        int sufficientWallet = 150;
+        if (BudgetRequired(skillPrice, nextTicketPrice) != sufficientWallet) failures++;
+        if (insufficientWallet - skillPrice >= nextTicketPrice) failures++;
+        if (sufficientWallet - skillPrice < nextTicketPrice) failures++;
 
         foreach (ScratchGameManager.TicketKind kind in new[]
         {
