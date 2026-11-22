@@ -1,5 +1,20 @@
 # Scratch to Riches
 
+## V2.1 — Test end-to-end con autoplay e registrazione (Editor)
+
+**Solo per collaudo in Unity Editor**: non e' un upgrade di automazione giocabile nella build.
+
+1. Aprire `Assets/Scenes/ScratchToRiches.unity` e avviare **Play Mode**. Prima di premere `SI PARTE!`, aprire **Tools > Scratch to Riches > Autoplay e registrazione V2**.
+2. Lasciare **Credito QA** attivo per un test rapido dell'intera progressione (il credito e' fittizio, nel wallet salvato ma non contato nei guadagni di gioco). Attivare **Azzera progressi prima del test** solo se si vuole davvero perdere il salvataggio corrente; il programma chiede conferma. Avviare **START - TEST COMPLETO**.
+3. L'autoplay esegue **18 biglietti** con movimenti sintetici simili a quelli di una mano: Classico (coppia, tris, due casuali), Fortunato (coppia, tris, poker, casuale), Dorato (coppia, tris, poker, cinquina, casuale), Diamante (stessa serie del Dorato).
+4. Tra i gruppi, apre lo shop, tiene premuti i nodi per almeno 0,7 secondi, acquista i potenziamenti manuali e gli sblocchi (inclusi i prerequisiti economici del Diamante), poi richiude lo shop e procede. **Non** implementa aiutanti, auto-grattatura per il giocatore o altre skill future.
+5. Controlla dimensioni delle griglie, limite delle scelte, simboli distinti del Diamante, requisiti di sblocco, combinazioni, vincite secondo formula e liquidazione singola per biglietto. Se compare un errore o una schermata bloccata, interrompe e registra il fallimento.
+6. Per registrare anche le immagini, selezionare **Registra sequenza PNG + tenta MP4**. I fotogrammi della Game View vengono salvati a 1–5 fps; se `ffmpeg` e' installato ed e' disponibile nel PATH, il sistema prova ad avviare l'encoding in `autoplay.mp4`. Altrimenti i PNG restano montabili come sequenza video. La scrittura dell'MP4 non e' garantita finche' FFmpeg non termina.
+7. I file `tickets.csv`, `checks.csv` e `summary.txt` vengono generati anche senza video nella cartella `Application.persistentDataPath/AutoplayTests/<sessione>`. La finestra include il pulsante per aprirla.
+8. Per **resettare davvero monete e abilita'**, uscire da Play Mode e usare **Tools > Scratch to Riches > Reset progressi V2 (fuori Play)**; questa azione elimina anche le chiavi legacy M5, dopo conferma. Il reset non cancella i report di collaudo.
+
+**Nota:** questa funzionalita' e' un harness QA compilato solo nell'Editor. Non sostituisce il test reale in Unity: va verificato su Windows che il puntatore virtuale raggiunga la soglia di grattamento e che la Game View produca i fotogrammi come previsto.
+
 ## V2 — Gameplay incrementale continuativo (22 novembre 2026)
 
 **Questa sezione descrive il design attuale.** Le milestone M2-M7 riportate sotto sono cronologia del prototipo a tempo e non rappresentano piu' le regole del gioco principale.

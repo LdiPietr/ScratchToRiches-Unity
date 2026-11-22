@@ -55,6 +55,7 @@ public sealed class ScratchFlowPresentation : MonoBehaviour
 
     public bool CanScratch => phase == Phase.TicketLive;
     public bool ShopOpen => phase == Phase.CurtainDescending || phase == Phase.CurtainVisible || phase == Phase.CurtainAscending;
+    public bool ShopVisible => phase == Phase.CurtainVisible;
     public bool CanShowTicketChoices => phase == Phase.Choosing;
 
     private void Awake()

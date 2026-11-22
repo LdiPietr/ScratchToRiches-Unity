@@ -100,6 +100,20 @@ public sealed class ScratchEconomyManager : MonoBehaviour
         return true;
     }
 
+#if UNITY_EDITOR
+    /// <summary>QA-only funds for end-to-end tests; not counted as gameplay earnings.</summary>
+    public int CreditForAutoplayTest(int requested)
+    {
+        if (!Application.isPlaying || requested <= 0) return 0;
+        int actual = (int)Math.Min((long)requested, (long)int.MaxValue - coins);
+        if (actual <= 0) return 0;
+        coins += actual;
+        Save();
+        RefreshWallet();
+        return actual;
+    }
+#endif
+
     public void ResetWallet()
     {
         coins = Mathf.Max(0, startingCoins);

@@ -65,12 +65,12 @@ public sealed class ScratchSkillTree : MonoBehaviour
         // Caselle — previews plus extra picks (no changes to 4x4 board size).
         new Definition(SkillId.C1, "Occhiolino fortunato", "Anteprima di un simbolo nascosto.", 1, 25, true),
         new Definition(SkillId.C2, "Doppio occhiolino", "Anteprima di due simboli nascosti.", 1, 65, true, new Requirement(SkillId.C1)),
-        new Definition(SkillId.C3, "Sblocca Fortunato", "Sblocca il biglietto 4x4, quattro scelte e il poker.", 1, 140, true, new Requirement(SkillId.C2))
-        new Definition(SkillId.C4, "Occhio allenato", "Anteprima di tre simboli nascosti.", 1, 240, true, new Requirement(SkillId.C3))
-        new Definition(SkillId.C5, "Sblocca Dorato", "Sblocca il biglietto 5x5, cinque scelte e la cinquina.", 1, 850, true, new Requirement(SkillId.C4))
-        new Definition(SkillId.C6, "Occhio di falco", "Anteprima di cinque simboli nascosti.", 1, 1800, true, new Requirement(SkillId.C5))
-        new Definition(SkillId.C7, "Sblocca Diamante", "Super biglietto 5x5 con soli quattro simboli differenti per volta.", 1, 5000, true, new Requirement(SkillId.C6), new Requirement(SkillId.E4))
-        new Definition(SkillId.C8, "Tocco magico", "In futuro: cambia un simbolo nascosto.", 1, 8500, false, new Requirement(SkillId.C7))
+        new Definition(SkillId.C3, "Sblocca Fortunato", "Sblocca il biglietto 4x4, quattro scelte e il poker.", 1, 140, true, new Requirement(SkillId.C2)),
+        new Definition(SkillId.C4, "Occhio allenato", "Anteprima di tre simboli nascosti.", 1, 240, true, new Requirement(SkillId.C3)),
+        new Definition(SkillId.C5, "Sblocca Dorato", "Sblocca il biglietto 5x5, cinque scelte e la cinquina.", 1, 850, true, new Requirement(SkillId.C4)),
+        new Definition(SkillId.C6, "Occhio di falco", "Anteprima di cinque simboli nascosti.", 1, 1800, true, new Requirement(SkillId.C5)),
+        new Definition(SkillId.C7, "Sblocca Diamante", "Super biglietto 5x5 con soli quattro simboli differenti per volta.", 1, 5000, true, new Requirement(SkillId.C6), new Requirement(SkillId.E4)),
+        new Definition(SkillId.C8, "Tocco magico", "In futuro: cambia un simbolo nascosto.", 1, 8500, false, new Requirement(SkillId.C7)),
 
         // Economia — existing M4 payout becomes upgrade-aware.
         new Definition(SkillId.E1, "Pioggia di monete", "+2 monete al premio base per ogni livello.", 5, 15, true),
