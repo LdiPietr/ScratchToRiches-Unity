@@ -494,6 +494,15 @@ public sealed class ScratchAutoplayWindow : EditorWindow
                 ";biglietti=" + (tickets + farmTickets));
             return;
         }
+        if (IsFullDemo && purchaseIndex >= FullDemoPlan.Length && !game.DemoFinished &&
+            now - lastUpgradeAt > 5f * 60f)
+        {
+            Fail("Finale demo non raggiunto entro 5 minuti dall'ultima abilita'. " +
+                "Dorati finali=" + game.DemoFinalGoldTickets +
+                ";Jolly grattati=" + skills.JollyActivationCount +
+                ";wallet=" + economy.Coins);
+            return;
+        }
         if (now - stateSince > 60f)
         {
             Fail("Timeout fase " + phase + " (possibile blocco UI).");
