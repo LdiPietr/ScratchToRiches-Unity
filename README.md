@@ -1,5 +1,13 @@
 # Scratch to Riches
 
+## V2.2 — Autoplay robusto, farm organico e diagnostica hold (22 novembre 2026)
+
+- Correzione del problema emerso nel primo report: **4/18 biglietti, 35 controlli PASS, G1 livello 0 dopo HOLD_BEGIN**. Il tester ora usa un hold sintetico che attraversa lo stesso codice di acquisto del nodo, ma misura i secondi in `EditorApplication.timeSinceStartup` (non dipende da frame/focus dell'Editor). Non rilascia piu' dopo un tempo fisso di 0,95 s: aspetta l'effettivo aggiornamento del livello e interrompe dopo 6 s con diagnostica (stato script, acquisto, saldo, tempo accumulato). L'input del giocatore resta invariato.
+- **Credito QA attivo:** mantiene il test rapido dei 18 biglietti con fondi fittizi, tracciati separatamente. Questo scenario testa le meccaniche, **non** la curva naturale dell'economia.
+- **Credito QA disattivo:** se le monete non bastano per il prossimo potenziamento, l'autoplay chiude lo shop, continua a giocare **biglietti veri** del livello gia' sbloccato (ripiegando sul Classico se il saldo e' basso), incassa e riapre lo shop quando il saldo copre l'upgrade. Ripete fino agli sblocchi finali. Il numero di biglietti farm e' registrato separatamente dai 18 casi di test. La modalita' organica puo' richiedere moltissimo tempo e non garantisce la conclusione entro il timeout impostato.
+- I report distinguono `TICKET_END` dai `FARM_TICKET_END` e registrano i test `hold_to_buy`. Un acquisto non riuscito e' **FAIL**, non viene mai completato chiamando direttamente `TryPurchase` dal tester.
+- La simulazione QA della pressione verifica **logica di hold, requisiti e transazioni**, ma non prova il raycast reale del mouse: il click manuale sui nodi va provato separatamente almeno una volta.
+
 ## V2.1 — Test end-to-end con autoplay e registrazione (Editor)
 
 **Solo per collaudo in Unity Editor**: non e' un upgrade di automazione giocabile nella build.

@@ -21,7 +21,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
     private enum Phase
     {
         Idle, WaitLive, Scratch, WaitChoice, OpenShop, WaitShop,
-        StartPurchase, WaitPurchase, CloseShop, WaitShopClosed
+        StartPurchase, WaitPurchase, CloseShop, WaitShopClosed, WaitFarmShopClosed
     }
 
     private static readonly ScratchSymbolManager.TestPattern[][] TestPatterns =
@@ -77,6 +77,9 @@ public sealed class ScratchAutoplayWindow : EditorWindow
     private bool captureFrames;
     private bool realtimeCheckPassed;
     private bool pointerHeld;
+    private bool farming;
+    private int farmTickets;
+    private double lastQaHoldTick;
     private float humanSpeed = 1f;
     private float nextAction;
     private float stateSince;
@@ -84,7 +87,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
     private float ticketStartedAt;
     private float cellStartedAt;
     private float lastScreenshotAt;
-    private float maxSessionMinutes = 20f;
+    private float maxSessionMinutes = 90f;
     private int seed = 20261122;
     private int framesPerSecond = 3;
     private int frameCount;
@@ -158,13 +161,15 @@ public sealed class ScratchAutoplayWindow : EditorWindow
             startFresh = EditorGUILayout.ToggleLeft("Azzera progressi prima del test (solo Play Mode)", startFresh);
             humanSpeed = EditorGUILayout.Slider("Velocita' gesti (1 = umano)", humanSpeed, 0.5f, 4f);
             seed = EditorGUILayout.IntField("Seed dei gesti", seed);
-            maxSessionMinutes = EditorGUILayout.Slider("Timeout massimo (min)", maxSessionMinutes, 5f, 60f);
+            maxSessionMinutes = EditorGUILayout.Slider("Timeout massimo (min)", maxSessionMinutes, 5f, 240f);
             captureFrames = EditorGUILayout.ToggleLeft("Registra sequenza PNG + tenta MP4 (FFmpeg)", captureFrames);
             if (captureFrames) framesPerSecond = EditorGUILayout.IntSlider("FPS registrazione", framesPerSecond, 1, 5);
         }
 
         if (qaFunds)
-            EditorGUILayout.HelpBox("Il credito QA accelera gli sblocchi ma NON vale come guadagno reale. Il test altera i salvataggi: usa RESET per tornare a zero.", MessageType.Warning);
+            EditorGUILayout.HelpBox("Credito QA: sblocchi rapidi. Queste monete non sono guadagni reali e restano nel wallet fino al reset.", MessageType.Warning);
+        else
+            EditorGUILayout.HelpBox("Senza credito QA il tester grattera' altri biglietti per finanziare ogni acquisto. Potrebbero servire molte ore: aumenta il timeout massimo.", MessageType.Info);
         if (captureFrames)
             EditorGUILayout.HelpBox("Salva frame PNG della Game View. Se FFmpeg e' nel PATH tenta anche il montaggio MP4; altrimenti conserva i PNG.", MessageType.None);
 
@@ -182,7 +187,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
 
         GUILayout.Space(8);
         EditorGUILayout.LabelField("Stato: " + lastStatus, EditorStyles.wordWrappedLabel);
-        EditorGUILayout.LabelField("Biglietti conclusi: " + tickets + " / 18");
+        EditorGUILayout.LabelField("Biglietti test: " + tickets + " / 18  |  Farm: " + farmTickets);
         EditorGUILayout.LabelField("Verifiche OK: " + assertionsPassed + "    Errori: " + assertionsFailed);
         if (running)
             EditorGUILayout.LabelField("Fase: " + phase + " | Tier " + (stage + 1) + " | Test " + (patternIndex + 1));
@@ -246,7 +251,9 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         phase = Phase.WaitLive;
         stage = patternIndex = purchaseIndex = cellIndex = strokePointIndex = tickets = 0;
         assertionsPassed = assertionsFailed = frameCount = 0;
-        realtimeCheckPassed = pointerHeld = false;
+        realtimeCheckPassed = pointerHeld = farming = false;
+        farmTickets = 0;
+        lastQaHoldTick = 0d;
         pointer = null;
         activeCell = null;
         pressedHold = null;
@@ -318,6 +325,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
             case Phase.WaitPurchase: EndPurchase(now); break;
             case Phase.CloseShop: CloseShop(now); break;
             case Phase.WaitShopClosed: AwaitShopClosed(now); break;
+            case Phase.WaitFarmShopClosed: WaitFarmShopClosed(now); break;
         }
         }
         catch (Exception ex)
@@ -330,13 +338,15 @@ public sealed class ScratchAutoplayWindow : EditorWindow
     private void WaitLive(float now)
     {
         if (!game.TicketActive || !flow.CanScratch) return;
-        ScratchGameManager.TicketKind expected = (ScratchGameManager.TicketKind)stage;
+        ScratchGameManager.TicketKind expected = farming
+            ? game.CurrentTicketKind
+            : (ScratchGameManager.TicketKind)stage;
         Check(game.CurrentTicketKind == expected, "ticket_kind",
             "Atteso=" + expected + " effettivo=" + game.CurrentTicketKind);
         Check(cellManager.ActiveCells.Length == game.CurrentGridSide * game.CurrentGridSide,
             "grid_size", game.CurrentGridSide + "x" + game.CurrentGridSide);
         Check(game.MaxScratches == game.CurrentGridSide, "pick_cap", "MaxScelte=" + game.MaxScratches);
-        if (stage == 3)
+        if (stage == 3 && !farming)
         {
             HashSet<string> unique = new HashSet<string>();
             foreach (ScratchCell sc in cellManager.ActiveCells)
@@ -354,10 +364,9 @@ public sealed class ScratchAutoplayWindow : EditorWindow
     private void PrepareCell()
     {
         ScratchCell[] cells = cellManager.ActiveCells;
-        int index = TestPatterns[stage][patternIndex] == ScratchSymbolManager.TestPattern.Random
-            ? random.Next(0, cells.Length)
-            : cellIndex;
-        if (TestPatterns[stage][patternIndex] == ScratchSymbolManager.TestPattern.Random)
+        bool randomPick = farming || TestPatterns[stage][patternIndex] == ScratchSymbolManager.TestPattern.Random;
+        int index = randomPick ? random.Next(0, cells.Length) : cellIndex;
+        if (randomPick)
         {
             // Random ticket: try unselected, incomplete cells.
             List<ScratchCell> remaining = new List<ScratchCell>();
@@ -454,7 +463,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
     private void ValidateTicket()
     {
         EndPointer();
-        var pat = TestPatterns[stage][patternIndex];
+        var pat = farming ? ScratchSymbolManager.TestPattern.Random : TestPatterns[stage][patternIndex];
         ScratchSymbolManager.MatchTier expect = (ScratchSymbolManager.MatchTier)(int)pat;
         Check(game.RevealedCount == game.MaxScratches, "fully_scratched",
             "Grattate=" + game.RevealedCount + "/" + game.MaxScratches);
@@ -472,15 +481,17 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         game.OnCellCompleted(activeCell); // A duplicate completion callback must be ignored.
         Check(economy.Coins == afterSettlement, "duplicate_completion_rejected",
             "Saldo immutato dopo una chiamata OnCellCompleted duplicata.");
-        if (stage == 3 && pat != ScratchSymbolManager.TestPattern.Random)
+        if (!farming && stage == 3 && pat != ScratchSymbolManager.TestPattern.Random)
             Check(game.CurrentMatch.IsMatch, "diamond_guaranteed_match",
                 "Diamante con 5 simboli grattati.");
-        tickets++;
-        Note("TICKET_END", "match=" + game.CurrentMatch.Tier + ";gain=" + game.TicketPayout +
+        if (farming) farmTickets++;
+        else tickets++;
+        Note(farming ? "FARM_TICKET_END" : "TICKET_END", "match=" + game.CurrentMatch.Tier + ";gain=" + game.TicketPayout +
             ";net=" + (game.TicketPayout - ticketCost) +
             ";seconds=" + (Time.realtimeSinceStartup - ticketStartedAt).ToString("F2", CultureInfo.InvariantCulture));
-        lastStatus = "Biglietto " + tickets + ": " + game.CurrentTicketKind +
-            " " + pat + " = " + game.CurrentMatch.Tier + " +" + game.TicketPayout;
+        lastStatus = (farming ? "Farm " + farmTickets : "Test " + tickets) +
+            ": " + game.CurrentTicketKind + " " + pat + " = " + game.CurrentMatch.Tier +
+            " +" + game.TicketPayout;
     }
 
     private int ExpectedPayout()
@@ -501,6 +512,19 @@ public sealed class ScratchAutoplayWindow : EditorWindow
     private void WaitChoice(float now)
     {
         if (!game.WaitingForTicketChoice || !flow.CanShowTicketChoices) return;
+        if (farming)
+        {
+            ScratchSkillTree.SkillId needed = UnlockPlans[stage][purchaseIndex];
+            if (economy.Coins >= skills.GetPrice(needed))
+            {
+                farming = false;
+                Note("FARM_DONE", "wallet=" + economy.Coins + ";skill=" + needed);
+                ChangePhase(Phase.OpenShop, (0.3f + (float)random.NextDouble() * 0.4f) / humanSpeed);
+            }
+            else
+                ChooseFarmTicket(now);
+            return;
+        }
         patternIndex++;
         if (patternIndex < TestPatterns[stage].Length)
         {
@@ -555,6 +579,17 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         }
         if (!skills.CanPurchase(id))
         {
+            if (!qaFunds && skills.RequirementsMet(id) && economy.Coins < skills.GetPrice(id))
+            {
+                farming = true;
+                Note("FARM_START", "skill=" + id + ";wallet=" + economy.Coins +
+                    ";required=" + skills.GetPrice(id));
+                lastStatus = "Farming naturale per " + id + ": servono " + skills.GetPrice(id) +
+                    " monete (saldo " + economy.Coins + ")";
+                flow.ContinueAfterUpgrades();
+                ChangePhase(Phase.WaitFarmShopClosed, 0.1f);
+                return;
+            }
             Fail("Non acquistabile " + id + " (wallet=" + economy.Coins +
                 ";prezzo=" + skills.GetPrice(id) + ";requisiti=" + skills.RequirementText(id) + ")");
             return;
@@ -583,21 +618,51 @@ public sealed class ScratchAutoplayWindow : EditorWindow
             {
                 pointerId = -809, button = PointerEventData.InputButton.Left
             };
-        pressedHold.OnPointerDown(pointer);
-        Note("HOLD_BEGIN", "abilita=" + id + ";prezzo=" + skills.GetPrice(id));
-        ChangePhase(Phase.WaitPurchase, 0.95f);
+        if (!pressedHold.QaBeginHold(pointer))
+        {
+            Fail("Impossibile iniziare hold su " + id + " (nodeActive=" +
+                pressedHold.isActiveAndEnabled + ";canBuy=" + treeUI.CanHoldPurchase(slot) + ")");
+            return;
+        }
+        lastQaHoldTick = EditorApplication.timeSinceStartup;
+        Note("HOLD_BEGIN", "abilita=" + id + ";prezzo=" + skills.GetPrice(id) +
+            ";holdSeconds=" + pressedHold.QaDuration);
+        ChangePhase(Phase.WaitPurchase, 0f);
     }
 
     private void EndPurchase(float now)
     {
         ScratchSkillTree.SkillId id = UnlockPlans[stage][purchaseIndex];
-        if (pressedHold != null) pressedHold.OnPointerUp(pointer);
-        if (!Check(skills.GetLevel(id) == expectedSkillLevel, "hold_to_buy",
-            id + " livello=" + skills.GetLevel(id) + " atteso=" + expectedSkillLevel))
+        if (pressedHold == null)
         {
-            Fail("Acquisto fallito " + id);
+            Fail("Handle del nodo perso durante hold di " + id);
             return;
         }
+
+        double editorNow = EditorApplication.timeSinceStartup;
+        float step = Mathf.Clamp((float)(editorNow - lastQaHoldTick), 0f, 0.25f);
+        lastQaHoldTick = editorNow;
+        pressedHold.QaTick(step);
+
+        if (skills.GetLevel(id) != expectedSkillLevel)
+        {
+            if (now - stateSince <= 6f) return;
+            string details = id + " livello=" + skills.GetLevel(id) +
+                " atteso=" + expectedSkillLevel +
+                " qaHold=" + pressedHold.QaHolding +
+                " elapsed=" + pressedHold.QaElapsed.ToString("F2", CultureInfo.InvariantCulture) +
+                "/" + pressedHold.QaDuration +
+                " scriptActive=" + pressedHold.isActiveAndEnabled +
+                " canBuy=" + skills.CanPurchase(id) +
+                " wallet=" + economy.Coins;
+            pressedHold.QaReleaseHold();
+            Check(false, "hold_to_buy", details);
+            Finish(false, "Acquisto fallito: " + details);
+            return;
+        }
+
+        pressedHold.QaReleaseHold();
+        Check(true, "hold_to_buy", id + " livello=" + expectedSkillLevel);
         Note("SKILL_PURCHASED", id.ToString());
         pressedHold = null;
         purchaseIndex++;
@@ -621,6 +686,33 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         if (flow.ShopOpen || !flow.CanShowTicketChoices) return;
         Note("SHOP_CLOSE", "nuovo biglietto=" + (ScratchGameManager.TicketKind)stage);
         ChooseNext(now);
+    }
+
+    private void WaitFarmShopClosed(float now)
+    {
+        if (flow.ShopOpen || !flow.CanShowTicketChoices) return;
+        ChooseFarmTicket(now);
+    }
+
+    private void ChooseFarmTicket(float now)
+    {
+        // Buy and scratch the best previously unlocked tier to earn real coins.
+        // Never jump ahead to an unavailable tier while farming.
+        var kind = (ScratchGameManager.TicketKind)Mathf.Max(0, stage - 1);
+        if (!game.CanChooseTicket(kind))
+            kind = ScratchGameManager.TicketKind.Standard;
+        SetPattern(ScratchSymbolManager.TestPattern.Random);
+        walletBeforeTicket = economy.Coins;
+        ticketCost = ScratchGameManager.TicketPrice(kind);
+        if (!game.ChooseNextTicket(kind))
+        {
+            Fail("Impossibile acquistare il biglietto farm " + kind +
+                " con saldo " + economy.Coins);
+            return;
+        }
+        Note("FARM_TICKET_START", "kind=" + kind + ";needed=" +
+            skills.GetPrice(UnlockPlans[stage][purchaseIndex]));
+        ChangePhase(Phase.WaitLive, (0.2f + (float)random.NextDouble() * 0.4f) / humanSpeed);
     }
 
     private void ChooseNext(float now)
@@ -681,8 +773,10 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         string wallet = economy == null ? "-" : economy.Coins.ToString();
         string payout = game == null ? "-" : game.TicketPayout.ToString();
         ledger.Add(DateTime.UtcNow.ToString("o") + ";" + Safe(kind) + ";" +
-            num + ";" + tier + ";" + TestPatterns[safeStage][safePattern] + ";" +
-            wallet + ";" + ticketCost + ";" + payout + ";" + match + ";" + Safe(details));
+            num + ";" + tier + ";" +
+            (farming ? "Random" : TestPatterns[safeStage][safePattern].ToString()) + ";" +
+            wallet + ";" + ticketCost + ";" + payout + ";" + match + ";" +
+            Safe(farming ? "FARM | " + details : details));
     }
 
     private static string Safe(string s) => (s ?? "").Replace(";", ",").Replace("\n", " ").Replace("\r", " ");
@@ -708,7 +802,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         if (!running) return;
         running = false;
         EndPointer();
-        if (pressedHold != null && pointer != null) pressedHold.OnPointerUp(pointer);
+        if (pressedHold != null) pressedHold.QaReleaseHold();
         pressedHold = null;
         lastStatus = (success ? "COMPLETATO: " : "FERMATO: ") + message;
         try
@@ -721,7 +815,9 @@ public sealed class ScratchAutoplayWindow : EditorWindow
                 "Stato: " + lastStatus + "\n" +
                 "Seed: " + seed + "\n" +
                 "Durata reale (s): " + (Time.realtimeSinceStartup - startedAt).ToString("F2", CultureInfo.InvariantCulture) + "\n" +
-                "Biglietti: " + tickets + "/18\n" +
+                "Biglietti di test: " + tickets + "/18\n" +
+                "Biglietti farm: " + farmTickets + "\n" +
+                "Biglietti giocati totali: " + (tickets + farmTickets) + "\n" +
                 "Check OK: " + assertionsPassed + "\nCheck KO: " + assertionsFailed + "\n" +
                 "Saldo finale: " + (economy != null ? economy.Coins.ToString() : "n/a") + "\n" +
                 "Credito QA incluso: " + qaFunds + "\n" +

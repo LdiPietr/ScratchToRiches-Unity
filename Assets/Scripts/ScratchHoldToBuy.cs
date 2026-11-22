@@ -18,6 +18,12 @@ public sealed class ScratchHoldToBuy : MonoBehaviour,
     private bool holding;
     private float elapsed;
     private int pressedBranch;
+#if UNITY_EDITOR
+    private bool qaHolding;
+    public bool QaHolding => qaHolding && holding;
+    public float QaElapsed => elapsed;
+    public float QaDuration => holdDuration;
+#endif
 
     private void Awake()
     {
@@ -44,11 +50,64 @@ public sealed class ScratchHoldToBuy : MonoBehaviour,
         UpdateFill();
     }
 
-    public void OnPointerUp(PointerEventData eventData) => Cancel();
-    public void OnPointerExit(PointerEventData eventData) => Cancel();
+    public void OnPointerUp(PointerEventData eventData)
+    {
+#if UNITY_EDITOR
+        if (qaHolding) return; // EditorWindow virtual input has no physical UI hover.
+#endif
+        Cancel();
+    }
+
+    public void OnPointerExit(PointerEventData eventData)
+    {
+#if UNITY_EDITOR
+        if (qaHolding) return;
+#endif
+        Cancel();
+    }
+
     private void OnDisable() => Cancel();
 
+#if UNITY_EDITOR
+    /// <summary>
+    /// QA-only virtual press: uses OnPointerDown and the same purchase logic as a real user.
+    /// The EditorWindow supplies monotonic elapsed time so Editor focus does not abort a hold.
+    /// Neither this function nor QaTick purchases a skill directly.
+    /// </summary>
+    public bool QaBeginHold(PointerEventData data)
+    {
+        if (!isActiveAndEnabled || !gameObject.activeInHierarchy || treeUI == null ||
+            data == null || data.button != PointerEventData.InputButton.Left)
+            return false;
+        qaHolding = true;
+        OnPointerDown(data);
+        if (holding) return true;
+        qaHolding = false;
+        return false;
+    }
+
+    public void QaTick(float elapsedSeconds)
+    {
+        if (!qaHolding || !holding) return;
+        TickHold(Mathf.Max(0f, elapsedSeconds));
+    }
+
+    public void QaReleaseHold()
+    {
+        qaHolding = false;
+        Cancel();
+    }
+#endif
+
     private void Update()
+    {
+#if UNITY_EDITOR
+        if (qaHolding) return; // The test harness drives the hold with EditorApplication time.
+#endif
+        TickHold(Time.unscaledDeltaTime);
+    }
+
+    private void TickHold(float deltaSeconds)
     {
         if (!holding) return;
         if (treeUI == null || treeUI.BranchIndex != pressedBranch ||
@@ -58,7 +117,7 @@ public sealed class ScratchHoldToBuy : MonoBehaviour,
             return;
         }
 
-        elapsed += Time.unscaledDeltaTime;
+        elapsed += deltaSeconds;
         UpdateFill();
         if (elapsed < holdDuration) return;
 
@@ -87,6 +146,9 @@ public sealed class ScratchHoldToBuy : MonoBehaviour,
 
     private void Cancel()
     {
+#if UNITY_EDITOR
+        qaHolding = false;
+#endif
         holding = false;
         elapsed = 0f;
         UpdateFill();
