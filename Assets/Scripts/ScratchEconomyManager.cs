@@ -30,6 +30,9 @@ public sealed class ScratchEconomyManager : MonoBehaviour
     public int Score => coins;
     public int BasePrize => basePrize;
     public int LastTicketWin => lastTicketWin;
+    // Read-only QA telemetry: the next ticket's streak multiplier is based
+    // on the number of consecutive wins BEFORE that ticket is settled.
+    public int ConsecutiveWinningTickets => consecutiveWinningTickets;
     public long TotalEarned => totalEarned;
 
     private void Awake()
