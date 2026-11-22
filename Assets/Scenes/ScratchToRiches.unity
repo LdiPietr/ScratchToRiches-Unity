@@ -5024,7 +5024,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &366
 RectTransform:
   m_ObjectHideFlags: 0
@@ -19285,6 +19285,7 @@ MonoBehaviour:
   shopButton: {fileID: 9900010001}
   ticketTravelDuration: 0.36
   curtainObject: {fileID: 3100000045}
+  shopContent: {fileID: 365}
   curtainRect: {fileID: 3100000046}
   continueButton: {fileID: 3100000061}
   curtainTravelDuration: 0.55

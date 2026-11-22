@@ -1,5 +1,29 @@
 # Scratch to Riches
 
+## V2.4 — Registrazione video completa con Unity Recorder (22 novembre 2026)
+
+Il test autoplay puo' ora produrre **direttamente un file `autoplay.mp4` H.264** senza FFmpeg, insieme a `tickets.csv`, `checks.csv` e `summary.txt`. La dipendenza `com.unity.recorder: 5.1.8` e' dichiarata in `Packages/manifest.json` per Unity 6000.5: Unity Package Manager la recupera all'apertura/refresh del progetto (serve accesso Internet durante la prima installazione).
+
+**Uso (tutto da Unity Editor):**
+
+1. Esegui il pull di `main` e attendi che Unity risolva i pacchetti/compili gli script.
+2. Esegui `Tools > Scratch to Riches > Audit V2 Scene` per verificare lo shop e tutti gli 8 nodi.
+3. Avvia Play Mode con la scena `ScratchToRiches.unity`, poi apri `Tools > Scratch to Riches > Autoplay e registrazione V2`.
+4. L'opzione **REGISTRA VIDEO MP4 H.264** e' attiva per impostazione iniziale. Seleziona **720p / 30 fps** (consigliato, minore carico) oppure **1080p / 30–60 fps**. **Includi audio del gioco** e' facoltativo (richiede configurazione audio Unity Mono o Stereo).
+5. Premendo `START - TEST COMPLETO` la registrazione parte **prima** della prima grattata; il test attraversa biglietti, shop e sblocchi. In caso di errore, stop manuale o completamento, il video viene fermato e finalizzato, senza uscire da Play Mode.
+6. Apri la cartella dei report dal pulsante del tester. `summary.txt` registra stato MP4, risoluzione, fps e percorso; una verifica automatica controlla che `autoplay.mp4` esista e abbia dimensione non nulla, altrimenti scrive `FAIL` in `checks.csv` e mostra l'errore in Console.
+7. Il vecchio metodo `FFmpeg` e' stato **rimosso**: non richiede installazione di programmi esterni. Opzionalmente puoi attivare **Salva anche PNG di diagnostica** per ulteriori immagini a bassa frequenza.
+
+Il registratore lavora sulla **Game View** (non cattura i pulsanti della finestra Editor QA). Test lunghi o con farming organico producono file pesanti; lascia spazio su disco. Il video in H.264 e' prodotto senza canale alpha, in un contenitore MP4 adatto alla maggior parte dei lettori. La compatibilita' dei codec e la compilazione devono essere verificate sulla macchina Unity; i controlli statici GitHub non costituiscono un collaudo Play Mode.
+
+## V2.3 — Fix Shop vuoto (22 novembre 2026)
+
+Il primo test con la patch QA V2.2 ha confermato il problema: `Impossibile iniziare hold su G1 (nodeActive=False;canBuy=True)` dopo 4 biglietti. **Causa nella scena:** `SkillTreePanel` era `m_IsActive: 0` sotto il `RunEndCurtain`; aprire il curtain non riattivava il contenuto dello shop. Ora `SkillTreePanel` e' attivo nel YAML, e `ScratchFlowPresentation` mantiene una reference esplicita `shopContent` e ne forza l'attivazione quando necessario. Il curtain resta inattivo all'avvio.
+
+L'audit V2 ora verifica `shopContent`, la gerarchia e gli 8 nodi; l'autoplay controlla che lo shop sia **visibile davvero** prima di iniziare il primo acquisto e produce un errore diretto se resta vuoto.
+
+**Verifica in Unity:** `git pull origin main`; esci da Play Mode, riapri la scena se necessario, esegui `Tools > Scratch to Riches > Audit V2 Scene`, avvia l'autoplay. Testare anche manualmente l'apertura/chiusura dello shop e una pressione prolungata su G1. Nessuna conferma Play Mode ancora disponibile per la patch.
+
 ## V2.2 — Autoplay robusto, farm organico e diagnostica hold (22 novembre 2026)
 
 - Correzione del problema emerso nel primo report: **4/18 biglietti, 35 controlli PASS, G1 livello 0 dopo HOLD_BEGIN**. Il tester ora usa un hold sintetico che attraversa lo stesso codice di acquisto del nodo, ma misura i secondi in `EditorApplication.timeSinceStartup` (non dipende da frame/focus dell'Editor). Non rilascia piu' dopo un tempo fisso di 0,95 s: aspetta l'effettivo aggiornamento del livello e interrompe dopo 6 s con diagnostica (stato script, acquisto, saldo, tempo accumulato). L'input del giocatore resta invariato.
@@ -17,7 +41,7 @@
 3. L'autoplay esegue **18 biglietti** con movimenti sintetici simili a quelli di una mano: Classico (coppia, tris, due casuali), Fortunato (coppia, tris, poker, casuale), Dorato (coppia, tris, poker, cinquina, casuale), Diamante (stessa serie del Dorato).
 4. Tra i gruppi, apre lo shop, tiene premuti i nodi per almeno 0,7 secondi, acquista i potenziamenti manuali e gli sblocchi (inclusi i prerequisiti economici del Diamante), poi richiude lo shop e procede. **Non** implementa aiutanti, auto-grattatura per il giocatore o altre skill future.
 5. Controlla dimensioni delle griglie, limite delle scelte, simboli distinti del Diamante, requisiti di sblocco, combinazioni, vincite secondo formula e liquidazione singola per biglietto. Se compare un errore o una schermata bloccata, interrompe e registra il fallimento.
-6. Per registrare anche le immagini, selezionare **Registra sequenza PNG + tenta MP4**. I fotogrammi della Game View vengono salvati a 1–5 fps; se `ffmpeg` e' installato ed e' disponibile nel PATH, il sistema prova ad avviare l'encoding in `autoplay.mp4`. Altrimenti i PNG restano montabili come sequenza video. La scrittura dell'MP4 non e' garantita finche' FFmpeg non termina.
+6. Per registrare direttamente MP4 H.264 selezionare **REGISTRA VIDEO MP4** (abilitato di default). La Game View viene registrata con Unity Recorder e il video finalizzato quando il test termina. I PNG opzionali sono soltanto per diagnostica; nessun FFmpeg richiesto.
 7. I file `tickets.csv`, `checks.csv` e `summary.txt` vengono generati anche senza video nella cartella `Application.persistentDataPath/AutoplayTests/<sessione>`. La finestra include il pulsante per aprirla.
 8. Per **resettare davvero monete e abilita'**, uscire da Play Mode e usare **Tools > Scratch to Riches > Reset progressi V2 (fuori Play)**; questa azione elimina anche le chiavi legacy M5, dopo conferma. Il reset non cancella i report di collaudo.
 

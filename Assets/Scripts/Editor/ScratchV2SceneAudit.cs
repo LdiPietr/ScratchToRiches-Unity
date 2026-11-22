@@ -52,6 +52,24 @@ public static class ScratchV2SceneAudit
             SerializedObject so = new SerializedObject(flow);
             Check(so.FindProperty("shopButton").objectReferenceValue != null,
                   "clickable shop button", ref errors);
+            SerializedProperty contentProperty = so.FindProperty("shopContent");
+            GameObject shopPanel = contentProperty == null
+                ? null : contentProperty.objectReferenceValue as GameObject;
+            Check(shopPanel != null, "assigned skill tree panel", ref errors);
+            if (shopPanel != null)
+            {
+                Check(shopPanel.activeSelf, "skill tree panel activeSelf (curtain parent may remain hidden)", ref errors);
+                Check(shopPanel.name == "SkillTreePanel", "expected skill panel reference", ref errors);
+                SerializedProperty curtainProperty = so.FindProperty("curtainObject");
+                GameObject curtain = curtainProperty.objectReferenceValue as GameObject;
+                Check(curtain != null && shopPanel.transform.IsChildOf(curtain.transform),
+                    "skill tree panel parented to shop curtain", ref errors);
+                ScratchHoldToBuy[] holds = shopPanel.GetComponentsInChildren<ScratchHoldToBuy>(true);
+                Check(holds.Length == 8, "eight scratch skill node hold controls", ref errors);
+                for (int i = 0; i < holds.Length; i++)
+                    Check(holds[i].gameObject.activeSelf,
+                        "skill hold node local activeSelf: " + holds[i].gameObject.name, ref errors);
+            }
         }
         if (symbols != null)
         {

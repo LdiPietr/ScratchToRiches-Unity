@@ -35,6 +35,7 @@ public sealed class ScratchFlowPresentation : MonoBehaviour
 
     [Header("Full-screen skill curtain")]
     [SerializeField] private GameObject curtainObject;
+    [SerializeField] private GameObject shopContent;
     [SerializeField] private RectTransform curtainRect;
     [SerializeField] private Button continueButton;
     [SerializeField, Range(0.1f, 1.5f)] private float curtainTravelDuration = 0.55f;
@@ -56,6 +57,7 @@ public sealed class ScratchFlowPresentation : MonoBehaviour
     public bool CanScratch => phase == Phase.TicketLive;
     public bool ShopOpen => phase == Phase.CurtainDescending || phase == Phase.CurtainVisible || phase == Phase.CurtainAscending;
     public bool ShopVisible => phase == Phase.CurtainVisible;
+    public bool ShopContentVisible => ShopVisible && shopContent != null && shopContent.activeInHierarchy;
     public bool CanShowTicketChoices => phase == Phase.Choosing;
 
     private void Awake()
@@ -71,6 +73,7 @@ public sealed class ScratchFlowPresentation : MonoBehaviour
             ticketArtwork.sprite = ticketArtworkSprites[0];
         ApplyCellFrames(ScratchGameManager.TicketKind.Standard);
         UpdateTicketTypeLabel(ScratchGameManager.TicketKind.Standard);
+        if (shopContent != null) shopContent.SetActive(true);
         if (curtainObject != null) curtainObject.SetActive(false);
         if (ticketCanvasGroup != null)
         {
@@ -84,7 +87,8 @@ public sealed class ScratchFlowPresentation : MonoBehaviour
     {
         if (game == null || economy == null || ticketChooser == null ||
             ticketTransform == null || ticketCanvasGroup == null ||
-            curtainObject == null || curtainRect == null || continueButton == null || shopButton == null)
+            curtainObject == null || shopContent == null || curtainRect == null || continueButton == null || shopButton == null ||
+            !shopContent.transform.IsChildOf(curtainRect))
         {
             Debug.LogError("ScratchFlowPresentation: missing scene references.", this);
             enabled = false;
@@ -254,6 +258,7 @@ public sealed class ScratchFlowPresentation : MonoBehaviour
         phase = Phase.CurtainDescending;
         if (primaryActionButton != null) primaryActionButton.interactable = false;
         ticketChooser.Refresh();
+        if (!shopContent.activeSelf) shopContent.SetActive(true);
         curtainObject.SetActive(true);
         continueButton.interactable = false;
         curtainRect.anchoredPosition = curtainHome + new Vector2(0f, 1200f);

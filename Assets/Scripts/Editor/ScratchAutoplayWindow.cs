@@ -1,7 +1,6 @@
 #if UNITY_EDITOR
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Text;
@@ -75,6 +74,15 @@ public sealed class ScratchAutoplayWindow : EditorWindow
     private bool qaFunds = true;
     private bool startFresh = true;
     private bool captureFrames;
+    private bool recordVideo = true;
+    private bool recordGameAudio;
+    private bool videoValidationPending;
+    private int videoHeight = 720;
+    private int videoFrameRate = 30;
+    private double videoValidationDeadline;
+    private string videoStatus = "Non richiesto";
+    private string videoOutputPath = string.Empty;
+    private ScratchAutoplayMovieRecorder movieRecorder;
     private bool realtimeCheckPassed;
     private bool pointerHeld;
     private bool farming;
@@ -139,6 +147,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
 
     private void OnEnable()
     {
+        EditorApplication.update -= UpdateVideoValidation;
         EditorApplication.update += UpdateTest;
     }
 
@@ -146,6 +155,12 @@ public sealed class ScratchAutoplayWindow : EditorWindow
     {
         EditorApplication.update -= UpdateTest;
         if (running) Finish(false, "Tester chiuso prima del termine.");
+        // MP4 finalization can outlive the window: finish validation and update summary.
+        if (videoValidationPending)
+        {
+            EditorApplication.update -= UpdateVideoValidation;
+            EditorApplication.update += UpdateVideoValidation;
+        }
     }
 
     private void OnGUI()
@@ -162,16 +177,29 @@ public sealed class ScratchAutoplayWindow : EditorWindow
             humanSpeed = EditorGUILayout.Slider("Velocita' gesti (1 = umano)", humanSpeed, 0.5f, 4f);
             seed = EditorGUILayout.IntField("Seed dei gesti", seed);
             maxSessionMinutes = EditorGUILayout.Slider("Timeout massimo (min)", maxSessionMinutes, 5f, 240f);
-            captureFrames = EditorGUILayout.ToggleLeft("Registra sequenza PNG + tenta MP4 (FFmpeg)", captureFrames);
-            if (captureFrames) framesPerSecond = EditorGUILayout.IntSlider("FPS registrazione", framesPerSecond, 1, 5);
+            recordVideo = EditorGUILayout.ToggleLeft("REGISTRA VIDEO MP4 H.264 (Unity Recorder)", recordVideo);
+            if (recordVideo)
+            {
+                videoHeight = EditorGUILayout.IntPopup("Risoluzione MP4", videoHeight,
+                    new[] { "HD 1280x720", "Full HD 1920x1080" }, new[] { 720, 1080 });
+                videoFrameRate = EditorGUILayout.IntPopup("FPS MP4", videoFrameRate,
+                    new[] { "30 (consigliato)", "60" }, new[] { 30, 60 });
+                recordGameAudio = EditorGUILayout.ToggleLeft("Includi audio del gioco", recordGameAudio);
+            }
+            captureFrames = EditorGUILayout.ToggleLeft("Salva anche PNG di diagnostica (opzionale)", captureFrames);
+            if (captureFrames)
+                framesPerSecond = EditorGUILayout.IntSlider("FPS PNG", framesPerSecond, 1, 5);
         }
 
         if (qaFunds)
             EditorGUILayout.HelpBox("Credito QA: sblocchi rapidi. Queste monete non sono guadagni reali e restano nel wallet fino al reset.", MessageType.Warning);
         else
             EditorGUILayout.HelpBox("Senza credito QA il tester grattera' altri biglietti per finanziare ogni acquisto. Potrebbero servire molte ore: aumenta il timeout massimo.", MessageType.Info);
+        if (recordVideo)
+            EditorGUILayout.HelpBox("Il MP4 viene creato direttamente con Unity Recorder 5.1.8. Nessun FFmpeg richiesto. " +
+                "Registra la Game View dall'inizio fino al completamento o all'errore; il file viene finalizzato alla chiusura del test.", MessageType.None);
         if (captureFrames)
-            EditorGUILayout.HelpBox("Salva frame PNG della Game View. Se FFmpeg e' nel PATH tenta anche il montaggio MP4; altrimenti conserva i PNG.", MessageType.None);
+            EditorGUILayout.HelpBox("I PNG sono soltanto materiale diagnostico aggiuntivo e possono occupare molto spazio.", MessageType.None);
 
         GUILayout.Space(8);
         using (new EditorGUI.DisabledScope(!EditorApplication.isPlaying || running))
@@ -189,6 +217,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         EditorGUILayout.LabelField("Stato: " + lastStatus, EditorStyles.wordWrappedLabel);
         EditorGUILayout.LabelField("Biglietti test: " + tickets + " / 18  |  Farm: " + farmTickets);
         EditorGUILayout.LabelField("Verifiche OK: " + assertionsPassed + "    Errori: " + assertionsFailed);
+        EditorGUILayout.LabelField("Video: " + videoStatus, EditorStyles.wordWrappedLabel);
         if (running)
             EditorGUILayout.LabelField("Fase: " + phase + " | Tier " + (stage + 1) + " | Test " + (patternIndex + 1));
         if (!string.IsNullOrEmpty(reportDirectory))
@@ -252,6 +281,10 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         stage = patternIndex = purchaseIndex = cellIndex = strokePointIndex = tickets = 0;
         assertionsPassed = assertionsFailed = frameCount = 0;
         realtimeCheckPassed = pointerHeld = farming = false;
+        movieRecorder = null;
+        videoValidationPending = false;
+        videoStatus = recordVideo ? "Avvio in corso" : "Non richiesto";
+        videoOutputPath = string.Empty;
         farmTickets = 0;
         lastQaHoldTick = 0d;
         pointer = null;
@@ -276,6 +309,21 @@ public sealed class ScratchAutoplayWindow : EditorWindow
             Note("QA_CREDIT", "credited=" + credited + ";not_gameplay_income");
         }
 
+        if (recordVideo)
+        {
+            movieRecorder = new ScratchAutoplayMovieRecorder();
+            if (!movieRecorder.Start(reportDirectory, videoHeight, videoFrameRate, recordGameAudio))
+            {
+                videoStatus = "ERRORE avvio: " + movieRecorder.LastError;
+                Fail(videoStatus);
+                return;
+            }
+            videoOutputPath = movieRecorder.OutputPath;
+            videoStatus = "Registrazione H.264 in corso";
+            Note("VIDEO_START", "path=" + videoOutputPath + ";fps=" + videoFrameRate +
+                ";resolution=" + videoHeight + "p;audio=" + recordGameAudio);
+        }
+
         SetPattern(TestPatterns[0][0]);
         game.StartNewRun();
         walletBeforeTicket = economy.Coins;
@@ -287,6 +335,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
 
     private void UpdateTest()
     {
+        UpdateVideoValidation();
         if (!running) return;
         float now = Time.realtimeSinceStartup;
         if (!EditorApplication.isPlaying || game == null)
@@ -808,54 +857,109 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         try
         {
             if (symbols != null) SetPattern(ScratchSymbolManager.TestPattern.Random);
+            if (recordVideo)
+            {
+                if (movieRecorder != null && movieRecorder.Started)
+                {
+                    if (movieRecorder.Stop())
+                    {
+                        videoStatus = "Finalizzazione MP4 in corso";
+                        videoValidationPending = true;
+                        videoValidationDeadline = EditorApplication.timeSinceStartup + 20.0;
+                        Note("VIDEO_STOP", "output=" + videoOutputPath);
+                    }
+                    else
+                    {
+                        videoStatus = "ERRORE finalizzazione: " + movieRecorder.LastError;
+                        Check(false, "video_finalize", videoStatus);
+                    }
+                }
+                else if (string.IsNullOrEmpty(videoOutputPath))
+                {
+                    videoStatus = "ERRORE registrazione non avviata";
+                    Check(false, "video_start", videoStatus);
+                }
+            }
             Note("TEST_END", lastStatus);
-            File.WriteAllLines(Path.Combine(reportDirectory, "tickets.csv"), ledger, Encoding.UTF8);
-            File.WriteAllLines(Path.Combine(reportDirectory, "checks.csv"), checks, Encoding.UTF8);
-            string summary = "Scratch to Riches V2 - Auto QA\n" +
-                "Stato: " + lastStatus + "\n" +
-                "Seed: " + seed + "\n" +
-                "Durata reale (s): " + (Time.realtimeSinceStartup - startedAt).ToString("F2", CultureInfo.InvariantCulture) + "\n" +
-                "Biglietti di test: " + tickets + "/18\n" +
-                "Biglietti farm: " + farmTickets + "\n" +
-                "Biglietti giocati totali: " + (tickets + farmTickets) + "\n" +
-                "Check OK: " + assertionsPassed + "\nCheck KO: " + assertionsFailed + "\n" +
-                "Saldo finale: " + (economy != null ? economy.Coins.ToString() : "n/a") + "\n" +
-                "Credito QA incluso: " + qaFunds + "\n" +
-                "Frames PNG richiesti: " + frameCount + "\n";
-            File.WriteAllText(Path.Combine(reportDirectory, "summary.txt"), summary, Encoding.UTF8);
-            if (captureFrames && frameCount > 1) TryEncodeMp4();
-            Debug.Log("STR AUTO QA: " + lastStatus + " | Report: " + reportDirectory);
+            WriteReport();
+            Debug.Log("STR AUTO QA: " + lastStatus + " | Report: " + reportDirectory +
+                " | Video: " + videoStatus);
         }
         catch (Exception ex)
         {
-            Debug.LogError("STR AUTO QA: salvataggio report fallito: " + ex);
+            Debug.LogError("STR AUTO QA: salvataggio report/MP4 fallito: " + ex);
         }
         Repaint();
     }
 
-    private void TryEncodeMp4()
+    private void UpdateVideoValidation()
     {
-        string frames = Path.Combine(reportDirectory, "frames", "frame_%06d.png");
-        string mp4 = Path.Combine(reportDirectory, "autoplay.mp4");
+        if (!videoValidationPending || string.IsNullOrEmpty(videoOutputPath)) return;
+
         try
         {
-            var info = new ProcessStartInfo
+            if (File.Exists(videoOutputPath))
             {
-                FileName = "ffmpeg",
-                Arguments = "-hide_banner -loglevel error -y -framerate " + framesPerSecond +
-                    " -i \"" + frames + "\" -c:v libx264 -pix_fmt yuv420p -movflags +faststart \"" + mp4 + "\"",
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-            Process process = Process.Start(info);
-            if (process != null)
-                Debug.Log("STR AUTO QA: FFmpeg avviato; verifica autoplay.mp4 nella cartella report quando termina.");
+                long length = new FileInfo(videoOutputPath).Length;
+                if (length >= 4096)
+                {
+                    videoStatus = "MP4 creato (" + (length / 1024 / 1024f).ToString("F1",
+                        CultureInfo.InvariantCulture) + " MB)";
+                    Check(true, "video_mp4_file", "MP4 esistente, bytes=" + length);
+                    videoValidationPending = false;
+                    EditorApplication.update -= UpdateVideoValidation;
+                    WriteReport();
+                    Repaint();
+                    return;
+                }
+            }
+
+            if (EditorApplication.timeSinceStartup > videoValidationDeadline)
+            {
+                videoValidationPending = false;
+                EditorApplication.update -= UpdateVideoValidation;
+                videoStatus = "ERRORE: MP4 assente o vuoto dopo finalizzazione";
+                lastStatus += " | VIDEO NON CREATO";
+                Check(false, "video_mp4_file", "File non creato: " + videoOutputPath);
+                WriteReport();
+                Debug.LogError("STR AUTO QA: " + videoStatus + " | " + videoOutputPath);
+                Repaint();
+            }
         }
         catch (Exception ex)
         {
-            Debug.LogWarning("STR AUTO QA: FFmpeg non disponibile (" + ex.Message +
-                "). Sequenza PNG conservata, utilizzabile per montare il video.");
+            videoValidationPending = false;
+            EditorApplication.update -= UpdateVideoValidation;
+            videoStatus = "ERRORE verifica MP4: " + ex.Message;
+            lastStatus += " | VIDEO NON VERIFICATO";
+            Check(false, "video_mp4_file", videoStatus);
+            WriteReport();
         }
     }
+
+    private void WriteReport()
+    {
+        if (string.IsNullOrEmpty(reportDirectory)) return;
+        Directory.CreateDirectory(reportDirectory);
+        File.WriteAllLines(Path.Combine(reportDirectory, "tickets.csv"), ledger, Encoding.UTF8);
+        File.WriteAllLines(Path.Combine(reportDirectory, "checks.csv"), checks, Encoding.UTF8);
+        string summary = "Scratch to Riches V2 - Auto QA\n" +
+            "Stato: " + lastStatus + "\n" +
+            "Seed: " + seed + "\n" +
+            "Durata reale (s): " + (Time.realtimeSinceStartup - startedAt).ToString("F2", CultureInfo.InvariantCulture) + "\n" +
+            "Biglietti di test: " + tickets + "/18\n" +
+            "Biglietti farm: " + farmTickets + "\n" +
+            "Biglietti giocati totali: " + (tickets + farmTickets) + "\n" +
+            "Check OK: " + assertionsPassed + "\nCheck KO: " + assertionsFailed + "\n" +
+            "Saldo finale: " + (economy != null ? economy.Coins.ToString() : "n/a") + "\n" +
+            "Credito QA incluso: " + qaFunds + "\n" +
+            "Video: " + videoStatus + "\n" +
+            "Video file: " + (recordVideo ? videoOutputPath : "Non richiesto") + "\n" +
+            "Formato: " + (recordVideo ? "H.264 MP4, " + videoHeight + "p, " + videoFrameRate + " fps" : "N/A") + "\n" +
+            "Audio: " + (recordVideo && recordGameAudio) + "\n" +
+            "Frames PNG richiesti: " + frameCount + "\n";
+        File.WriteAllText(Path.Combine(reportDirectory, "summary.txt"), summary, Encoding.UTF8);
+    }
+
 }
 #endif
