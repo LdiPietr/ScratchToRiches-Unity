@@ -12,7 +12,7 @@ public static class ScratchV2SceneAudit
     private static void AuditScene()
     {
         int errors = 0;
-        ScratchCellManager manager = Object.FindFirstObjectByType<ScratchCellManager>(FindObjectsInactive.Include);
+        ScratchCellManager manager = Object.FindAnyObjectByType<ScratchCellManager>(FindObjectsInactive.Include);
         if (manager == null)
         {
             Debug.LogError("V2 AUDIT: ScratchCellManager not found in the open scene.");
