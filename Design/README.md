@@ -115,6 +115,49 @@ prerequisiti, scena YAML (90 nodi e referenze), input e regressioni source.
 Non compila Unity, non valida raycast e non misura la nuova curva di durata.
 La milestone stabile da 21:22 non certifica automaticamente questo branch.
 
+## Registrazione di una partita manuale dentro Unity
+
+Menu unico: **Tools → Scratch to Riches → Registra partita manuale**.
+
+1. In Editor, se necessario resetta la demo con **Reset progressi V2 (fuori Play)**.
+2. Avvia **Play Mode** nella scena ScratchToRiches, ma non premere ancora
+   il pulsante iniziale del gioco.
+3. Nel pannello **Registra partita manuale**, scegli
+   **AVVIA VIDEO + LOG PARTITA MANUALE**. Poi gioca normalmente.
+4. Al finale il registratore si ferma da solo, oppure puoi premere
+   **STOP E SALVA VIDEO + LOG**. Non interrompere il processo di
+   finalizzazione del Recorder se vuoi un MP4 valido.
+5. Premi **APRI CARTELLA VIDEO E LOG** e invia
+   `summary.txt`, `events.csv`, `video_manifest.csv` e
+   i video `part_01.mp4`, `part_02.mp4` ecc.
+
+I file vengono creati in `Recordings/Manual/<sessione>/`, cartella
+esclusa da Git. Nessun OBS, FFmpeg o autoplay richiesto. Si usa la
+dipendenza gia' presente **Unity Recorder 5.1.8**.
+
+Il video registra la **Game View**, non l'interfaccia Unity o il desktop.
+Formato: H.264 MP4 1280×720, 24 FPS variabili, bitrate target 1,5 Mbps,
+audio disattivato per non togliere l'ascolto durante la partita.
+Ogni parte viene chiusa dopo 8 minuti (o prima, se cresce molto).
+Dimensione tipica prevista: circa **90 MB a parte**. Il file e' controllato
+dopo la finalizzazione e segnalato se supera **400 MB**, margine
+inferiore al limite generale di caricamento di ChatGPT (**512 MB**).
+Il bitrate e' un target: la misura definitiva e' nel manifest, non si
+promette un limite matematicamente garantito prima della codifica.
+
+`events.csv` registra su una sola timeline tempo reale (secondi),
+orario UTC, biglietto, tipologia, monete ed eventi di gioco: inizio/fine
+biglietto, selezione/completamento caselle, ispezioni, Jolly, Titanico,
+acquisti, hover nodi, panoramiche/zoom della mappa, apertura/chiusura
+dello shop, battito ogni 15 secondi e fine demo. Non registra simboli
+coperti, non introduce RNG/monete/farm automatizzati, e funziona solo
+quando la registrazione e' stata avviata. L'autoplay QA e' separato
+e non puo' partire contemporaneamente.
+
+**Limite**: serve una prova in Unity per verificare compilazione,
+avvio/arresto, compatibilita' del Recorder e dimensioni MP4 reali.
+Non confondere le verifiche statiche GitHub con un test Play Mode.
+
 ## Annullamento completo
 
 Questo branch è isolato: **non fare merge** se la mappa non convince.
