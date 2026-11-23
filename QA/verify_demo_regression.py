@@ -157,6 +157,19 @@ def check_static():
         if not named:
             continue
         root = named[0]
+        check(re.search(r"^  m_IsActive: 1$", root, flags=re.MULTILINE) is not None,
+              "Authored map node inactive: " + skill_id)
+        check("component: {fileID: 2000020085}" not in root,
+              "Map node still references legacy shared Button: " + skill_id)
+        root_id_match = re.search(r"^--- !u!1 &(\d+)", root)
+        if root_id_match:
+            root_id = root_id_match.group(1)
+            for component_id in re.findall(r"^  - component: \{fileID: (\d+)\}$",
+                                           root, flags=re.MULTILINE):
+                component = blocks.get(component_id, "")
+                check("m_GameObject: {fileID: " + root_id + "}" in component,
+                      "Map component owner mismatch: " + skill_id +
+                      " / " + component_id)
         rt_match = re.search(r"component: \{fileID: (\d+)\}", root)
         rect = blocks.get(rt_match.group(1), "") if rt_match else ""
         check("m_Father: {fileID: 810000000012}" in rect and
