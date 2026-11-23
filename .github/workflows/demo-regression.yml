@@ -2,7 +2,7 @@ name: Scratch demo regression (static)
 
 on:
   push:
-    branches: [main]
+    branches: [main, feature/radial-skill-tree-unity]
     paths:
       - "Assets/Resources/SkillCatalogV2.json"
       - "Assets/Scripts/**"
