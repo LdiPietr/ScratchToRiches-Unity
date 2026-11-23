@@ -89,10 +89,30 @@ def check_static():
     check("ScratchRadialProgression.Available(" in
           (ROOT / "Assets/Scripts/ScratchSkillTree.cs").read_text(encoding="utf-8-sig"),
           "Purchase authority bypasses radial chapters")
-    check("OpenOverview()" in ui and "LayoutRadial()" in ui and
-          "nucleusButton:" in scene and "m_Name: RadialConnections" in scene,
-          "Authored radial shop missing nucleus, hubs, or spokes")
-    check("NUCLEUS_WAIT" in code, "Autoplay no longer handles a locked chapter")
+    navigation = (ROOT / "Assets/Scripts/ScratchRadialMapNavigation.cs").read_text(encoding="utf-8-sig")
+    node = (ROOT / "Assets/Scripts/ScratchHoldToBuy.cs").read_text(encoding="utf-8-sig")
+    check("OnScroll(PointerEventData data)" in navigation and
+          "OnDrag(PointerEventData data)" in navigation and
+          "CenterOn(Vector2 positionInContent)" in navigation,
+          "Single map lost pan/zoom or centering")
+    check("HoverSkill(string id)" in ui and "ClearHoverSkill(string id)" in ui and
+          "DrawDetails()" in ui and "selectedDescription.text = entry.description" in ui,
+          "Fixed bottom hover panel no longer reports actual skills")
+    check("stableSkillId" in node and "CancelForMapPan" in node and
+          "CanPurchaseSkill(stableSkillId)" in node,
+          "Map purchase hold/input detached from stable skill IDs")
+    check(scene.count("m_Name: MapSkillNode_") == 90 and
+          scene.count("  stableSkillId: ") == 90 and
+          "m_Name: RadialMapViewport" in scene and
+          "m_Name: RadialMapContent" in scene and
+          "m_Name: RadialConnections" in scene and
+          "guid: 3312d7739989d2b4e91e6319e9a96d76" in scene and
+          "nucleusButton:" in scene and "navigation:" in scene,
+          "90 square scene nodes or masked navigable map are missing")
+    ids = set(re.findall(r"m_Name: MapSkillNode_([GCEFA]\\d{2})", scene))
+    check(ids == set(by_id), "Authored 90 square map nodes do not match catalog IDs")
+    check("NUCLEUS_WAIT" in code and "MapSkillNode_" in code,
+          "Autoplay does not navigate authored map or locked chapters")
 
 
 
