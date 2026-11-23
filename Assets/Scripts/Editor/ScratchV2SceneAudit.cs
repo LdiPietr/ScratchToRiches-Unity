@@ -118,8 +118,11 @@ public static class ScratchV2SceneAudit
               "ticket skill UI order C01-C03-C02-C04", ref errors);
         Check(ScratchSkillCatalogV2.Find("C03")?.prerequisites == "C01:1" &&
               ScratchSkillCatalogV2.Find("C02")?.prerequisites == "C03:1" &&
-              ScratchSkillCatalogV2.Find("C04")?.prerequisites == "C02:1",
-              "second preview locked until Fortunato", ref errors);
+              ScratchSkillCatalogV2.Find("C04")?.prerequisites == "C02:1;G07:1",
+              "third preview only after continuous scratch G07", ref errors);
+        Check(ScratchSkillCatalogV2.Find("C06")?.description.Contains("clic destro") == true &&
+              ScratchSkillCatalogV2.Find("C06")?.prerequisites == "C05:1",
+              "C06 is player-selected right-click inspection, not five random previews", ref errors);
 
         ScratchSkillTreeUI tree = manager.GetComponent<ScratchSkillTreeUI>();
         Check(tree != null, "skill tree interface component", ref errors);
