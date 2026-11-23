@@ -138,8 +138,10 @@ dipendenza gia' presente **Unity Recorder 5.1.8**.
 Il video registra la **Game View**, non l'interfaccia Unity o il desktop.
 Formato: H.264 MP4 1280×720, 24 FPS variabili, bitrate target 1,5 Mbps,
 audio disattivato per non togliere l'ascolto durante la partita.
-Ogni parte viene chiusa dopo 8 minuti (o prima, se cresce molto).
-Dimensione tipica prevista: circa **90 MB a parte**. Il file e' controllato
+**Una partita manuale di 20-25 minuti genera normalmente un solo MP4**,
+con dimensione teorica di circa 225-281 MB al bitrate target di 1,5 Mbps.
+Solo oltre **30 minuti** (o se il file aperto arriva a circa 350 MiB)
+inizia una nuova parte numerata. Il file e' controllato
 dopo la finalizzazione e segnalato se supera **400 MB**, margine
 inferiore al limite generale di caricamento di ChatGPT (**512 MB**).
 Il bitrate e' un target: la misura definitiva e' nel manifest, non si
