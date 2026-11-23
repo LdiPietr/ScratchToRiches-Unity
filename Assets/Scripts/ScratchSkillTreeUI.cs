@@ -130,6 +130,17 @@ public sealed class ScratchSkillTreeUI : MonoBehaviour
             availableJumpButton.targetGraphic = pageLabel;
             availableJumpButton.onClick.AddListener(JumpToNextPurchase);
         }
+        // The original fixed info panel was too small in recorded human play.
+        // Adaptive sizing preserves the authored layout without replacing it.
+        selectedTitle.enableAutoSizing = true;
+        selectedTitle.fontSizeMax = 22f;
+        selectedTitle.fontSizeMin = 16f;
+        selectedDescription.enableAutoSizing = true;
+        selectedDescription.fontSizeMax = 18f;
+        selectedDescription.fontSizeMin = 13f;
+        statusLabel.enableAutoSizing = true;
+        statusLabel.fontSizeMax = 20f;
+        statusLabel.fontSizeMin = 14f;
         skills.Changed += Refresh;
         economy.Changed += Refresh;
         game.Changed += Refresh;
@@ -342,8 +353,20 @@ public sealed class ScratchSkillTreeUI : MonoBehaviour
             if (entry.id == "G04") selectedDescription.text += "  [F: VENTAGLIO]";
             if (entry.id == "G08") selectedDescription.text += "  [SHIFT + GRATTA: TITANICO]";
             if (entry.id == "C06") selectedDescription.text += "  [DESTRO/CTRL+CLIC: ISPEZIONA]";
-            statusLabel.text = SkillStatus(entry) + " · " + entry.kind.ToUpperInvariant();
-            statusLabel.color = skills.CanPurchase(entry.id)
+            string selectedStatus = SkillStatus(entry);
+            bool selectedBuy = skills.CanPurchase(entry.id);
+            // Remind the player of their actual affordable next step EVEN
+            // when inspecting a locked or already-completed node.
+            if (!selectedBuy && purchasableIds.Count > 0)
+            {
+                string id = purchasableIds[0];
+                statusLabel.text = "● ORA PUOI COMPRARE " + id +
+                    " (" + skills.GetPrice(id).ToString("N0") +
+                    ") · TAB PER TROVARLO  |  " + selectedStatus;
+            }
+            else
+                statusLabel.text = selectedStatus;
+            statusLabel.color = selectedBuy || purchasableIds.Count > 0
                 ? new Color(0.39f, 1f, 0.46f)
                 : skills.GetLevel(entry.id) >= entry.maxLevel
                     ? new Color(0.49f, 0.83f, 1f)
@@ -370,18 +393,18 @@ public sealed class ScratchSkillTreeUI : MonoBehaviour
         if (pageLabel != null)
         {
             if (purchasableIds.Count == 0)
-                pageLabel.text = "<color=#F0B96B>NESSUN ACQUISTO ORA</color>  ·  " +
+                pageLabel.text = "<color=#AB6222>NESSUN ACQUISTO ORA</color>  ·  " +
                     ScratchRadialProgression.NextGoal(game, skills) +
-                    "  ·  <color=#8A99B2>VERDE = ACQUISTABILE</color>";
+                    "  ·  VERDE = ACQUISTABILE";
             else
             {
                 string id = purchasableIds[0];
                 ScratchSkillCatalogV2.Entry next = ScratchSkillCatalogV2.Find(id);
-                pageLabel.text = "<color=#62FF81>● " + purchasableIds.Count +
-                    " ACQUISTABILI</color>   ·   " + id + " " +
-                    next.title.ToUpperInvariant() + " " +
+                pageLabel.text = "● " + purchasableIds.Count +
+                    " ACQUISTABILI   ·   " + id + " " +
+                    next.title.ToUpperInvariant() + " · " +
                     skills.GetPrice(id).ToString("N0") +
-                    " MONETE   ·   <color=#62FF81>CLICCA QUI / TAB PER TROVARLE</color>";
+                    " MONETE   ·   CLICCA QUI / TAB PER TROVARLE";
             }
             if (availableJumpButton != null)
                 availableJumpButton.interactable = purchasableIds.Count > 0;
