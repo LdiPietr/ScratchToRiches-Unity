@@ -1,0 +1,74 @@
+{
+  "id": "demo-v3-21m22s-2026-11-23",
+  "status": "unity_playmode_full_autoplay_pass",
+  "observed_on": "2026-11-23",
+  "source_commit": "dde3c9ae1abc7b5e63b8a3b406f7e34fe8e8cc2d",
+  "frozen_branch": "milestone/demo-v3-21m22s-baseline",
+  "unity_mode": "ProgressioneDemoCompleta",
+  "seed": -950505282,
+  "fresh_seed_each_run": true,
+  "human_speed": 1,
+  "duration_seconds": 1281.52,
+  "target_duration_minutes": {
+    "min": 20,
+    "max": 25
+  },
+  "checked_assertions": {
+    "passed": 1084,
+    "failed": 0
+  },
+  "purchases": {
+    "completed": 26,
+    "total": 26,
+    "owned_unique": 24,
+    "demo_unique_total": 24
+  },
+  "tickets": {
+    "total": 91,
+    "random": 91,
+    "forced": 0,
+    "test": 11,
+    "farm": 80
+  },
+  "results": {
+    "none": 20,
+    "pair": 54,
+    "triple": 15,
+    "poker": 2,
+    "five": 0
+  },
+  "qa_funds": false,
+  "demo_finished": true,
+  "final_gold_tickets": 10,
+  "final_gold_payout": 1898,
+  "final_gold_payout_target": 1800,
+  "final_power_activated": true,
+  "c06_inspections": 13,
+  "g08_titan_activations": 16,
+  "jolly_scratched": 3,
+  "final_balance": 1688,
+  "timing_seconds": {
+    "first_upgrade_E01": 35.61,
+    "C01": 96.87,
+    "C03": 459.47,
+    "C02": 583.23,
+    "G07": 788.4,
+    "C04": 830.9,
+    "C05": 939.97,
+    "G08": 990.96,
+    "C06": 1042.75,
+    "F04": 1095.47,
+    "finished": 1281.52
+  },
+  "source_reports": {
+    "summary(5).txt": "45a26bf437edde9084b49174ac3a204f0935d78dfeb9feb17873a08235c0ef69",
+    "checks(5).csv": "39ad71af2c36a9d32dff82e88acea57558f676939bfbab7db60227a0b0bbf952",
+    "tickets(4).csv": "ce150aa5cb4553c70157120ba25e3780ee93c9cd5a9a39818f03a8d9c6407b09",
+    "progression(1).csv": "4ef47a0e8d23d0391de3c7e10a7106e5b8451da2df82e0373cb9520e865dece2"
+  },
+  "limitations": [
+    "One validated Unity run; does not establish statistical time distribution.",
+    "Unity gameplay, animation and Input checks require running Unity.",
+    "Static GitHub Actions checks do not replace Unity editor QA."
+  ]
+}
