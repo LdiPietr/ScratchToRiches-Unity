@@ -30,6 +30,8 @@ jobs:
           python-version: "3.11"
       - name: Validate static demo invariants
         run: python QA/verify_demo_regression.py --static
+      - name: Validate exact ticket probability and payout profiles
+        run: python QA/check_ticket_profiles.py
 
 # Unity Play Mode remains a MANUAL regression: record a full autoplay
 # run, then pass its 4 reports to QA/verify_demo_regression.py.
