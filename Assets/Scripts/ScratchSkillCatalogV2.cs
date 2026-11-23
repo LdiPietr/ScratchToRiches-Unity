@@ -57,6 +57,10 @@ public static class ScratchSkillCatalogV2
         if (branch < 0 || branch >= BranchCount || position < 0 ||
             position >= CountForBranch(branch))
             return null;
+        // Fortunato (C03) now comes before the second preview (C02).
+        // Keep stable skill IDs unchanged so existing saves remain valid.
+        if (branch == 1 && position == 1) return Find("C03");
+        if (branch == 1 && position == 2) return Find("C02");
         return Find(branchPrefixes[branch] + (position + 1).ToString("D2"));
     }
 
