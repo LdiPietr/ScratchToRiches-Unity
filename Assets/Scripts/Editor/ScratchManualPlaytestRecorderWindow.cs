@@ -13,13 +13,13 @@ using UnityEngine;
 /// </summary>
 public sealed class ScratchManualPlaytestRecorderWindow : EditorWindow
 {
-    private const int SegmentSeconds = 8 * 60;
+    private const int SegmentSeconds = 30 * 60;
     private const int VideoHeight = 720;
     private const int VideoFps = 24;
     private const float VideoMbps = 1.5f;
     // ChatGPT's general file ceiling is 512 MB. Keep plenty of headroom.
     private const long SafePartBytes = 400L * 1024L * 1024L;
-    private const long EarlyRotateBytes = 160L * 1024L * 1024L;
+    private const long EarlyRotateBytes = 350L * 1024L * 1024L;
 
     private sealed class VideoPart
     {
@@ -84,7 +84,7 @@ public sealed class ScratchManualPlaytestRecorderWindow : EditorWindow
             "Riprende la Game View, NON usa autoplay e non modifica la partita. " +
             "Log CSV unico con acquisti, biglietti, caselle, poteri e shop. " +
             "Video H.264 720p / 24 FPS / 1,5 Mbps, diviso automaticamente " +
-            "ogni 8 minuti per rimanere molto sotto 512 MB per file.", MessageType.Info);
+            "solo oltre 30 minuti o se il file cresce troppo (limite generale 512 MB).", MessageType.Info);
 
         EditorGUILayout.Space(4);
         EditorGUILayout.LabelField("Stato", status, EditorStyles.wordWrappedLabel);
@@ -93,7 +93,7 @@ public sealed class ScratchManualPlaytestRecorderWindow : EditorWindow
         if (recording)
         {
             EditorGUILayout.LabelField("Tempo", FormatDuration(Time.realtimeSinceStartup - startTime));
-            EditorGUILayout.LabelField("Video", "Parte " + parts.Count + " | ogni 8 min | audio disattivato");
+            EditorGUILayout.LabelField("Video", "Parte " + parts.Count + " | max 30 min | audio disattivato");
             EditorGUILayout.LabelField("Log", eventCount + " eventi | " + finishedTickets +
                 " biglietti | " + purchasedSkills + " acquisti");
         }
@@ -119,7 +119,7 @@ public sealed class ScratchManualPlaytestRecorderWindow : EditorWindow
             EditorGUILayout.SelectableLabel(reportDirectory, GUILayout.Height(32f));
         }
         EditorGUILayout.HelpBox(
-            "Controllo dimensioni: obiettivo ~90 MB per parte. " +
+            "Una demo di 20-25 min produce normalmente UN SOLO MP4 (~225-281 MB teorici). " +
             "Se un segmento supera 400 MB viene segnalato esplicitamente: " +
             "la dimensione esatta e' verificabile soltanto dopo la codifica.", MessageType.None);
     }
@@ -432,7 +432,7 @@ public sealed class ScratchManualPlaytestRecorderWindow : EditorWindow
             "Eventi registrati: " + eventCount,
             "Parte video: " + parts.Count,
             "DemoFinished: " + (game != null && game.DemoFinished),
-            "Video: H264 MP4 720p 24fps 1.5Mbps, audio off, parti da max 8 min",
+            "Video: H264 MP4 720p 24fps 1.5Mbps, audio off, parti da max 30 min",
             "Limite sicurezza per parte: 400 MB (ChatGPT: massimo generale 512 MB)",
             "Log: events.csv",
             "Manifest: video_manifest.csv",
