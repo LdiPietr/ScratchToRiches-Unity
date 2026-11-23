@@ -960,7 +960,13 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         if (farming)
         {
             int needed = FarmingTargetCoins();
-            if (economy.Coins >= needed)
+            // Radial chapters are gated by tickets actually completed, even
+            // when the player already has enough currency for the next skill.
+            // Stay in real-ticket farming until BOTH gates are satisfied.
+            bool chapterReady = !IsFullDemo || purchaseIndex >= FullDemoPlan.Length ||
+                ScratchRadialProgression.Available(
+                    ScratchSkillTree.StableId(FullDemoPlan[purchaseIndex]), game, skills);
+            if (economy.Coins >= needed && chapterReady)
             {
                 bool forTicket = farmingForTicket;
                 farming = farmingForTicket = false;
@@ -1181,6 +1187,27 @@ public sealed class ScratchAutoplayWindow : EditorWindow
             nextAction = now + 0.1f;
             return;
         }
+        // The radial nucleus imposes a second gate independent of price and
+        // ordinary skill prerequisites. In particular G08 (chapter 5) must
+        // wait for THREE settled Gold tickets, not just one profitable ticket.
+        // Check again on entering the shop: farming may have finished on cash
+        // alone after the last ticket, while its chapter is still locked.
+        string stableId = ScratchSkillTree.StableId(id);
+        if (IsFullDemo && !ScratchRadialProgression.Available(stableId, game, skills))
+        {
+            farming = true;
+            farmingForTicket = false;
+            Note("NUCLEUS_FARM", "next=" + stableId +
+                ";chapter=" + ScratchRadialProgression.UnlockedChapter(game, skills) +
+                ";neededChapter=" + ScratchRadialProgression.ChapterOf(stableId) +
+                ";goal=" + ScratchRadialProgression.NextGoal(game, skills));
+            lastStatus = "Aspetto sblocco capitolo " +
+                ScratchRadialProgression.ChapterOf(stableId) + " per " + stableId;
+            flow.ContinueAfterUpgrades();
+            ChangePhase(Phase.WaitFarmShopClosed, 0.1f);
+            return;
+        }
+
         // The final unlock of each tier must leave enough money to buy at
         // least ONE ticket of the newly unlocked tier. Without this reserve the
         // tester unlocks Fortunato at 140, remains with 1 coin, then aborts.
@@ -1204,11 +1231,15 @@ public sealed class ScratchAutoplayWindow : EditorWindow
             Fail("Non acquistabile " + id + " (wallet=" + economy.Coins +
                 ";prezzo=" + skills.GetPrice(id) +
                 ";riserva biglietto=" + TicketReserveForCurrentPurchase() +
-                ";requisiti=" + skills.RequirementText(id) + ")");
+                ";requisiti=" + skills.RequirementText(id) +
+                ";capitoloCorrente=" + ScratchRadialProgression.UnlockedChapter(game, skills) +
+                ";capitoloRichiesto=" + ScratchRadialProgression.ChapterOf(stableId) +
+                ";nucleoDisponibile=" + ScratchRadialProgression.Available(stableId, game, skills) +
+                ";demoEligible=" + (ScratchSkillCatalogV2.Find(stableId)?.demoEligible ?? false) +
+                ";implemented=" + ScratchSkillCatalogV2.EffectImplemented(stableId) + ")");
             return;
         }
 
-        string stableId = ScratchSkillTree.StableId(id);
         // The 90-node UI is now a single map. Focus the *real* authored
         // node, then exercise the unchanged hold-to-buy script via QA input.
         treeUI.RevealSkill(stableId);
