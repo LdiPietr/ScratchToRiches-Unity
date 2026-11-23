@@ -101,7 +101,7 @@ public sealed class ScratchTicketChoiceUI : MonoBehaviour
             if (ticketDetails[i] != null)
                 ticketDetails[i].text = !unlocked
                     ? "BLOCCATO!\nSBLOCCA NELLE ABILITA'"
-                    : $"{ScratchGameManager.TicketSide(kind)}x{ScratchGameManager.TicketSide(kind)} - {ScratchGameManager.TicketSide(kind)} SCELTE\n" +
+                    : $"{ScratchGameManager.TicketSide(kind)}x{ScratchGameManager.TicketSide(kind)} - {game.PickLimitFor(kind)} SCELTE | {ScratchGameManager.SymbolPoolSize(kind)} SIMBOLI\n" +
                       $"COSTO {cost} | PREMIO {prize}";
             if (ticketButtons[i] != null)
                 ticketButtons[i].interactable = show && unlocked && economy.Coins >= cost;
