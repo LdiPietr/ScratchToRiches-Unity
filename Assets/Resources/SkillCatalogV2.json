@@ -381,7 +381,7 @@
       "id": "C06",
       "branch": "Biglietti",
       "title": "Occhio di falco",
-      "description": "Una volta per biglietto, clic destro su una casella ancora coperta per scegliere quale simbolo vedere in anteprima. Le 3 anteprime di C04 restano attive; non consuma una scelta o una grattata.",
+      "description": "Una volta per biglietto, clic destro (oppure CTRL+clic) su una casella ancora coperta per scegliere quale simbolo vedere in anteprima. Le 3 anteprime di C04 restano attive; non consuma una scelta o una grattata.",
       "maxLevel": 1,
       "initialPrice": 288,
       "prerequisites": "C05:1",
