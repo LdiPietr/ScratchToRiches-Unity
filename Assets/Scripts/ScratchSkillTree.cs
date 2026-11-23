@@ -247,6 +247,32 @@ public sealed class ScratchSkillTree : MonoBehaviour
             economy.Coins >= GetPrice(stableId);
     }
 
+    /// <summary>
+    /// Read-only, full purchase gate diagnosis for end-to-end QA.
+    /// This explicitly distinguishes prerequisites from demo/implementation,
+    /// current skill level, wallet and missing scene references.
+    /// </summary>
+    public string PurchaseDiagnostic(string stableId)
+    {
+        ScratchSkillCatalogV2.Entry entry = ScratchSkillCatalogV2.Find(stableId);
+        if (entry == null) return "id=" + stableId + ";found=False";
+        int level = GetLevel(stableId);
+        int price = GetPrice(stableId);
+        bool prerequisites = RequirementsMet(stableId);
+        bool effect = ScratchSkillCatalogV2.EffectImplemented(stableId);
+        return "id=" + stableId +
+            ";demoEligible=" + entry.demoEligible +
+            ";effectImplemented=" + effect +
+            ";level=" + level + "/" + entry.maxLevel +
+            ";prerequisitesMet=" + prerequisites +
+            ";missing=" + RequirementText(stableId) +
+            ";gameAssigned=" + (game != null) +
+            ";economyAssigned=" + (economy != null) +
+            ";wallet=" + (economy != null ? economy.Coins.ToString() : "n/a") +
+            ";price=" + price +
+            ";canPurchase=" + CanPurchase(stableId);
+    }
+
     public bool TryPurchase(SkillId id) => TryPurchase(StableId(id));
 
     public bool TryPurchase(string stableId)
