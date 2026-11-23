@@ -63,8 +63,9 @@ public sealed class ScratchAutoplayWindow : EditorWindow
 
     // A complete, legal player route through every demo-eligible skill, including
     // the minimum extra levels required by prerequisites. No QA coins or forced wins.
-    // F04 is deliberately last: G08 starts the capstone, while the player's
-    // visible-Jolly scratch supplies the required real activation.
+    // G08 is now acquired shortly after Gold so it can be USED on many
+    // tickets. F04 comes last and starts the authored performance finale.
+    // C04 is delayed until G07, well after the two-preview phase.
     private static readonly ScratchSkillTree.SkillId[] FullDemoPlan =
     {
         ScratchSkillTree.SkillId.E1, ScratchSkillTree.SkillId.G1,
@@ -74,12 +75,12 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         ScratchSkillTree.SkillId.E3, ScratchSkillTree.SkillId.G3,
         ScratchSkillTree.SkillId.C3, ScratchSkillTree.SkillId.G5,
         ScratchSkillTree.SkillId.G4, ScratchSkillTree.SkillId.F1,
-        ScratchSkillTree.SkillId.C2, ScratchSkillTree.SkillId.C4,
-        ScratchSkillTree.SkillId.G6, ScratchSkillTree.SkillId.E4,
-        ScratchSkillTree.SkillId.E6, ScratchSkillTree.SkillId.G7,
-        ScratchSkillTree.SkillId.C5, ScratchSkillTree.SkillId.F2,
-        ScratchSkillTree.SkillId.C6, ScratchSkillTree.SkillId.F3,
-        ScratchSkillTree.SkillId.G8, ScratchSkillTree.SkillId.F4
+        ScratchSkillTree.SkillId.C2, ScratchSkillTree.SkillId.G6,
+        ScratchSkillTree.SkillId.E4, ScratchSkillTree.SkillId.E6,
+        ScratchSkillTree.SkillId.G7, ScratchSkillTree.SkillId.C4,
+        ScratchSkillTree.SkillId.C5, ScratchSkillTree.SkillId.G8,
+        ScratchSkillTree.SkillId.F2, ScratchSkillTree.SkillId.C6,
+        ScratchSkillTree.SkillId.F3, ScratchSkillTree.SkillId.F4
     };
 
     private bool IsFullDemo => autoplayMode == AutoplayMode.ProgressioneDemoCompleta;
@@ -111,6 +112,9 @@ public sealed class ScratchAutoplayWindow : EditorWindow
     private ScratchSymbolManager.TestPattern activePattern = ScratchSymbolManager.TestPattern.Random;
     private readonly int[] observedRandomResults = new int[5];
     private readonly HashSet<string> uniqueFirstChoices = new HashSet<string>();
+    private int qaTitanActivations;
+    private int qaC06Inspections;
+    private bool titanActivatedThisTicket;
     private int naturalTicketsPlayed;
     private int forcedTicketsPlayed;
     private bool captureFrames;
@@ -408,6 +412,8 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         farmTickets = informedChoices = previewChoices = previewMatchingChoices = randomExplorationChoices = 0;
         deliberatelySkippedPreviews = 0;
         naturalTicketsPlayed = forcedTicketsPlayed = 0;
+        qaTitanActivations = qaC06Inspections = 0;
+        titanActivatedThisTicket = false;
         Array.Clear(observedRandomResults, 0, observedRandomResults.Length);
         uniqueFirstChoices.Clear();
         activePattern = ScratchSymbolManager.TestPattern.Random;
@@ -495,11 +501,12 @@ public sealed class ScratchAutoplayWindow : EditorWindow
             return;
         }
         if (IsFullDemo && purchaseIndex >= FullDemoPlan.Length && !game.DemoFinished &&
-            now - lastUpgradeAt > 5f * 60f)
+            now - lastUpgradeAt > 8f * 60f)
         {
             Fail("Finale demo non raggiunto entro 5 minuti dall'ultima abilita'. " +
                 "Dorati finali=" + game.DemoFinalGoldTickets +
-                ";Jolly grattati=" + skills.JollyActivationCount +
+                ";incassi=" + game.DemoFinalGoldPayout + "/" + game.DemoFinalGoldPayoutTarget +
+                ";potere=" + game.DemoFinalPowerActivated +
                 ";wallet=" + economy.Coins);
             return;
         }
@@ -561,8 +568,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
             Check(unique.Count <= 4 && unique.Count > 0,
                 "diamond_pool", "Simboli diversi sul biglietto=" + unique.Count);
         }
-        int expectedPreviews = skills.GetLevel(ScratchSkillTree.SkillId.C6) > 0 ? 5 :
-            skills.GetLevel(ScratchSkillTree.SkillId.C4) > 0 ? 3 :
+        int expectedPreviews = skills.GetLevel(ScratchSkillTree.SkillId.C4) > 0 ? 3 :
             skills.GetLevel(ScratchSkillTree.SkillId.C2) > 0 ? 2 :
             skills.GetLevel(ScratchSkillTree.SkillId.C1) > 0 ? 1 : 0;
         int visible = 0;
@@ -588,6 +594,48 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         Check(incompleteMasks == 0, "fresh_coating",
             "Patine mancanti, disabilitate o gia' grattate=" + incompleteMasks);
         Note("PREVIEWS_VISIBLE", "count=" + visible + ";previewSkills=" + expectedPreviews);
+        // C06 is now an intentional RIGHT-CLICK on one unpreviewed cell, not
+        // two extra automatic previews. Check actual pointer handling.
+        if (IsFullDemo && skills.GetLevel("C06") > 0)
+        {
+            ScratchCell inspectionTarget = null;
+            ScratchCell rejectionTarget = null;
+            foreach (ScratchCell candidate in cellManager.ActiveCells)
+            {
+                if (candidate.IsComplete || candidate.IsPreviewVisible) continue;
+                if (inspectionTarget == null) inspectionTarget = candidate;
+                else if (rejectionTarget == null) rejectionTarget = candidate;
+            }
+            if (inspectionTarget == null || rejectionTarget == null)
+            {
+                Fail("Non ci sono due caselle coperte con cui verificare C06.");
+                return;
+            }
+            int selectedBefore = game.SelectedCount;
+            int revealedBefore = game.RevealedCount;
+            PointerEventData inspect = new PointerEventData(EventSystem.current)
+            {
+                pointerId = -810, button = PointerEventData.InputButton.Right
+            };
+            inspectionTarget.OnPointerDown(inspect);
+            bool inspected = inspectionTarget.IsPreviewVisible &&
+                game.InspectionUsedThisTicket && game.SelectedCount == selectedBefore &&
+                game.RevealedCount == revealedBefore &&
+                inspectionTarget.RevealedPercentage == 0f;
+            Check(inspected, "C06_chosen_preview",
+                "Ispezione su " + inspectionTarget.name + ", senza grattare o consumare scelte.");
+            rejectionTarget.OnPointerDown(inspect);
+            Check(!rejectionTarget.IsPreviewVisible &&
+                game.SelectedCount == selectedBefore &&
+                game.RevealedCount == revealedBefore,
+                "C06_once_per_ticket", "La seconda ispezione viene rifiutata.");
+            if (inspected)
+            {
+                qaC06Inspections++;
+                Note("C06_INSPECTED", "cell=" + inspectionTarget.name);
+            }
+        }
+        titanActivatedThisTicket = false;
         ticketStartedAt = now;
         streakBeforeTicket = economy.ConsecutiveWinningTickets;
         cellIndex = 0;
@@ -717,8 +765,18 @@ public sealed class ScratchAutoplayWindow : EditorWindow
                     "Acquistate " + CountOwnedDemoSkills() + "/24 skill.");
                 Check(forcedTicketsPlayed == 0 && !qaFunds, "full_demo_natural",
                     "Forzati=" + forcedTicketsPlayed + ";creditoQA=" + qaFunds);
-                Check(game.DemoFinalGoldTickets >= 3, "three_final_gold_tickets",
-                    "Gold post capstone=" + game.DemoFinalGoldTickets);
+                Check(game.DemoFinalGoldTickets >= game.DemoFinalGoldMinTickets,
+                    "three_final_gold_tickets",
+                    "Gold dopo entrambi i capstone=" + game.DemoFinalGoldTickets);
+                Check(game.DemoFinalGoldPayout >= game.DemoFinalGoldPayoutTarget,
+                    "finale_earned_gold_payout",
+                    "Incassi Dorati=" + game.DemoFinalGoldPayout + "/" + game.DemoFinalGoldPayoutTarget);
+                Check(game.DemoFinalPowerActivated, "finale_real_activation",
+                    "Attivato realmente Titanico o Jolly dopo F04.");
+                Check(qaTitanActivations > 0, "titan_tested_in_live_scratch",
+                    "Attivazioni Titanico durante gesture reali=" + qaTitanActivations);
+                Check(qaC06Inspections > 0, "C06_inspection_exercised",
+                    "Anteprime scelte dal giocatore tramite tasto destro=" + qaC06Inspections);
                 Check(skills.JollyActivationCount > 0, "real_visible_jolly_scratched",
                     "Jolly realmente grattati=" + skills.JollyActivationCount);
                 Check(game.State == ScratchGameManager.RoundState.Finished, "authored_demo_end",
@@ -795,6 +853,22 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         {
             activeCell.OnPointerDown(pointer);
             pointerHeld = true;
+            // Editor equivalent of holding SHIFT during this REAL scratch drag:
+            // no free charges and no fabricated wins or completed cells.
+            if (IsFullDemo && !titanActivatedThisTicket &&
+                skills.GetLevel("G08") > 0 && skills.TitanCharges > 0)
+            {
+                int before = skills.TitanActivationCount;
+                bool activated = activeCell.QaActivateTitanDuringGesture();
+                Check(activated && skills.TitanActivationCount == before + 1,
+                    "G08_real_titan_activation", "SHIFT-equivalent consumed a real charge.");
+                if (activated)
+                {
+                    titanActivatedThisTicket = true;
+                    qaTitanActivations++;
+                    Note("G08_TITAN_USED", "cell=" + activeCell.name);
+                }
+            }
         }
         else activeCell.OnDrag(pointer);
     }
@@ -1032,9 +1106,18 @@ public sealed class ScratchAutoplayWindow : EditorWindow
             }
             owned[stableId] = next;
         }
+        var route = new List<ScratchSkillTree.SkillId>(FullDemoPlan);
         if (FullDemoPlan.Length != 26 || owned.Count != 24 ||
             FullDemoPlan[FullDemoPlan.Length - 1] != ScratchSkillTree.SkillId.F4 ||
-            !owned.ContainsKey("G08") || !owned.ContainsKey("C05"))
+            !owned.ContainsKey("G08") || !owned.ContainsKey("C05") ||
+            !(route.IndexOf(ScratchSkillTree.SkillId.C2) <
+              route.IndexOf(ScratchSkillTree.SkillId.G7) &&
+              route.IndexOf(ScratchSkillTree.SkillId.G7) <
+              route.IndexOf(ScratchSkillTree.SkillId.C4) &&
+              route.IndexOf(ScratchSkillTree.SkillId.C5) <
+              route.IndexOf(ScratchSkillTree.SkillId.G8) &&
+              route.IndexOf(ScratchSkillTree.SkillId.G8) <
+              route.IndexOf(ScratchSkillTree.SkillId.F4)))
         {
             error = "Il piano non copre le 24 skill o manca il finale.";
             return false;
@@ -1610,7 +1693,12 @@ public sealed class ScratchAutoplayWindow : EditorWindow
                   "Acquisti completati: " + purchaseIndex + "/" + FullDemoPlan.Length + "\n" +
                   "Skill demo possedute: " + CountOwnedDemoSkills() + "/24\n" +
                   "DemoFinished reale: " + (game != null && game.DemoFinished) + "\n" +
-                  "Dorati finali: " + (game != null ? game.DemoFinalGoldTickets : 0) + "/3\n" +
+                  "Dorati finali: " + (game != null ? game.DemoFinalGoldTickets : 0) + "/3 minimo\n" +
+                  "Incassi Dorati finali: " + (game != null ? game.DemoFinalGoldPayout : 0) +
+                      "/" + (game != null ? game.DemoFinalGoldPayoutTarget : 1800) + "\n" +
+                  "Potere finale attivato: " + (game != null && game.DemoFinalPowerActivated) + "\n" +
+                  "Ispezioni C06: " + qaC06Inspections + "\n" +
+                  "Gestualita' Titanico G08: " + qaTitanActivations + "\n" +
                   "Jolly grattati: " + (skills != null ? skills.JollyActivationCount : 0) + "\n" +
                   "Durata misurata (min): " + durationMinutes.ToString("F2", CultureInfo.InvariantCulture) + "\n" +
                   "Obiettivo 20-25 min: " + (durationMinutes >= 20f && durationMinutes <= 25f
