@@ -132,9 +132,6 @@ def check_unity_logs(summary_path, checks_path, tickets_path, progression_path, 
           "Unity milestone order changed")
 
     events = read_csv(tickets_path)
-    starts = [row for row in events if row["event"] == "START"]
-    check(bool(starts) and str(base["seed"]) in starts[0].get("details", ""),
-          "Seed differs from baseline; this is allowed for new tests") if False else None
     finished = [row for row in events if row["event"] in ("TICKET_END", "FARM_TICKET_END")]
     check(len(finished) == len(settled), "tickets.csv settlement count mismatch")
     check(all(row.get("pattern") == "Random" for row in finished),
