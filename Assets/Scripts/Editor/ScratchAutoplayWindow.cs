@@ -362,7 +362,9 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         holdButtons = game.GetComponentsInChildren<ScratchHoldToBuy>(true);
         parentCanvas = game.GetComponent<Canvas>();
         if (skills == null || economy == null || cellManager == null || symbols == null ||
-            flow == null || treeUI == null || parentCanvas == null || holdButtons.Length != 8 ||
+            flow == null || treeUI == null || parentCanvas == null ||
+            Array.FindAll(holdButtons, node => node != null &&
+                !string.IsNullOrEmpty(node.StableSkillId)).Length != 90 ||
             EventSystem.current == null)
         {
             EditorUtility.DisplayDialog("Autoplay", "Scene references incomplete. Run the V2 Scene Audit first.", "OK");
@@ -1199,33 +1201,15 @@ public sealed class ScratchAutoplayWindow : EditorWindow
             return;
         }
 
-        int branch = (int)id / 8;
         string stableId = ScratchSkillTree.StableId(id);
-        // The catalog controls visual order independently of stable IDs:
-        // C03 appears before C02. Never assume enum index == UI slot.
-        int position = -1;
-        for (int i = 0; i < ScratchSkillCatalogV2.CountForBranch(branch); i++)
-        {
-            ScratchSkillCatalogV2.Entry candidate = ScratchSkillCatalogV2.At(branch, i);
-            if (candidate != null && candidate.id == stableId)
-            {
-                position = i;
-                break;
-            }
-        }
-        if (position < 0)
-        {
-            Fail("Nodo non trovato nel catalogo per " + stableId);
-            return;
-        }
-        treeUI.SelectBranch(branch);
-        for (int page = 0; page < position / 8; page++)
-            treeUI.NextPage();
-        int slot = position % 8;
+        // The 90-node UI is now a single map. Focus the *real* authored
+        // node, then exercise the unchanged hold-to-buy script via QA input.
+        treeUI.RevealSkill(stableId);
         pressedHold = null;
         foreach (ScratchHoldToBuy hold in holdButtons)
         {
-            if (hold != null && hold.gameObject.name == "SkillNode_" + (slot + 1).ToString("00"))
+            if (hold != null && hold.StableSkillId == stableId &&
+                hold.gameObject.name == "MapSkillNode_" + stableId)
             {
                 pressedHold = hold;
                 break;
@@ -1246,7 +1230,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         if (!pressedHold.QaBeginHold(pointer))
         {
             Fail("Impossibile iniziare hold su " + id + " (nodeActive=" +
-                pressedHold.isActiveAndEnabled + ";canBuy=" + treeUI.CanHoldPurchase(slot) + ")");
+                pressedHold.isActiveAndEnabled + ";canBuy=" + treeUI.CanPurchaseSkill(stableId) + ")");
             return;
         }
         lastQaHoldTick = EditorApplication.timeSinceStartup;
