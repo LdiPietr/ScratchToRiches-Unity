@@ -3,7 +3,7 @@ using UnityEditor;
 using UnityEngine;
 
 /// <summary>
-/// Read-only validation of five-tab GDD V2 demo scene wiring.
+/// Read-only validation of authored one-map GDD V2 demo scene wiring.
 /// This does not run gameplay and never modifies the authored scene.
 /// </summary>
 public static class ScratchV2SceneAudit
@@ -65,10 +65,25 @@ public static class ScratchV2SceneAudit
                 Check(curtain != null && shopPanel.transform.IsChildOf(curtain.transform),
                     "skill tree panel parented to shop curtain", ref errors);
                 ScratchHoldToBuy[] holds = shopPanel.GetComponentsInChildren<ScratchHoldToBuy>(true);
-                Check(holds.Length == 8, "eight scratch skill node hold controls", ref errors);
-                for (int i = 0; i < holds.Length; i++)
-                    Check(holds[i].gameObject.activeSelf,
-                        "skill hold node local activeSelf: " + holds[i].gameObject.name, ref errors);
+                var ids = new System.Collections.Generic.HashSet<string>(System.StringComparer.Ordinal);
+                int mapCount = 0;
+                foreach (ScratchHoldToBuy hold in holds)
+                {
+                    if (string.IsNullOrEmpty(hold.StableSkillId)) continue;
+                    mapCount++;
+                    Check(ids.Add(hold.StableSkillId), "unique square node " + hold.StableSkillId, ref errors);
+                    Check(hold.gameObject.activeSelf && hold.name == "MapSkillNode_" + hold.StableSkillId,
+                        "active authored square node " + hold.StableSkillId, ref errors);
+                    RectTransform rt = hold.GetComponent<RectTransform>();
+                    Check(rt != null && Mathf.Abs(rt.rect.width - rt.rect.height) < 0.1f,
+                        "square node proportions " + hold.StableSkillId, ref errors);
+                    Check(hold.GetComponent<UnityEngine.UI.Image>() != null &&
+                          hold.GetComponentInChildren<TMPro.TMP_Text>(true) != null,
+                        "authored node art and label " + hold.StableSkillId, ref errors);
+                }
+                Check(mapCount == 90 && ids.Count == 90, "all ninety map nodes present", ref errors);
+                foreach (ScratchSkillCatalogV2.Entry entry in ScratchSkillCatalogV2.All)
+                    Check(ids.Contains(entry.id), "map contains " + entry.id, ref errors);
             }
         }
         if (symbols != null)
@@ -154,30 +169,38 @@ public static class ScratchV2SceneAudit
         if (tree != null)
         {
             SerializedObject so = new SerializedObject(tree);
-            SerializedProperty tabs = so.FindProperty("branchButtons");
-            SerializedProperty nodes = so.FindProperty("nodeButtons");
             SerializedProperty nucleus = so.FindProperty("nucleusButton");
             SerializedProperty nucleusLabel = so.FindProperty("nucleusLabel");
             SerializedProperty connections = so.FindProperty("radialLinks");
+            SerializedProperty navigation = so.FindProperty("navigation");
             Check(nucleus != null && nucleus.objectReferenceValue != null &&
                   nucleusLabel != null && nucleusLabel.objectReferenceValue != null &&
-                  connections != null && connections.objectReferenceValue == links,
-                  "authored radial nucleus button, label and connectors wired", ref errors);
-            Check(tabs != null && tabs.arraySize == 5, "five authored skill tabs", ref errors);
-            Check(nodes != null && nodes.arraySize == 8, "eight authored reusable skill slots", ref errors);
-            if (tabs != null && tabs.arraySize == 5)
-                for (int i = 0; i < tabs.arraySize; i++)
-                    Check(tabs.GetArrayElementAtIndex(i).objectReferenceValue != null,
-                        "authored tab " + (i + 1), ref errors);
-            foreach (string field in new[] { "previousPageButton", "nextPageButton", "pageLabel" })
+                  connections != null && connections.objectReferenceValue == links &&
+                  navigation != null && navigation.objectReferenceValue != null,
+                  "authored map nucleus, spokes and pan/zoom wired", ref errors);
+            foreach (string field in new[]
+                { "selectedTitle", "selectedDescription", "statusLabel" })
             {
                 SerializedProperty prop = so.FindProperty(field);
                 Check(prop != null && prop.objectReferenceValue != null,
-                    "authored page navigation: " + field, ref errors);
+                    "fixed bottom hover details: " + field, ref errors);
+            }
+            ScratchRadialMapNavigation mapNav =
+                manager.GetComponentInChildren<ScratchRadialMapNavigation>(true);
+            Check(mapNav != null && mapNav.GetComponent<UnityEngine.UI.RectMask2D>() != null,
+                  "navigable map has a scene-authored clipping viewport", ref errors);
+            if (mapNav != null)
+            {
+                SerializedObject nav = new SerializedObject(mapNav);
+                foreach (string field in new[] { "viewport", "content",
+                    "zoomInButton", "zoomOutButton" })
+                    Check(nav.FindProperty(field) != null &&
+                          nav.FindProperty(field).objectReferenceValue != null,
+                          "pan/zoom reference: " + field, ref errors);
             }
         }
 
-        if (errors == 0) Debug.Log("V2 AUDIT PASS: 90-node catalog, five tabs, paging, authored cells and ticket UI wired.");
+        if (errors == 0) Debug.Log("V2 AUDIT PASS: single navigable 90-icon skill map, bottom hover, pan/zoom and ticket UI wired.");
         else Debug.LogError("V2 AUDIT FAILED: " + errors + " error(s). See Console for details.");
     }
 
