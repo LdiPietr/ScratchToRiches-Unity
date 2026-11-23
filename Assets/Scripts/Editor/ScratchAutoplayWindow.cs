@@ -174,7 +174,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
     private readonly List<string> ledger = new List<string>();
     private readonly List<string> checks = new List<string>();
 
-    [MenuItem("Tools/Scratch to Riches/Autoplay e registrazione V2")]
+    [MenuItem("Tools/Scratch to Riches/Autoplay QA (test automatico)")]
     private static void ShowWindow()
     {
         GetWindow<ScratchAutoplayWindow>("STR Autoplay QA").minSize = new Vector2(390, 460);
@@ -342,8 +342,23 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         }
     }
 
+    public static bool AnyTestRunning
+    {
+        get
+        {
+            foreach (ScratchAutoplayWindow window in Resources.FindObjectsOfTypeAll<ScratchAutoplayWindow>())
+                if (window != null && window.running) return true;
+            return false;
+        }
+    }
+
     private void StartTest()
     {
+        if (ScratchManualTelemetry.IsRecording)
+        {
+            EditorUtility.DisplayDialog("Autoplay", "Ferma prima la registrazione manuale.", "OK");
+            return;
+        }
         game = UnityEngine.Object.FindAnyObjectByType<ScratchGameManager>();
         // A previous completed demo may load in Finished state. Full-demo
         // replay is allowed because the confirmed reset below also clears
@@ -1092,7 +1107,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
     }
 
     /// <summary>Validate all 28 purchase steps, 25 unique demo effects and all edges.</summary>
-    [MenuItem("Tools/Scratch to Riches/Verifica piano autoplay demo")]
+    // Kept for programmatic QA; removed redundant standalone menu entry.
     private static void TestFullDemoPlan()
     {
         if (ValidateFullDemoPlan(out string error))
@@ -1420,7 +1435,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
     /// Regression test for the wallet=141 / C3=140 / Fortunato=10 failure.
     /// Pure calculations: works outside Play Mode and does not alter saves.
     /// </summary>
-    [MenuItem("Tools/Scratch to Riches/Test riserva biglietti autoplay")]
+    // Kept for programmatic QA; removed redundant standalone menu entry.
     private static void TestTicketBudget()
     {
         int failures = 0;
