@@ -27,6 +27,9 @@ public sealed class ScratchRadialMapNavigation : MonoBehaviour,
     private void Awake()
     {
         if (viewport == null) viewport = GetComponent<RectTransform>();
+        // The viewport must also offer a real whole-map overview despite a
+        // previously serialized experimental minimum of 0.27.
+        minimumZoom = Mathf.Min(minimumZoom, 0.2f);
     }
 
     private void Start()
@@ -39,7 +42,9 @@ public sealed class ScratchRadialMapNavigation : MonoBehaviour,
         }
         if (zoomInButton != null) zoomInButton.onClick.AddListener(ZoomIn);
         if (zoomOutButton != null) zoomOutButton.onClick.AddListener(ZoomOut);
-        SetZoom(initialZoom, Vector2.zero);
+        // Start by showing the nucleus and the first ring of ALL five
+        // branches, while still keeping the icons readable.
+        SetZoom(Mathf.Min(initialZoom, 0.52f), Vector2.zero);
         CenterOn(Vector2.zero);
     }
 
