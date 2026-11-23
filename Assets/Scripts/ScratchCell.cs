@@ -230,10 +230,12 @@ public sealed class ScratchCell : MonoBehaviour, IPointerDownHandler, IDragHandl
     {
         if (eventData == null || completed || scratchTexture == null)
             return;
-        if (eventData.button == PointerEventData.InputButton.Right)
+        if (eventData.button == PointerEventData.InputButton.Right ||
+            (eventData.button == PointerEventData.InputButton.Left &&
+             (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl))))
         {
-            // C06: an intentional inspection, never a scratch or a selected
-            // cell. The GameManager validates and consumes the one-use charge.
+            // C06: choose a preview without scratching. CTRL+left click is
+            // a fallback for WebGL browsers that intercept right mouse clicks.
             gameManager?.TryInspectCell(this);
             return;
         }
