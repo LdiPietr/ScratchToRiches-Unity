@@ -163,7 +163,7 @@ public static class ScratchV2SceneAudit
 
         ScratchSkillTreeUI tree = manager.GetComponent<ScratchSkillTreeUI>();
         Check(tree != null, "skill tree interface component", ref errors);
-        ScratchRadialLinks links = manager.GetComponentInChildren<ScratchRadialLinks>(true);
+        ScratchRadialLinks links = Object.FindAnyObjectByType<ScratchRadialLinks>(FindObjectsInactive.Include);
         Check(links != null && !links.raycastTarget,
               "authored radial spokes graphic does not intercept clicks", ref errors);
         if (tree != null)
@@ -186,7 +186,7 @@ public static class ScratchV2SceneAudit
                     "fixed bottom hover details: " + field, ref errors);
             }
             ScratchRadialMapNavigation mapNav =
-                manager.GetComponentInChildren<ScratchRadialMapNavigation>(true);
+                Object.FindAnyObjectByType<ScratchRadialMapNavigation>(FindObjectsInactive.Include);
             Check(mapNav != null && mapNav.GetComponent<UnityEngine.UI.RectMask2D>() != null,
                   "navigable map has a scene-authored clipping viewport", ref errors);
             if (mapNav != null)
