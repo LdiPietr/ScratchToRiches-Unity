@@ -1,0 +1,174 @@
+#!/usr/bin/env python3
+"""Scratch to Riches: static and Unity-report regression checks (standard library only).
+
+Static: python QA/verify_demo_regression.py --static
+Unity:  python QA/verify_demo_regression.py --summary summary.txt \
+           --checks checks.csv --tickets tickets.csv --progression progression.csv
+
+The baseline is an observed run, NOT an expectation of identical RNG or timestamps.
+"""
+import argparse
+import csv
+import json
+import re
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+BASELINE = ROOT / "QA" / "Baselines" / "DemoV3_2026-11-23.json"
+errors = []
+
+
+def check(condition, message):
+    if not condition:
+        errors.append(message)
+
+
+def read_csv(path):
+    with Path(path).open(encoding="utf-8-sig", newline="") as handle:
+        return list(csv.DictReader(handle, delimiter=";"))
+
+
+def check_static():
+    catalog = json.loads((ROOT / "Assets/Resources/SkillCatalogV2.json").read_text(encoding="utf-8-sig"))
+    skills = catalog["skills"]
+    by_id = {skill["id"]: skill for skill in skills}
+    check(len(skills) == 90 and len(by_id) == 90, "Catalog must have 90 unique IDs")
+    check(sum(bool(s["demoEligible"]) for s in skills) == 24, "24 demo abilities required")
+
+    required = {
+        "C01": "", "C03": "C01:1", "C02": "C03:1",
+        "C04": "C02:1;G07:1", "C05": "C04:1",
+        "C06": "C05:1", "G08": "G07:1;G05:1;C05:1",
+    }
+    for skill_id, prereq in required.items():
+        check(skill_id in by_id and by_id[skill_id]["prerequisites"] == prereq,
+              "Changed prerequisites for " + skill_id)
+
+    code = (ROOT / "Assets/Scripts/Editor/ScratchAutoplayWindow.cs").read_text(encoding="utf-8-sig")
+    start = code.find("private static readonly ScratchSkillTree.SkillId[] FullDemoPlan =")
+    end = code.find("private bool IsFullDemo", start)
+    check(start != -1 and end != -1, "FullDemoPlan is missing")
+    plan_source = code[start:end] if start >= 0 and end > start else ""
+    plan = [m[0] + m[1:].zfill(2) for m in
+            re.findall(r"ScratchSkillTree\.SkillId\.([GCEF]\d+)", plan_source)]
+    check(len(plan) == 26 and len(set(plan)) == 24, "26 purchases / 24 distinct skills required")
+    owned = {}
+    for skill_id in plan:
+        skill = by_id.get(skill_id)
+        if skill is None:
+            check(False, "Unknown skill in plan: " + skill_id)
+            continue
+        for rule in filter(None, skill.get("prerequisites", "").split(";")):
+            parent, level = rule.split(":")
+            check(owned.get(parent, 0) >= int(level), skill_id + " requires " + rule)
+        owned[skill_id] = owned.get(skill_id, 0) + 1
+        check(owned[skill_id] <= skill["maxLevel"], "Excess level: " + skill_id)
+    sequence = ["C01", "C03", "C02", "G07", "C04", "C05", "G08", "C06", "F04"]
+    check(all(x in plan for x in sequence) and
+          all(plan.index(a) < plan.index(b) for a, b in zip(sequence, sequence[1:])),
+          "Major upgrade sequence changed")
+
+    game = (ROOT / "Assets/Scripts/ScratchGameManager.cs").read_text(encoding="utf-8-sig")
+    cell = (ROOT / "Assets/Scripts/ScratchCell.cs").read_text(encoding="utf-8-sig")
+    check("FinalGoldPayoutTarget = 1800" in game and
+          "FinalChallengeComplete(" in game and
+          'skillTree.GetLevel("F04") == 0' in game,
+          "Performance-based finale changed")
+    check("TryInspectCell(ScratchCell cell)" in game and
+          "InputButton.Right" in cell and "KeyCode.LeftControl" in cell,
+          "Manual C06 preview controls changed")
+    check("QaActivateTitanDuringGesture()" in cell and
+          "G08_real_titan_activation" in code, "Titan gesture QA removed")
+    check("C06_chosen_preview" in code, "C06 QA removed")
+
+
+def check_unity_logs(summary_path, checks_path, tickets_path, progression_path, base):
+    text = Path(summary_path).read_text(encoding="utf-8-sig")
+    fields = dict(line.split(": ", 1) for line in text.splitlines() if ": " in line)
+    def field(name):
+        return fields.get(name, "").strip()
+    def number(name):
+        return float(field(name).split("/")[0].strip())
+
+    check(field("Stato").startswith("COMPLETATO"), "Unity test did not finish")
+    check(field("Modalita'") == "ProgressioneDemoCompleta", "Wrong test mode")
+    check(field("DemoFinished reale") == "True", "DemoFinished is false")
+    check(field("Credito QA incluso") == "False", "QA coins were enabled")
+    check(field("Durata non accelerata artificialmente") == "True", "Speed changed")
+    check(field("Acquisti completati") == "26/26", "Not all 26 purchases")
+    check(field("Skill demo possedute") == "24/24", "Not all 24 skills")
+    check(number("Biglietti con combinazione forzata") == 0, "Forced outcomes detected")
+    check(number("Biglietti con combinazione NON forzata") ==
+          number("Biglietti giocati totali"), "Not every ticket was natural")
+    check(number("Check KO") == 0, "Unity reported failed assertions")
+    check(number("Check OK") > 0, "Unity assertions missing")
+    check(20 * 60 <= number("Durata reale (s)") <= 25 * 60,
+          "Duration outside 20-25 minute demo target")
+    check(number("Dorati finali") >= 3, "Insufficient final Gold tickets")
+    check(number("Incassi Dorati finali") >= 1800, "Final earnings below 1800")
+    check(field("Potere finale attivato") == "True", "Final power not activated")
+    check(number("Ispezioni C06") > 0, "C06 was not exercised")
+    check(number("Gestualita' Titanico G08") > 0, "G08 was not exercised")
+    check(number("Jolly grattati") > 0, "No real joker scratched")
+
+    checks = read_csv(checks_path)
+    check(bool(checks) and all(row["result"] == "PASS" for row in checks),
+          "checks.csv contains failures or is empty")
+    check(len(checks) == int(number("Check OK")), "check count and summary disagree")
+
+    history = read_csv(progression_path)
+    purchases = [row for row in history if row["event"] == "SKILL_PURCHASED"]
+    settled = [row for row in history if row["event"] == "TICKET_SETTLED"]
+    check(len(purchases) == 26 and len(set(row["skill_id"] for row in purchases)) == 24,
+          "Progression CSV purchase count mismatch")
+    check(len(settled) == int(number("Biglietti giocati totali")),
+          "Settled ticket count mismatch")
+    check(any(row["event"] == "DEMO_FINISHED" for row in history), "End event missing")
+    milestones = {row["skill_id"]: float(row["elapsed_s"]) for row in purchases}
+    sequence = ["C01", "C03", "C02", "G07", "C04", "C05", "G08", "C06", "F04"]
+    check(all(x in milestones for x in sequence) and
+          all(milestones[a] < milestones[b] for a, b in zip(sequence, sequence[1:])),
+          "Unity milestone order changed")
+
+    events = read_csv(tickets_path)
+    starts = [row for row in events if row["event"] == "START"]
+    check(bool(starts) and str(base["seed"]) in starts[0].get("details", ""),
+          "Seed differs from baseline; this is allowed for new tests") if False else None
+    finished = [row for row in events if row["event"] in ("TICKET_END", "FARM_TICKET_END")]
+    check(len(finished) == len(settled), "tickets.csv settlement count mismatch")
+    check(all(row.get("pattern") == "Random" for row in finished),
+          "Nonrandom ticket pattern in tickets.csv")
+    print("Current: %.2f minutes, %d tickets, %d checks" %
+          (number("Durata reale (s)") / 60, len(settled), len(checks)))
+    print("Baseline: %.2f minutes, %d tickets, %d checks" %
+          (base["duration_seconds"] / 60, base["tickets"]["total"],
+           base["checked_assertions"]["passed"]))
+    print("Time changes between seeds are NOT themselves regressions.")
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--static", action="store_true", help="Check source catalog and QA wiring")
+    for name in ("summary", "checks", "tickets", "progression"):
+        parser.add_argument("--" + name, type=Path)
+    args = parser.parse_args()
+    base = json.loads(BASELINE.read_text(encoding="utf-8"))
+    paths = [args.summary, args.checks, args.tickets, args.progression]
+    if args.static or not any(paths):
+        check_static()
+    if any(paths):
+        if not all(paths):
+            parser.error("Specify all four Unity report paths together")
+        check_unity_logs(*paths, base)
+    if errors:
+        print("DEMO REGRESSION FAIL:")
+        for item in errors:
+            print("  - " + item)
+        return 1
+    print("DEMO REGRESSION PASS")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
