@@ -138,6 +138,10 @@ public static class ScratchV2SceneAudit
               "C06 is player-selected right-click inspection, not five random previews", ref errors);
         Check(ScratchSkillCatalogV2.Find("G08")?.prerequisites == "G07:1;G05:1;C05:1",
               "G08 Titan is a late-game skill only after Golden ticket", ref errors);
+        Check(ScratchSkillCatalogV2.Find("G08")?.demoEligible == true &&
+              ScratchSkillCatalogV2.EffectImplemented("G08") &&
+              ScratchSkillCatalogV2.Find("G08")?.maxLevel == 1,
+              "G08 Titan is available for demo purchase", ref errors);
         Check(ScratchSkillCatalogV2.Find("C11")?.maxLevel == 3 &&
               ScratchSkillCatalogV2.Find("C11")?.prerequisites == "C01:1" &&
               ScratchSkillCatalogV2.Find("C11")?.demoEligible == true &&
