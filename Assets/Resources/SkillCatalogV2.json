@@ -119,7 +119,7 @@
       "kind": "Game changer",
       "demoEligible": true,
       "source": "Nuovo (vecchio G8 spostato in G14)",
-      "test": "1 carica immediata; ricarica ogni 5 caselle, utilizzabile con input manuale; nessun autoplay; 3 attivazioni possibili nei 3 biglietti finali Dorato.",
+      "test": "1 carica immediata; ricarica ogni 5 caselle, utilizzabile con input manuale; nessun autoplay; Attivazione facoltativa durante i Dorati del finale; 8 biglietti finali dopo F04.",
       "note": "Capstone demo manuale V2: la carica immediata evita che l’effetto resti invisibile. Nessun payout falsificato."
     },
     {
@@ -951,7 +951,7 @@
       "id": "F04",
       "branch": "Fortuna",
       "title": "Segno jolly",
-      "description": "I primi 3 biglietti Dorato acquistati dopo lo sblocco contengono 1 jolly garantito come simbolo reale, con anteprima gratuita della sua posizione. Dopo il bonus iniziale, ogni biglietto ha il 10% di probabilità di contenere 1 jolly. Il jolly conta soltanto se grattato.",
+      "description": "I primi 8 biglietti Dorato acquistati dopo lo sblocco contengono 1 jolly garantito come simbolo reale, con anteprima gratuita della sua posizione. Dopo il bonus iniziale, ogni biglietto ha il 10% di probabilità di contenere 1 jolly. Il jolly conta soltanto se grattato.",
       "maxLevel": 1,
       "initialPrice": 352,
       "prerequisites": "F03:1;C05:1",
@@ -959,7 +959,7 @@
       "kind": "Game changer",
       "demoEligible": true,
       "source": "Nuovo: il vecchio F4 era Poker scelto",
-      "test": "3 Dorato successivi all’acquisto: esattamente 1 jolly effettivo ciascuno; poi 10% per biglietto; max 1; anteprima vera; jolly non pagato se non selezionato.",
+      "test": "8 Dorato successivi all’acquisto: esattamente 1 jolly effettivo ciascuno; poi 10% per biglietto; max 1; anteprima vera; jolly non pagato se non selezionato.",
       "note": "Capstone demo Fortuna V2: picco di potere reale, leggibile e non finto; l’effetto permanente continua nella release completa."
     },
     {
