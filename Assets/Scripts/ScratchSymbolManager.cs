@@ -164,7 +164,7 @@ public sealed class ScratchSymbolManager : MonoBehaviour
 #if UNITY_EDITOR
         bool forced = editorTestPattern != TestPattern.Random;
         if (forced)
-            ApplyEditorTestPattern(layout, editorTestPattern, pool);
+            ApplyEditorTestPattern(layout, editorTestPattern, pool, poolSize);
 #else
         bool forced = false;
 #endif
@@ -270,10 +270,13 @@ public sealed class ScratchSymbolManager : MonoBehaviour
 
 #if UNITY_EDITOR
     /// <summary>
-    /// Deterministic first three, four or five cells for QA.
-    /// All other cells retain their random labels.
+    /// Deterministic first 3-6 cells for editor-only formula testing.
+    /// With C11 level 3, the sixth selected cell must not accidentally turn
+    /// a forced pair into a triple or a forced poker into a five-of-a-kind.
+    /// No manufactured outcomes are used by natural/autoplay demo modes.
     /// </summary>
-    private static void ApplyEditorTestPattern(int[] layout, TestPattern pattern, int[] pool)
+    private static void ApplyEditorTestPattern(int[] layout, TestPattern pattern,
+        int[] pool, int poolSize)
     {
         if (layout.Length < 3) return;
         layout[0] = pool[0];
@@ -284,6 +287,13 @@ public sealed class ScratchSymbolManager : MonoBehaviour
         if (layout.Length >= 5)
             layout[4] = pattern == TestPattern.Five ? pool[0] :
                 pattern == TestPattern.Pair ? pool[3] : pool[1];
+        if (layout.Length >= 6)
+        {
+            int other = pattern == TestPattern.Pair ? (poolSize >= 5 ? 4 : 1) :
+                pattern == TestPattern.Triple ? 3 :
+                pattern == TestPattern.Poker ? 2 : 1;
+            layout[5] = pool[other];
+        }
     }
 #endif
 }
