@@ -202,18 +202,22 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         }
         foreach (ScratchSkillCatalogV2.Entry entry in ScratchSkillCatalogV2.All)
             PlayerPrefs.DeleteKey("STR_GDDV2_Skill_" + entry.id);
+        // A human playtest must start at chapter 1, even after QA autoplay.
+        for (int tier = 0; tier < 4; tier++)
+            PlayerPrefs.DeleteKey("STR_Radial_CompletedTier_" + tier);
         foreach (string key in new[]
         {
             "STR_GDDV2_Migrated_01", "STR_GDDV2_TitanCharges",
             "STR_GDDV2_TitanProgress", "STR_GDDV2_TitanUsed",
             "STR_GDDV2_JollyGoldBonus", "STR_GDDV2_JollyUsed",
             "STR_GDDV2_WinStreak", "STR_GDDV2_DemoCapstoneActive",
-            "STR_GDDV2_DemoGoldTickets", "STR_GDDV2_DemoTitanBaseline",
+            "STR_GDDV2_DemoGoldTickets", "STR_GDDV2_FinalGoldPayout",
+            "STR_GDDV2_FinalRuleVersion", "STR_GDDV2_DemoTitanBaseline",
             "STR_GDDV2_DemoJollyBaseline", "STR_GDDV2_DemoFinished"
         })
             PlayerPrefs.DeleteKey(key);
         PlayerPrefs.Save();
-        Debug.Log("STR V2: wallet e 90 abilita' resettati. Avvia Play Mode per iniziare da zero.");
+        Debug.Log("STR V2: wallet, 90 abilita', contatori Radial e finale resettati. Avvia Play Mode per iniziare da zero.");
     }
 
     private void OnEnable()
