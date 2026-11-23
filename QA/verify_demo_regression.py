@@ -213,7 +213,8 @@ def check_static():
           "ScratchManualTelemetry.Logged += OnGameEvent" in manual and
           "ScratchManualTelemetry.Logged -= OnGameEvent" in manual,
           "Manual recording must have independent opt-in lifecycle")
-    check("SegmentSeconds = 8 * 60" in manual and
+    check("SegmentSeconds = 30 * 60" in manual and
+          "EarlyRotateBytes = 350L * 1024L * 1024L" in manual and
           "SafePartBytes = 400L * 1024L * 1024L" in manual and
           "VideoHeight = 720" in manual and "VideoFps = 24" in manual and
           "VideoMbps = 1.5f" in manual and
