@@ -228,7 +228,16 @@ public sealed class ScratchCell : MonoBehaviour, IPointerDownHandler, IDragHandl
 
     public void OnPointerDown(PointerEventData eventData)
     {
-        if (completed || scratchTexture == null)
+        if (eventData == null || completed || scratchTexture == null)
+            return;
+        if (eventData.button == PointerEventData.InputButton.Right)
+        {
+            // C06: an intentional inspection, never a scratch or a selected
+            // cell. The GameManager validates and consumes the one-use charge.
+            gameManager?.TryInspectCell(this);
+            return;
+        }
+        if (eventData.button != PointerEventData.InputButton.Left)
             return;
 
         pointerDown = true;
@@ -239,7 +248,8 @@ public sealed class ScratchCell : MonoBehaviour, IPointerDownHandler, IDragHandl
 
     public void OnDrag(PointerEventData eventData)
     {
-        if (!pointerDown || completed || activePointerId != eventData.pointerId)
+        if (!pointerDown || completed || activePointerId != eventData.pointerId ||
+            eventData.button != PointerEventData.InputButton.Left)
             return;
 
         EraseRoutine(eventData);
@@ -279,6 +289,26 @@ public sealed class ScratchCell : MonoBehaviour, IPointerDownHandler, IDragHandl
         titanThisGesture = false;
     }
 
+    // The same charge consumption drives real SHIFT input and Editor QA.
+    private bool ActivateTitanForGesture()
+    {
+        if (titanThisGesture || !pointerDown || completed)
+            return false;
+        ScratchSkillTree tree = gameManager != null
+            ? gameManager.GetComponent<ScratchSkillTree>() : null;
+        titanThisGesture = tree != null && tree.TryConsumeManualTitanCharge();
+        return titanThisGesture;
+    }
+
+#if UNITY_EDITOR
+    /// <summary>
+    /// Editor-only equivalent of holding SHIFT during a real pointer drag.
+    /// Exercises actual charge consumption and buffed scratch stamps.
+    /// Does not grant charges, fake winnings or complete the cell.
+    /// </summary>
+    public bool QaActivateTitanDuringGesture() => ActivateTitanForGesture();
+#endif
+
     private void EraseRoutine(PointerEventData eventData)
     {
         if (scratchRect == null ||
@@ -307,11 +337,7 @@ public sealed class ScratchCell : MonoBehaviour, IPointerDownHandler, IDragHandl
 
         if (!titanThisGesture && pointerDown &&
             (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift)))
-        {
-            ScratchSkillTree tree = gameManager != null
-                ? gameManager.GetComponent<ScratchSkillTree>() : null;
-            titanThisGesture = tree != null && tree.TryConsumeManualTitanCharge();
-        }
+            ActivateTitanForGesture();
 
         int size = scratchTexture.width;
         int pixelX = Mathf.Clamp(Mathf.FloorToInt(Mathf.InverseLerp(rect.xMin, rect.xMax, point.x) * size), 0, size - 1);
