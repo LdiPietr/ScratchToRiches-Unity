@@ -166,9 +166,10 @@ public static class ScratchV2SceneAudit
               ScratchRadialProgression.ChapterFromMilestones(3, 2, 0, 0, true, false, false, true) == 3 &&
               ScratchRadialProgression.ChapterFromMilestones(3, 9, 0, 0, true, false, false, true) == 4 &&
               ScratchRadialProgression.ChapterFromMilestones(3, 9, 5, 0, true, true, false, true) == 5 &&
-              ScratchRadialProgression.ChapterFromMilestones(3, 9, 3, 6, true, true, true, false) == 6 &&
-              ScratchRadialProgression.ChapterFromMilestones(3, 9, 3, 25, true, true, true, false) == 7 &&
-              ScratchRadialProgression.ChapterFromMilestones(3, 9, 3, 70, true, true, true, false) == 8,
+              ScratchRadialProgression.ChapterFromMilestones(3, 9, 4, 0, true, true, false, true) == 4 &&
+              ScratchRadialProgression.ChapterFromMilestones(3, 9, 5, 6, true, true, true, false) == 6 &&
+              ScratchRadialProgression.ChapterFromMilestones(3, 9, 5, 25, true, true, true, false) == 7 &&
+              ScratchRadialProgression.ChapterFromMilestones(3, 9, 5, 70, true, true, true, false) == 8,
               "radial chapters unlock strictly from real gameplay milestones", ref errors);
         Check(ScratchRadialProgression.RequiredFortunato("E06") == 16 &&
               ScratchRadialProgression.RequiredFortunato("G07") == 19 &&
