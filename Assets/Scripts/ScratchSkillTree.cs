@@ -303,7 +303,8 @@ public sealed class ScratchSkillTree : MonoBehaviour
         jollyGoldGuarantees = Math.Max(jollyGoldGuarantees, 3);
         PlayerPrefs.SetInt(JollyBonusKey, jollyGoldGuarantees);
         PlayerPrefs.Save();
-        Changed?.Invoke();
+        // The enclosing skill purchase and GameManager already refresh UI.
+        // Avoid a nested shop refresh while a hold-to-buy is still completing.
     }
 
     public void OnGoldenJollyTicketPurchased()
