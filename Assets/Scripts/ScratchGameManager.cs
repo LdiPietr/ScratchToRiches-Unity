@@ -83,6 +83,12 @@ public sealed class ScratchGameManager : MonoBehaviour
         (skillTree.TitanActivationCount > titanActivationBaseline ||
          skillTree.JollyActivationCount > jollyActivationBaseline);
     public bool InspectionUsedThisTicket => targetedPreviewUsed;
+
+    /// <summary>Pure final-goal predicate, also exercised by the Editor scene audit.</summary>
+    public static bool FinalChallengeComplete(int finishedGoldTickets, int earnedGoldCoins, bool activated) =>
+        finishedGoldTickets >= FinalGoldMinTickets &&
+        earnedGoldCoins >= FinalGoldPayoutTarget && activated;
+
     public TicketKind CurrentTicketKind => currentTicketKind;
     public bool WaitingForTicketChoice => state == RoundState.Playing && !ticketActive && ticketNumberInRun > 0;
 
@@ -485,8 +491,8 @@ public sealed class ScratchGameManager : MonoBehaviour
             PlayerPrefs.SetInt(DemoGoldPayoutKey, demoGoldPayout);
             // Three completed Gold tickets, actual earnings and at least one
             // real late-game activation: skill, not raw waiting, ends the demo.
-            if (demoGoldCompleted >= FinalGoldMinTickets &&
-                demoGoldPayout >= FinalGoldPayoutTarget && DemoFinalPowerActivated)
+            if (FinalChallengeComplete(demoGoldCompleted, demoGoldPayout,
+                    DemoFinalPowerActivated))
             {
                 demoFinished = true;
                 state = RoundState.Finished;
