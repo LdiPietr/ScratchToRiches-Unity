@@ -23,6 +23,18 @@ internal sealed class ScratchAutoplayMovieRecorder
 
     public bool Start(string destinationDirectory, int outputHeight, int framesPerSecond, bool withAudio)
     {
+        return Start(destinationDirectory, outputHeight, framesPerSecond,
+            withAudio, "autoplay", 0f, false);
+    }
+
+    /// <summary>
+    /// Manual playtest variant: custom bitrate and true real-time playback.
+    /// An independent controller per part lets the caller split long captures.
+    /// Target bitrate is not a strict byte cap; caller must validate final MP4.
+    /// </summary>
+    public bool Start(string destinationDirectory, int outputHeight, int framesPerSecond,
+        bool withAudio, string baseName, float targetBitrateMbps, bool realTime)
+    {
         LastError = string.Empty;
         if (started)
         {
@@ -43,7 +55,9 @@ internal sealed class ScratchAutoplayMovieRecorder
         try
         {
             Directory.CreateDirectory(destinationDirectory);
-            string outputWithoutExtension = Path.Combine(destinationDirectory, "autoplay");
+            if (string.IsNullOrEmpty(baseName) || baseName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+                throw new ArgumentException("Nome video non valido.");
+            string outputWithoutExtension = Path.Combine(destinationDirectory, baseName);
             OutputPath = outputWithoutExtension + ".mp4";
             if (File.Exists(OutputPath))
                 throw new IOException("File di output esistente: " + OutputPath);
@@ -55,7 +69,10 @@ internal sealed class ScratchAutoplayMovieRecorder
             movieSettings.EncoderSettings = new CoreEncoderSettings
             {
                 Codec = CoreEncoderSettings.OutputCodec.MP4,
-                EncodingQuality = CoreEncoderSettings.VideoEncodingQuality.High
+                EncodingQuality = targetBitrateMbps > 0f
+                    ? CoreEncoderSettings.VideoEncodingQuality.Custom
+                    : CoreEncoderSettings.VideoEncodingQuality.High,
+                TargetBitRate = targetBitrateMbps > 0f ? targetBitrateMbps : 4f
             };
             movieSettings.ImageInputSettings = new GameViewInputSettings
             {
@@ -68,8 +85,9 @@ internal sealed class ScratchAutoplayMovieRecorder
             controllerSettings.AddRecorderSettings(movieSettings);
             controllerSettings.SetRecordModeToManual();
             controllerSettings.FrameRate = framesPerSecond;
-            controllerSettings.FrameRatePlayback = FrameRatePlayback.Constant;
-            controllerSettings.CapFrameRate = true;
+            controllerSettings.FrameRatePlayback = realTime
+                ? FrameRatePlayback.Variable : FrameRatePlayback.Constant;
+            controllerSettings.CapFrameRate = !realTime;
             controllerSettings.ExitPlayMode = false;
 
             controller = new RecorderController(controllerSettings);
