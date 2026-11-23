@@ -571,7 +571,7 @@ public sealed class ScratchGameManager : MonoBehaviour
                         ? $"FINALE: {Mathf.Min(demoGoldCompleted, FinalGoldMinTickets)}/{FinalGoldMinTickets} DORATI | INCASSI {demoGoldPayout}/{FinalGoldPayoutTarget} | POTERE {(DemoFinalPowerActivated ? "OK" : "DA USARE")}"
                         : $"{TicketDisplayName(currentTicketKind)} {CurrentGridSide}x{CurrentGridSide} - {MaxScratches} caselle!" +
                           (Level(ScratchSkillTree.SkillId.C6) > 0
-                              ? targetedPreviewUsed ? " | ISPEZIONE USATA" : " | CLIC DESTRO: ISPEZIONA"
+                              ? targetedPreviewUsed ? " | ISPEZIONE USATA" : " | DESTRO/CTRL+CLIC: ISPEZIONA"
                               : string.Empty)
                     : demoCapstoneActive && !demoFinished
                         ? $"FINALE: {Mathf.Min(demoGoldCompleted, FinalGoldMinTickets)}/{FinalGoldMinTickets} DORATI | INCASSI {demoGoldPayout}/{FinalGoldPayoutTarget} | POTERE {(DemoFinalPowerActivated ? "OK" : "DA USARE")}"
