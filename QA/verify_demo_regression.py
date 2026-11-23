@@ -114,6 +114,53 @@ def check_static():
     check("NUCLEUS_WAIT" in code and "MapSkillNode_" in code,
           "Autoplay does not navigate authored map or locked chapters")
 
+    # Verify Unity YAML parentage and identity without relying on an installed
+    # Unity editor. 90 authored icons, not 90 runtime-instantiated buttons.
+    blocks = {}
+    for chunk in re.split(r"(?=^--- !u!\\d+ &\\d+)", scene, flags=re.MULTILINE):
+        match = re.match(r"^--- !u!\\d+ &(\\d+)", chunk)
+        if match:
+            key = match.group(1)
+            check(key not in blocks, "Duplicate Unity YAML object ID " + key)
+            blocks[key] = chunk
+    check(len(blocks) >= 2674, "Radial map scene lost authored objects")
+
+    for field in ("component", "m_GameObject", "m_Father"):
+        for ref in re.findall(r"^ *" + field + r": \\{fileID: (\\d+)\\}", scene, re.MULTILINE):
+            check(ref == "0" or ref in blocks,
+                  "Broken authored " + field + " reference: " + ref)
+
+    content = blocks.get("810000000012", "")
+    check("m_Father: {fileID: 810000000002}" in content and
+          content.count("  - {fileID: ") == 92,
+          "Map must contain 90 nodes + nucleus + connecting lines")
+    check("m_Father: {fileID: 810000000012}" in blocks.get("374", "") and
+          "nucleusButton: {fileID: 800000000010}" in scene,
+          "Nucleus must be inside the pannable map")
+    check("m_Father: {fileID: 810000000012}" in blocks.get("800000000002", ""),
+          "All radial connections must pan together with nodes")
+    check("guid: 3312d7739989d2b4e91e6319e9a96d76" in
+          blocks.get("810000000005", ""),
+          "Viewport must have real uGUI RectMask2D")
+
+    for skill_id in by_id:
+        named = [chunk for chunk in blocks.values()
+                 if re.search(r"^  m_Name: MapSkillNode_" + skill_id + r"$",
+                              chunk, flags=re.MULTILINE)]
+        check(len(named) == 1, "Missing/duplicate scene node " + skill_id)
+        if not named:
+            continue
+        root = named[0]
+        rt_match = re.search(r"component: \\{fileID: (\\d+)\\}", root)
+        rect = blocks.get(rt_match.group(1), "") if rt_match else ""
+        check("m_Father: {fileID: 810000000012}" in rect and
+              "m_SizeDelta: {x: 116, y: 116}" in rect,
+              "Node not a square inside map: " + skill_id)
+
+    nav = (ROOT / "Assets/Scripts/ScratchRadialMapNavigation.cs").read_text(encoding="utf-8-sig")
+    check("RectTransformUtility.ScreenPointToLocalPointInRectangle" in nav and
+          "CancelForMapPan()" in nav, "Map drag and hold safety missing")
+
 
 
 def check_unity_logs(summary_path, checks_path, tickets_path, progression_path, base):
