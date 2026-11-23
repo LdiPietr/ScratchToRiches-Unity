@@ -16,7 +16,7 @@ public sealed class ScratchGameManager : MonoBehaviour
 {
     public enum RoundState { Ready, Playing, Finished }
     public enum RoundEndReason { None, AllCellsRevealed, PlayerEnded }
-    // Ticket selection changes the payout, never the run timer or scratch limit.
+    // Tickets determine the board and prize; the C11 perk alone increases the scratch limit.
     public enum TicketKind { Standard, Fortunato, Gold, Diamond }
 
     [Header("Scene references")]
@@ -117,35 +117,20 @@ public sealed class ScratchGameManager : MonoBehaviour
         }
     }
 
-    // Provisional prices; comprehensive economy balancing is a separate phase.
-    public static int TicketPrice(TicketKind kind)
-    {
-        switch (kind)
-        {
-            case TicketKind.Standard: return 0;
-            case TicketKind.Fortunato: return 10;
-            case TicketKind.Gold: return 25;
-            case TicketKind.Diamond: return 60;
-            default: return int.MaxValue;
-        }
-    }
+    // Centralized ticket profiles: no tier ever grants extra scratch choices.
+    public static int TicketPrice(TicketKind kind) => ScratchTicketRules.TicketPrice(kind);
 
-    public int TicketPrize(TicketKind kind)
-    {
-        switch (kind)
-        {
-            case TicketKind.Standard: return economyManager != null ? economyManager.BasePrize : 10;
-            case TicketKind.Fortunato: return 25;
-            case TicketKind.Gold: return 45;
-            case TicketKind.Diamond: return 70;
-            default: return 0;
-        }
-    }
+    public int TicketPrize(TicketKind kind) =>
+        ScratchTicketRules.BasePrize(kind, economyManager != null ? economyManager.BasePrize : 10);
 
     public static int TicketSide(TicketKind kind) =>
         kind == TicketKind.Standard ? 3 : kind == TicketKind.Fortunato ? 4 : 5;
 
-    public static int SymbolPoolSize(TicketKind kind) => kind == TicketKind.Diamond ? 4 : 7;
+    public static int SymbolPoolSize(TicketKind kind) => ScratchTicketRules.SymbolPoolSize(kind);
+
+    public int PickLimitFor(TicketKind kind) =>
+        ScratchTicketRules.PickLimit(skillTree != null ? skillTree.GetLevel("C11") : 0,
+            TicketSide(kind));
 
     public bool IsTicketUnlocked(TicketKind kind)
     {
@@ -177,8 +162,8 @@ public sealed class ScratchGameManager : MonoBehaviour
         }
     }
 
-    // A ticket's grid determines both the pick cap and its highest possible match.
-    public int MaxScratches => TicketSide(currentTicketKind);
+    // C11 is global, persistent and independent from ticket type.
+    public int MaxScratches => PickLimitFor(currentTicketKind);
 
     public ScratchSymbolManager.MatchResult CurrentMatch =>
         !ticketActive ? settledMatch : symbolManager != null ? symbolManager.Evaluate(selectedCells) : default;
