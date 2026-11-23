@@ -3,7 +3,7 @@ using System;
 /// <summary>
 /// One source of truth for ticket odds, base payouts and the GLOBAL C11 pick perk.
 /// Ticket tiers change board size and prize, never how many cells may be selected.
-/// No prizes are guaranteed: the symbol pool is sampled anew for every ticket.
+/// No combinations are hand-forced: each ticket randomly samples its pool.
 /// </summary>
 public static class ScratchTicketRules
 {
@@ -43,7 +43,8 @@ public static class ScratchTicketRules
 
     // The 7 artwork symbols are always possible across different tickets.
     // Premium tickets draw a smaller RANDOM subset per ticket, increasing
-    // match probability without manufacturing combinations or guaranteed wins.
+    // match probability without manufacturing outcomes. When picks exceed pool size,
+    // at least one pair is mathematically guaranteed on a fully scratched ticket.
     public static int SymbolPoolSize(ScratchGameManager.TicketKind kind)
     {
         switch (kind)
