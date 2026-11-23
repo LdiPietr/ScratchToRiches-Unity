@@ -230,6 +230,15 @@ def check_static():
           "skills.CanPurchase(e.id)" in mapui and
           "ORA PUOI COMPRARE" in mapui,
           "Human radial map must make actually affordable upgrades findable")
+    game_src = (ROOT / "Assets/Scripts/ScratchGameManager.cs").read_text(encoding="utf-8-sig")
+    flow_src = (ROOT / "Assets/Scripts/ScratchFlowPresentation.cs").read_text(encoding="utf-8-sig")
+    check("FinishTicket(RoundEndReason.PlayerEnded)" not in game_src and
+          'ticketActive ? "COMPLETA LE GRATTATE"' in game_src and
+          "roundActionButton.interactable = state == RoundState.Ready;" in game_src and
+          "primaryActionButton.interactable = game.State == ScratchGameManager.RoundState.Ready;" in flow_src,
+          "Human tickets must not allow early exit that skips chapter milestone credit")
+    check("navigation.SetZoom(Mathf.Max(navigation.Zoom, 0.95f)" in mapui,
+          "Affordable-node finder must zoom in enough to inspect the node")
     check("public static event Action<string, string> Logged;" in telemetry and
           "public static void Emit(" in telemetry,
           "Manual event bus missing")
