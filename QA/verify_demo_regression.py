@@ -109,7 +109,7 @@ def check_static():
           "guid: 3312d7739989d2b4e91e6319e9a96d76" in scene and
           "nucleusButton:" in scene and "navigation:" in scene,
           "90 square scene nodes or masked navigable map are missing")
-    ids = set(re.findall(r"m_Name: MapSkillNode_([GCEFA]\\d{2})", scene))
+    ids = set(re.findall(r"m_Name: MapSkillNode_([GCEFA]\d{2})", scene))
     check(ids == set(by_id), "Authored 90 square map nodes do not match catalog IDs")
     check("NUCLEUS_WAIT" in code and "MapSkillNode_" in code,
           "Autoplay does not navigate authored map or locked chapters")
