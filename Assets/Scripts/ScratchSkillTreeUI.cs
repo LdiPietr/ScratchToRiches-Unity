@@ -38,6 +38,12 @@ public sealed class ScratchSkillTreeUI : MonoBehaviour
     [SerializeField] private Button purchaseButton;
     [SerializeField] private TMP_Text purchaseLabel;
 
+    [Header("Radial hub - authored in scene, no runtime UI construction")]
+    [SerializeField] private Button nucleusButton;
+    [SerializeField] private TMP_Text nucleusLabel;
+    [SerializeField] private ScratchRadialLinks radialLinks;
+
+    private bool overviewMode = true;
     private int branchIndex;
     private int pageIndex;
     private int selectedSlot;
@@ -86,6 +92,7 @@ public sealed class ScratchSkillTreeUI : MonoBehaviour
         }
         previousPageButton.onClick.AddListener(PreviousPage);
         nextPageButton.onClick.AddListener(NextPage);
+        if (nucleusButton != null) nucleusButton.onClick.AddListener(OpenOverview);
         if (purchaseButton != null) purchaseButton.gameObject.SetActive(false);
         skills.Changed += Refresh;
         economy.Changed += Refresh;
@@ -106,13 +113,22 @@ public sealed class ScratchSkillTreeUI : MonoBehaviour
             if (nodeButtons[i] != null) nodeButtons[i].onClick.RemoveAllListeners();
         if (previousPageButton != null) previousPageButton.onClick.RemoveAllListeners();
         if (nextPageButton != null) nextPageButton.onClick.RemoveAllListeners();
+        if (nucleusButton != null) nucleusButton.onClick.RemoveListener(OpenOverview);
     }
 
     public int BranchIndex => branchIndex;
     public int PageIndex => pageIndex;
+    public bool RadialOverview => overviewMode;
+
+    public void OpenOverview()
+    {
+        overviewMode = true;
+        Refresh();
+    }
 
     public void SelectBranch(int branch)
     {
+        overviewMode = false;
         branchIndex = Mathf.Clamp(branch, 0, ScratchSkillCatalogV2.BranchCount - 1);
         pageIndex = 0;
         selectedSlot = 0;
@@ -177,9 +193,69 @@ public sealed class ScratchSkillTreeUI : MonoBehaviour
         if (!ScratchSkillCatalogV2.EffectImplemented(entry.id))
             return "NON ANCORA IMPLEMENTATO";
         if (level >= entry.maxLevel) return "AL MASSIMO";
+        if (!ScratchRadialProgression.Available(entry.id, game, skills))
+            return "CAPITOLO " + ScratchRadialProgression.ChapterOf(entry.id);
         if (!skills.RequirementsMet(entry.id)) return "REQUISITI MANCANTI";
         if (economy.Coins < skills.GetPrice(entry.id)) return "MONETE INSUFFICIENTI";
         return "TIENI PREMUTO - " + skills.GetPrice(entry.id).ToString("N0");
+    }
+
+    private static readonly Vector2[] OverviewHubPositions =
+    {
+        new Vector2(-360f, 175f), new Vector2(360f, 175f),
+        new Vector2(-235f, -65f), new Vector2(235f, -65f),
+        new Vector2(0f, -105f)
+    };
+    private static readonly Vector2[] FocusNodePositions =
+    {
+        new Vector2(-405f, 170f), new Vector2(-165f, 205f),
+        new Vector2(165f, 205f), new Vector2(405f, 170f),
+        new Vector2(-405f, -45f), new Vector2(-165f, -100f),
+        new Vector2(165f, -100f), new Vector2(405f, -45f)
+    };
+
+    private void LayoutRadial()
+    {
+        if (nucleusButton == null) return;
+        RectTransform core = nucleusButton.GetComponent<RectTransform>();
+        core.anchoredPosition = new Vector2(0f, 58f);
+        core.sizeDelta = new Vector2(250f, 95f);
+        for (int b = 0; b < ScratchSkillCatalogV2.BranchCount; b++)
+        {
+            if (branchButtons[b] == null) continue;
+            branchButtons[b].gameObject.SetActive(overviewMode || b == branchIndex);
+            RectTransform rect = branchButtons[b].GetComponent<RectTransform>();
+            rect.anchoredPosition = overviewMode
+                ? OverviewHubPositions[b] : new Vector2(0f, 283f);
+            rect.sizeDelta = new Vector2(205f, 57f);
+        }
+        for (int i = 0; i < PageSize; i++)
+        {
+            if (nodeButtons[i] == null) continue;
+            RectTransform rect = nodeButtons[i].GetComponent<RectTransform>();
+            rect.anchoredPosition = FocusNodePositions[i];
+            rect.sizeDelta = new Vector2(210f, 68f);
+            if (nodeLabels != null && i < nodeLabels.Length && nodeLabels[i] != null)
+            {
+                nodeLabels[i].fontSize = 13.5f;
+                nodeLabels[i].rectTransform.anchoredPosition = new Vector2(26f, 0f);
+                nodeLabels[i].rectTransform.sizeDelta = new Vector2(144f, 62f);
+            }
+            if (nodeIcons != null && i < nodeIcons.Length && nodeIcons[i] != null)
+            {
+                nodeIcons[i].rectTransform.anchoredPosition = new Vector2(-78f, 1f);
+                nodeIcons[i].rectTransform.sizeDelta = new Vector2(42f, 42f);
+            }
+        }
+        previousPageButton.gameObject.SetActive(!overviewMode);
+        nextPageButton.gameObject.SetActive(!overviewMode);
+        pageLabel.gameObject.SetActive(!overviewMode);
+        previousPageButton.GetComponent<RectTransform>().anchoredPosition =
+            new Vector2(-405f, -165f);
+        nextPageButton.GetComponent<RectTransform>().anchoredPosition =
+            new Vector2(405f, -165f);
+        pageLabel.rectTransform.anchoredPosition = new Vector2(0f, -165f);
+        if (radialLinks != null) radialLinks.Configure(overviewMode, branchIndex);
     }
 
     public void Refresh()
@@ -187,6 +263,14 @@ public sealed class ScratchSkillTreeUI : MonoBehaviour
         if (skills == null || economy == null || game == null ||
             nodeButtons == null || nodeButtons.Length != PageSize)
             return;
+        LayoutRadial();
+        int chapter = ScratchRadialProgression.UnlockedChapter(game, skills);
+        if (nucleusLabel != null)
+        {
+            nucleusLabel.text = "NUCLEO" + "\nCAPITOLO " + chapter +
+                "\n" + (overviewMode ? "SCEGLI UN RAMO" : "TORNA AI RAMI");
+            nucleusLabel.fontSize = 22;
+        }
         for (int b = 0; b < ScratchSkillCatalogV2.BranchCount; b++)
         {
             if (branchLabels != null && b < branchLabels.Length && branchLabels[b] != null)
@@ -209,16 +293,25 @@ public sealed class ScratchSkillTreeUI : MonoBehaviour
             ScratchSkillCatalogV2.Entry entry = EntryForSlot(i);
             bool exists = entry != null;
             if (nodeButtons[i] != null)
-                nodeButtons[i].gameObject.SetActive(exists);
+                nodeButtons[i].gameObject.SetActive(exists && !overviewMode);
             if (!exists) continue;
 
             int level = skills.GetLevel(entry.id);
             bool fullOnly = ScratchSkillTree.DemoEdition && !entry.demoEligible;
             bool implemented = ScratchSkillCatalogV2.EffectImplemented(entry.id);
             bool requirements = skills.RequirementsMet(entry.id);
+            bool chapterUnlocked = ScratchRadialProgression.Available(entry.id, game, skills);
             if (nodeLabels[i] != null)
-                nodeLabels[i].text = entry.id + "  " + entry.title.ToUpperInvariant() +
-                    "  " + level + "/" + entry.maxLevel + "\n" + Status(entry, level);
+            {
+                string status = fullOnly ? "GIOCO COMPLETO"
+                    : !chapterUnlocked ? "CAPITOLO " + ScratchRadialProgression.ChapterOf(entry.id)
+                    : level >= entry.maxLevel ? "COMPLETATO"
+                    : !requirements ? "RICHIEDE NODI"
+                    : economy.Coins < skills.GetPrice(entry.id) ? "SERVONO MONETE"
+                    : "TIENI PREMUTO";
+                nodeLabels[i].text = entry.id + " " + entry.title.ToUpperInvariant() +
+                    "\nLV " + level + "/" + entry.maxLevel + " · " + status;
+            }
             if (nodeIcons != null && i < nodeIcons.Length && nodeIcons[i] != null)
             {
                 // Temporary scene-authored placeholders. The GDD's 90 unique
@@ -236,7 +329,7 @@ public sealed class ScratchSkillTreeUI : MonoBehaviour
                 nodeIcons[i].color = fullOnly
                     ? new Color(1f, 1f, 1f, 0.42f)
                     : !implemented ? new Color(1f, 1f, 1f, 0.60f)
-                    : !requirements ? new Color(1f, 1f, 1f, 0.72f)
+                    : !requirements || !chapterUnlocked ? new Color(1f, 1f, 1f, 0.72f)
                     : Color.white;
             }
             if (nodeButtons[i] != null && nodeButtons[i].targetGraphic is Image background)
@@ -245,13 +338,26 @@ public sealed class ScratchSkillTreeUI : MonoBehaviour
                     : fullOnly ? new Color(0.67f, 0.68f, 0.72f)
                     : !implemented ? new Color(0.85f, 0.80f, 0.71f)
                     : level >= entry.maxLevel ? new Color(0.85f, 0.94f, 0.79f)
-                    : !requirements ? new Color(0.79f, 0.78f, 0.75f)
+                    : !requirements || !chapterUnlocked ? new Color(0.79f, 0.78f, 0.75f)
                     : Color.white;
         }
 
         if (pageLabel != null)
             pageLabel.text = "PAGINA " + (pageIndex + 1) + "/" + PageCount +
                 "   |   " + ScratchSkillCatalogV2.CountForBranch(branchIndex) + " ABILITA'";
+        if (overviewMode)
+        {
+            if (selectedTitle != null)
+                selectedTitle.text = "NUCLEO · " + ScratchRadialProgression.ChapterNames[chapter - 1];
+            if (selectedDescription != null)
+                selectedDescription.text = "5 RAMI DAL NUCLEO · 90 NODI CONSULTABILI. " +
+                    "APRI UN RAMO PER VEDERE LE ABILITA', I COLLEGAMENTI E GLI ACQUISTI.";
+            if (statusLabel != null)
+                statusLabel.text = "PROSSIMO OBIETTIVO: " + ScratchRadialProgression.NextGoal(game, skills);
+            if (purchaseLabel != null) purchaseLabel.text = "SCEGLI UN RAMO";
+            if (purchaseButton != null) purchaseButton.interactable = false;
+            return;
+        }
         if (previousPageButton != null) previousPageButton.interactable = pageIndex > 0;
         if (nextPageButton != null) nextPageButton.interactable = pageIndex < PageCount - 1;
 
