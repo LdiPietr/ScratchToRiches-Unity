@@ -124,12 +124,12 @@ public sealed class ScratchSymbolManager : MonoBehaviour
             }
         }
 
-        if (poolSize != 4 && poolSize != 7)
+        if (poolSize < 4 || poolSize > 7)
         {
             Debug.LogError("Unsupported symbol pool size.", this);
             return false;
         }
-        // Diamond randomly selects four distinct symbols from the existing seven.
+        // Each tier selects its own 4-7 distinct-symbol pool from all seven artwork symbols.
         int[] pool = { 0, 1, 2, 3, 4, 5, 6 };
         for (int i = pool.Length - 1; i > 0; i--)
         {
