@@ -253,6 +253,9 @@ public sealed class ScratchFlowPresentation : MonoBehaviour
     {
         if (ShopOpen || (phase != Phase.Idle && phase != Phase.TicketLive && phase != Phase.Choosing))
             return;
+#if UNITY_EDITOR
+        ScratchManualTelemetry.Emit("SHOP_OPEN", "phase=" + phase);
+#endif
         phaseBeforeShop = phase;
         StopMotion();
         motion = StartCoroutine(DescendCurtain());
@@ -285,7 +288,9 @@ public sealed class ScratchFlowPresentation : MonoBehaviour
     public void ContinueAfterUpgrades()
     {
         if (phase != Phase.CurtainVisible) return;
-
+#if UNITY_EDITOR
+        ScratchManualTelemetry.Emit("SHOP_CLOSE", "from=radial_map");
+#endif
         StopMotion();
         motion = StartCoroutine(RaiseCurtainAndReturn());
     }
