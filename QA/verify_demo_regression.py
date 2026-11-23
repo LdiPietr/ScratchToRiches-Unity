@@ -245,6 +245,25 @@ def check_unity_logs(summary_path, checks_path, tickets_path, progression_path, 
     check(len(settled) == int(number("Biglietti giocati totali")),
           "Settled ticket count mismatch")
     check(any(row["event"] == "DEMO_FINISHED" for row in history), "End event missing")
+    # These are earned-ticket milestones, not timers. Validate at purchase time,
+    # not only against the final totals (which could conceal an early purchase).
+    required_fortunato = {"E06": 16, "G07": 19, "C04": 22, "C05": 24}
+    required_gold = {"G08": 5, "F02": 8, "C06": 11, "F03": 14, "F04": 17}
+    completed = {"Fortunato": 0, "Gold": 0}
+    for row in history:
+        if row["event"] == "TICKET_SETTLED" and row["kind"] in completed:
+            completed[row["kind"]] += 1
+        if row["event"] != "SKILL_PURCHASED":
+            continue
+        sid = row["skill_id"]
+        if sid in required_fortunato:
+            check(completed["Fortunato"] >= required_fortunato[sid],
+                  sid + " bought before Fortunato goal")
+        if sid in required_gold:
+            check(completed["Gold"] >= required_gold[sid],
+                  sid + " bought before Gold goal")
+    check(completed["Fortunato"] >= 24, "Fewer than 24 Fortunato tickets")
+    check(completed["Gold"] >= 25, "Fewer than 25 total Gold tickets")
     milestones = {row["skill_id"]: float(row["elapsed_s"]) for row in purchases}
     sequence = ["C01", "C03", "C02", "G07", "C04", "C05", "G08", "C06", "F04"]
     check(all(x in milestones for x in sequence) and
