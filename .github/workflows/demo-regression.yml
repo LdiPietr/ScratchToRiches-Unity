@@ -1,0 +1,35 @@
+name: Scratch demo regression (static)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Assets/Resources/SkillCatalogV2.json"
+      - "Assets/Scripts/**"
+      - "QA/**"
+      - ".github/workflows/demo-regression.yml"
+  pull_request:
+    paths:
+      - "Assets/Resources/SkillCatalogV2.json"
+      - "Assets/Scripts/**"
+      - "QA/**"
+      - ".github/workflows/demo-regression.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  catalog-and-qa-wiring:
+    name: Verify 90-node catalog, demo route and regression hooks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Validate static demo invariants
+        run: python QA/verify_demo_regression.py --static
+
+# Unity Play Mode remains a MANUAL regression: record a full autoplay
+# run, then pass its 4 reports to QA/verify_demo_regression.py.
