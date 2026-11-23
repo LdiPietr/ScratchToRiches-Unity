@@ -84,14 +84,12 @@ public sealed class ScratchRadialLinks : MaskableGraphic
                 if (entry == null) continue;
                 Vector2 end = Position(branch, i);
                 if (i < lanes)
-                {
                     DrawLine(vh, Vector2.zero, end, 5, color);
-                    continue;
-                }
-                // Connect to the preceding ring in the same visual lane,
-                // and draw skill-specific dependency links below.
-                DrawLine(vh, Position(branch, i - lanes), end, 3.5f,
-                    new Color32(color.r, color.g, color.b, 110));
+                else
+                    DrawLine(vh, Position(branch, i - lanes), end, 3.5f,
+                        new Color32(color.r, color.g, color.b, 110));
+                // Render genuine prerequisites even when both skills lie
+                // in the first ring of the same branch (C01-C03-C02 etc.).
                 string[] prerequisites = (entry.prerequisites ?? "").Split(';');
                 foreach (string raw in prerequisites)
                 {
