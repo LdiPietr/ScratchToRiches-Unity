@@ -109,6 +109,18 @@ public static class ScratchV2SceneAudit
         Check(implementedOutsideDemo == 0, "no full-game-only upgrade enabled", ref errors);
         Check(ScratchSkillTree.DemoEdition, "demo edition gating enabled", ref errors);
 
+        // C01 stays early, C03 unlocks Fortunato, then C02 adds the
+        // powerful second preview. Keep this order and its requirements.
+        Check(ScratchSkillCatalogV2.At(1, 0)?.id == "C01" &&
+              ScratchSkillCatalogV2.At(1, 1)?.id == "C03" &&
+              ScratchSkillCatalogV2.At(1, 2)?.id == "C02" &&
+              ScratchSkillCatalogV2.At(1, 3)?.id == "C04",
+              "ticket skill UI order C01-C03-C02-C04", ref errors);
+        Check(ScratchSkillCatalogV2.Find("C03")?.prerequisites == "C01:1" &&
+              ScratchSkillCatalogV2.Find("C02")?.prerequisites == "C03:1" &&
+              ScratchSkillCatalogV2.Find("C04")?.prerequisites == "C02:1",
+              "second preview locked until Fortunato", ref errors);
+
         ScratchSkillTreeUI tree = manager.GetComponent<ScratchSkillTreeUI>();
         Check(tree != null, "skill tree interface component", ref errors);
         if (tree != null)
