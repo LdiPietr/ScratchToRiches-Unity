@@ -41,9 +41,9 @@ public sealed class ScratchGameManager : MonoBehaviour
     private const string DemoDoneKey = "STR_GDDV2_DemoFinished";
     private const string DemoGoldPayoutKey = "STR_GDDV2_FinalGoldPayout";
     private const string DemoRuleVersionKey = "STR_GDDV2_FinalRuleVersion";
-    private const int DemoRuleVersion = 2;
-    private const int FinalGoldMinTickets = 3;
-    private const int FinalGoldPayoutTarget = 1800;
+    private const int DemoRuleVersion = 3;
+    private const int FinalGoldMinTickets = 8;
+    private const int FinalGoldPayoutTarget = 3800;
     private bool demoCapstoneActive;
     private bool demoFinished;
     private int demoGoldCompleted;
@@ -520,7 +520,7 @@ public sealed class ScratchGameManager : MonoBehaviour
             demoGoldPayout = (int)Math.Min(int.MaxValue, (long)demoGoldPayout + Mathf.Max(0, ticketPayout));
             PlayerPrefs.SetInt(DemoGoldKey, demoGoldCompleted);
             PlayerPrefs.SetInt(DemoGoldPayoutKey, demoGoldPayout);
-            // Three completed Gold tickets, actual earnings and at least one
+            // Eight completed Gold tickets, actual earnings and at least one
             // real late-game activation: skill, not raw waiting, ends the demo.
             if (FinalChallengeComplete(demoGoldCompleted, demoGoldPayout,
                     DemoFinalPowerActivated))
