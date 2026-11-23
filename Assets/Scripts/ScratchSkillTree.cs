@@ -16,7 +16,9 @@ public sealed class ScratchSkillTree : MonoBehaviour
         G1, G2, G3, G4, G5, G6, G7, G8,
         C1, C2, C3, C4, C5, C6, C7, C8,
         E1, E2, E3, E4, E5, E6, E7, E8,
-        F1, F2, F3, F4, F5, F6, F7, F8
+        F1, F2, F3, F4, F5, F6, F7, F8,
+        // Appended after the 32 legacy IDs to preserve all old enum indices.
+        C11
     }
 
     public readonly struct Requirement
@@ -65,9 +67,9 @@ public sealed class ScratchSkillTree : MonoBehaviour
         // Caselle — previews plus extra picks (no changes to 4x4 board size).
         new Definition(SkillId.C1, "Occhiolino fortunato", "Anteprima di un simbolo nascosto.", 1, 25, true),
         new Definition(SkillId.C2, "Doppio occhiolino", "Anteprima di due simboli nascosti.", 1, 65, true, new Requirement(SkillId.C3)),
-        new Definition(SkillId.C3, "Sblocca Fortunato", "Sblocca il biglietto 4x4, quattro scelte e il poker.", 1, 140, true, new Requirement(SkillId.C1)),
+        new Definition(SkillId.C3, "Sblocca Fortunato", "Sblocca il biglietto 4x4; le scelte aumentano solo con C11.", 1, 140, true, new Requirement(SkillId.C1)),
         new Definition(SkillId.C4, "Occhio allenato", "Anteprima di tre simboli nascosti.", 1, 240, true, new Requirement(SkillId.C2), new Requirement(SkillId.G7)),
-        new Definition(SkillId.C5, "Sblocca Dorato", "Sblocca il biglietto 5x5, cinque scelte e la cinquina.", 1, 850, true, new Requirement(SkillId.C4)),
+        new Definition(SkillId.C5, "Sblocca Dorato", "Sblocca il biglietto 5x5; le scelte aumentano solo con C11.", 1, 850, true, new Requirement(SkillId.C4)),
         new Definition(SkillId.C6, "Occhio di falco", "Scegli una casella da ispezionare con il clic destro, una volta per biglietto.", 1, 1800, true, new Requirement(SkillId.C5)),
         new Definition(SkillId.C7, "Sblocca Diamante", "Super biglietto 5x5 con soli quattro simboli differenti per volta.", 1, 5000, true, new Requirement(SkillId.C6), new Requirement(SkillId.E4)),
         new Definition(SkillId.C8, "Tocco magico", "In futuro: cambia un simbolo nascosto.", 1, 8500, false, new Requirement(SkillId.C7)),
