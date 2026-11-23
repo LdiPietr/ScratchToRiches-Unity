@@ -86,8 +86,21 @@ public static class ScratchV2SceneAudit
               ScratchGameManager.TicketSide(ScratchGameManager.TicketKind.Gold) == 5 &&
               ScratchGameManager.TicketSide(ScratchGameManager.TicketKind.Diamond) == 5,
               "ticket grid sides 3/4/5/5", ref errors);
-        Check(ScratchGameManager.SymbolPoolSize(ScratchGameManager.TicketKind.Diamond) == 4,
-              "Diamond four-symbol pool", ref errors);
+        Check(ScratchGameManager.SymbolPoolSize(ScratchGameManager.TicketKind.Standard) == 7 &&
+              ScratchGameManager.SymbolPoolSize(ScratchGameManager.TicketKind.Fortunato) == 6 &&
+              ScratchGameManager.SymbolPoolSize(ScratchGameManager.TicketKind.Gold) == 5 &&
+              ScratchGameManager.SymbolPoolSize(ScratchGameManager.TicketKind.Diamond) == 4,
+              "independent symbol pools 7/6/5/4", ref errors);
+        Check(ScratchTicketRules.PickLimit(0, 3) == 3 &&
+              ScratchTicketRules.PickLimit(1, 3) == 4 &&
+              ScratchTicketRules.PickLimit(2, 4) == 5 &&
+              ScratchTicketRules.PickLimit(3, 5) == 6 &&
+              ScratchTicketRules.PickLimit(100, 3) == 6,
+              "C11 global pick levels 3/4/5/6", ref errors);
+        Check(ScratchTicketRules.BasePrize(ScratchGameManager.TicketKind.Standard, 10) == 10 &&
+              ScratchTicketRules.BasePrize(ScratchGameManager.TicketKind.Fortunato, 10) == 30 &&
+              ScratchTicketRules.BasePrize(ScratchGameManager.TicketKind.Gold, 10) == 55,
+              "ticket payout profiles 10/30/55", ref errors);
         Check(ScratchSkillCatalogV2.All.Count == 90,
               "GDD V2 contains exactly 90 catalog entries", ref errors);
         int availableInDemo = 0;
@@ -104,8 +117,8 @@ public static class ScratchV2SceneAudit
             else if (ScratchSkillCatalogV2.EffectImplemented(entry.id))
                 implementedOutsideDemo++;
         }
-        Check(availableInDemo == 24, "24 demo-eligible / 66 full-game-only nodes", ref errors);
-        Check(missingImplementation == 0, "all 24 demo effects implemented", ref errors);
+        Check(availableInDemo == 25, "25 demo-eligible / 65 full-game-only nodes", ref errors);
+        Check(missingImplementation == 0, "all 25 demo effects implemented", ref errors);
         Check(implementedOutsideDemo == 0, "no full-game-only upgrade enabled", ref errors);
         Check(ScratchSkillTree.DemoEdition, "demo edition gating enabled", ref errors);
 
@@ -125,6 +138,11 @@ public static class ScratchV2SceneAudit
               "C06 is player-selected right-click inspection, not five random previews", ref errors);
         Check(ScratchSkillCatalogV2.Find("G08")?.prerequisites == "G07:1;G05:1;C05:1",
               "G08 Titan is a late-game skill only after Golden ticket", ref errors);
+        Check(ScratchSkillCatalogV2.Find("C11")?.maxLevel == 3 &&
+              ScratchSkillCatalogV2.Find("C11")?.prerequisites == "C01:1" &&
+              ScratchSkillCatalogV2.Find("C11")?.demoEligible == true &&
+              ScratchSkillCatalogV2.EffectImplemented("C11"),
+              "C11 is a purchasable three-level global pick perk", ref errors);
         Check(ScratchGameManager.FinalChallengeComplete(3, 1800, true) &&
               !ScratchGameManager.FinalChallengeComplete(2, 1800, true) &&
               !ScratchGameManager.FinalChallengeComplete(3, 1799, true) &&
@@ -152,7 +170,7 @@ public static class ScratchV2SceneAudit
             }
         }
 
-        if (errors == 0) Debug.Log("V2 AUDIT PASS: 90-node catalog, five tabs, paging, authored cells and ticket UI wired.");
+        if (errors == 0) Debug.Log("V2 AUDIT PASS: 90-node catalog, C11 global pick perk, 7/6/5/4 pools and authored UI wired.");
         else Debug.LogError("V2 AUDIT FAILED: " + errors + " error(s). See Console for details.");
     }
 
