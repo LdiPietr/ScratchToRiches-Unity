@@ -313,7 +313,8 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         EditorGUILayout.LabelField(IsFullDemo
             ? "Biglietti: " + (tickets + farmTickets) + " | Skill acquistate: " +
               purchaseIndex + "/" + FullDemoPlan.Length + " | Gold finale: " +
-              (game != null ? game.DemoFinalGoldTickets : 0) + "/3"
+              (game != null ? game.DemoFinalGoldTickets : 0) + "/" +
+              (game != null ? game.DemoFinalGoldMinTickets : 8)
             : "Biglietti test: " + tickets + " / 13  |  Farm: " + farmTickets);
         EditorGUILayout.LabelField("Partite casuali: " + naturalTicketsPlayed +
             " | QA forzate: " + forcedTicketsPlayed);
@@ -774,8 +775,9 @@ public sealed class ScratchAutoplayWindow : EditorWindow
                 Check(forcedTicketsPlayed == 0 && !qaFunds, "full_demo_natural",
                     "Forzati=" + forcedTicketsPlayed + ";creditoQA=" + qaFunds);
                 Check(game.DemoFinalGoldTickets >= game.DemoFinalGoldMinTickets,
-                    "three_final_gold_tickets",
-                    "Gold dopo entrambi i capstone=" + game.DemoFinalGoldTickets);
+                    "eight_final_gold_tickets",
+                    "Gold dopo entrambi i capstone=" + game.DemoFinalGoldTickets +
+                    "/" + game.DemoFinalGoldMinTickets);
                 Check(game.DemoFinalGoldPayout >= game.DemoFinalGoldPayoutTarget,
                     "finale_earned_gold_payout",
                     "Incassi Dorati=" + game.DemoFinalGoldPayout + "/" + game.DemoFinalGoldPayoutTarget);
@@ -1189,7 +1191,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         }
         // The radial nucleus imposes a second gate independent of price and
         // ordinary skill prerequisites. In particular G08 (chapter 5) must
-        // wait for THREE settled Gold tickets, not just one profitable ticket.
+        // wait for FIVE settled Gold tickets, not just one profitable ticket.
         // Check again on entering the shop: farming may have finished on cash
         // alone after the last ticket, while its chapter is still locked.
         string stableId = ScratchSkillTree.StableId(id);
@@ -1735,9 +1737,10 @@ public sealed class ScratchAutoplayWindow : EditorWindow
                   "Acquisti completati: " + purchaseIndex + "/" + FullDemoPlan.Length + "\n" +
                   "Skill demo possedute: " + CountOwnedDemoSkills() + "/25\n" +
                   "DemoFinished reale: " + (game != null && game.DemoFinished) + "\n" +
-                  "Dorati finali: " + (game != null ? game.DemoFinalGoldTickets : 0) + "/3 minimo\n" +
+                  "Dorati finali: " + (game != null ? game.DemoFinalGoldTickets : 0) +
+                      "/" + (game != null ? game.DemoFinalGoldMinTickets : 8) + " minimo\n" +
                   "Incassi Dorati finali: " + (game != null ? game.DemoFinalGoldPayout : 0) +
-                      "/" + (game != null ? game.DemoFinalGoldPayoutTarget : 1800) + "\n" +
+                      "/" + (game != null ? game.DemoFinalGoldPayoutTarget : 3800) + "\n" +
                   "Potere finale attivato: " + (game != null && game.DemoFinalPowerActivated) + "\n" +
                   "Ispezioni C06: " + qaC06Inspections + "\n" +
                   "Gestualita' Titanico G08: " + qaTitanActivations + "\n" +
