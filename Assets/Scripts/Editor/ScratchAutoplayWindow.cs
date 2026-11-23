@@ -1676,7 +1676,11 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         if (IsFullDemo)
             File.WriteAllLines(Path.Combine(reportDirectory, "progression.csv"), progression, Encoding.UTF8);
         float durationMinutes = (Time.realtimeSinceStartup - startedAt) / 60f;
-        string summary = "Scratch to Riches V2 - Auto QA\n" +
+        string summary = "Scratch to Riches V3.1 - Auto QA\n" +
+            "QA build fingerprint: plan=" + FullDemoPlan.Length +
+                ";C11_base=" + (ScratchSkillCatalogV2.Find("C11")?.initialPrice ?? -1) +
+                ";G08_demo=" + (ScratchSkillCatalogV2.Find("G08")?.demoEligible ?? false) +
+                ";G08_implemented=" + ScratchSkillCatalogV2.EffectImplemented("G08") + "\n" +
             "Stato: " + lastStatus + "\n" +
             "Modalita': " + autoplayMode + "\n" +
             "Seed effettivo: " + actualSeed + "\n" +
