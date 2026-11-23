@@ -178,6 +178,41 @@ public static class ScratchV2SceneAudit
         else Debug.LogError("V2 AUDIT FAILED: " + errors + " error(s). See Console for details.");
     }
 
+
+    [MenuItem("Tools/Scratch to Riches/Diagnostica acquisto G08 (Play Mode)")]
+    private static void DiagnoseG08Purchase()
+    {
+        if (!EditorApplication.isPlaying)
+        {
+            Debug.LogWarning("G08 QA: entra in Play Mode prima di eseguire la diagnostica.");
+            return;
+        }
+
+        ScratchSkillTree tree = Object.FindAnyObjectByType<ScratchSkillTree>(FindObjectsInactive.Include);
+        ScratchEconomyManager wallet =
+            Object.FindAnyObjectByType<ScratchEconomyManager>(FindObjectsInactive.Include);
+        ScratchGameManager game =
+            Object.FindAnyObjectByType<ScratchGameManager>(FindObjectsInactive.Include);
+        if (tree == null)
+        {
+            Debug.LogError("G08 QA: ScratchSkillTree non trovato nella scena.");
+            return;
+        }
+
+        string details = tree.PurchaseDiagnostic("G08") +
+            ";G05=" + tree.GetLevel("G05") +
+            ";G07=" + tree.GetLevel("G07") +
+            ";C05=" + tree.GetLevel("C05") +
+            ";G08_Saved=" + PlayerPrefs.GetInt("STR_GDDV2_Skill_G08", -1) +
+            ";walletVisible=" + (wallet != null ? wallet.Coins.ToString() : "n/a") +
+            ";gameState=" + (game != null ? game.State.ToString() : "missing") +
+            ";ticketActive=" + (game != null && game.TicketActive);
+        if (tree.CanPurchase("G08"))
+            Debug.Log("G08 QA: ACQUISTABILE | " + details);
+        else
+            Debug.LogWarning("G08 QA: NON ACQUISTABILE | " + details);
+    }
+
     private static void Check(bool condition, string description, ref int errors)
     {
         if (condition) return;
