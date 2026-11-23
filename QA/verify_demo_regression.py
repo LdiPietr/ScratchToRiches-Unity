@@ -203,6 +203,46 @@ def check_static():
 
 
 
+    # Human playtest capture must stay separate from bot-driven QA and not
+    # alter game rules or exceed the upload-safe recording profile.
+    manual = (ROOT / "Assets/Scripts/Editor/ScratchManualPlaytestRecorderWindow.cs").read_text(encoding="utf-8-sig")
+    telemetry = (ROOT / "Assets/Scripts/ScratchManualTelemetry.cs").read_text(encoding="utf-8-sig")
+    recorder = (ROOT / "Assets/Scripts/Editor/ScratchAutoplayMovieRecorder.cs").read_text(encoding="utf-8-sig")
+    check("Registra partita manuale" in manual and
+          "ScratchAutoplayWindow.AnyTestRunning" in manual and
+          "ScratchManualTelemetry.Logged += OnGameEvent" in manual and
+          "ScratchManualTelemetry.Logged -= OnGameEvent" in manual,
+          "Manual recording must have independent opt-in lifecycle")
+    check("SegmentSeconds = 8 * 60" in manual and
+          "SafePartBytes = 400L * 1024L * 1024L" in manual and
+          "VideoHeight = 720" in manual and "VideoFps = 24" in manual and
+          "VideoMbps = 1.5f" in manual and
+          "FrameRatePlayback.Variable" in recorder and
+          "TargetBitRate" in recorder,
+          "Manual video must be compact, segmented, time-true and size checked")
+    check("public static event Action<string, string> Logged;" in telemetry and
+          "public static void Emit(" in telemetry,
+          "Manual event bus missing")
+    for script, events in {
+        "ScratchGameManager.cs": ["TICKET_START", "CELL_SELECTED", "CELL_COMPLETED",
+                                  "C06_INSPECTION", "TICKET_END", "FINAL_CHALLENGE_STARTED"],
+        "ScratchSkillTree.cs": ["SKILL_PURCHASED", "TITAN_USED", "JOLLY_SCRATCHED"],
+        "ScratchFlowPresentation.cs": ["SHOP_OPEN", "SHOP_CLOSE"],
+        "ScratchSkillTreeUI.cs": ["SKILL_HOVER"],
+        "ScratchRadialMapNavigation.cs": ["MAP_PAN", "MAP_ZOOM"],
+    }.items():
+        source = (ROOT / "Assets/Scripts" / script).read_text(encoding="utf-8-sig")
+        check(all('ScratchManualTelemetry.Emit("' + name + '"' in source for name in events),
+              "Human telemetry hook missing from " + script)
+    check(not (ROOT / "Assets/Scripts/Editor/ScratchCellManagerEditor.cs").exists(),
+          "Obsolete Inspector reset tool is still present")
+    check('Test strategia anteprime")' not in
+          (ROOT / "Assets/Scripts/Editor/ScratchAutoplayPreviewStrategy.cs").read_text(encoding="utf-8-sig") and
+          'Test riserva biglietti autoplay")' not in
+          (ROOT / "Assets/Scripts/Editor/ScratchAutoplayWindow.cs").read_text(encoding="utf-8-sig"),
+          "Redundant test menus were not hidden")
+
+
 def check_unity_logs(summary_path, checks_path, tickets_path, progression_path, base):
     text = Path(summary_path).read_text(encoding="utf-8-sig")
     fields = dict(line.split(": ", 1) for line in text.splitlines() if ": " in line)
