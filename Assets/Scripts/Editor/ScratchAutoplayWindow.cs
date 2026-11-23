@@ -72,9 +72,9 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         ScratchSkillTree.SkillId.C1, ScratchSkillTree.SkillId.E1,
         ScratchSkillTree.SkillId.G1, ScratchSkillTree.SkillId.E5,
         ScratchSkillTree.SkillId.G2, ScratchSkillTree.SkillId.E2,
-        ScratchSkillTree.SkillId.E3, ScratchSkillTree.SkillId.G3,
-        ScratchSkillTree.SkillId.C3, ScratchSkillTree.SkillId.G5,
-        ScratchSkillTree.SkillId.G4, ScratchSkillTree.SkillId.F1,
+        ScratchSkillTree.SkillId.G3, ScratchSkillTree.SkillId.C3,
+        ScratchSkillTree.SkillId.G5, ScratchSkillTree.SkillId.G4,
+        ScratchSkillTree.SkillId.E3, ScratchSkillTree.SkillId.F1,
         ScratchSkillTree.SkillId.C2, ScratchSkillTree.SkillId.G6,
         ScratchSkillTree.SkillId.E4, ScratchSkillTree.SkillId.E6,
         ScratchSkillTree.SkillId.G7, ScratchSkillTree.SkillId.C4,
@@ -1016,6 +1016,17 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         if (!skills.RequirementsMet(next))
         {
             Fail("Prerequisiti non soddisfatti per " + next + ": " + skills.RequirementText(next));
+            return;
+        }
+        string nextId = ScratchSkillTree.StableId(next);
+        if (!ScratchRadialProgression.Available(nextId, game, skills))
+        {
+            // A locked nucleus chapter is a gameplay milestone, never an
+            // economic deadlock. Play natural tickets until it opens.
+            Note("NUCLEUS_WAIT", "next=" + nextId +
+                ";chapter=" + ScratchRadialProgression.UnlockedChapter(game, skills) +
+                ";goal=" + ScratchRadialProgression.NextGoal(game, skills));
+            ChooseNext(now);
             return;
         }
         int required = FundsNeededForNextPurchase();
