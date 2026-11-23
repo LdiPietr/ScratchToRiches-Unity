@@ -123,6 +123,13 @@ public static class ScratchV2SceneAudit
         Check(ScratchSkillCatalogV2.Find("C06")?.description.Contains("clic destro") == true &&
               ScratchSkillCatalogV2.Find("C06")?.prerequisites == "C05:1",
               "C06 is player-selected right-click inspection, not five random previews", ref errors);
+        Check(ScratchSkillCatalogV2.Find("G08")?.prerequisites == "G07:1;G05:1;C05:1",
+              "G08 Titan is a late-game skill only after Golden ticket", ref errors);
+        Check(ScratchGameManager.FinalChallengeComplete(3, 1800, true) &&
+              !ScratchGameManager.FinalChallengeComplete(2, 1800, true) &&
+              !ScratchGameManager.FinalChallengeComplete(3, 1799, true) &&
+              !ScratchGameManager.FinalChallengeComplete(3, 1800, false),
+              "earned-performance finale requires tickets, payout, and power", ref errors);
 
         ScratchSkillTreeUI tree = manager.GetComponent<ScratchSkillTreeUI>();
         Check(tree != null, "skill tree interface component", ref errors);
