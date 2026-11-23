@@ -38,7 +38,7 @@ def check_static():
 
     required = {
         "C01": "", "C03": "C01:1", "C02": "C03:1",
-        "C04": "C02:1;G07:1", "C05": "C04:1",
+        "C04": "C02:1", "C05": "C04:1",
         "C06": "C05:1", "G08": "G07:1;G05:1;C05:1",
     }
     for skill_id, prereq in required.items():
@@ -81,6 +81,19 @@ def check_static():
     check("QaActivateTitanDuringGesture()" in cell and
           "G08_real_titan_activation" in code, "Titan gesture QA removed")
     check("C06_chosen_preview" in code, "C06 QA removed")
+    radial = (ROOT / "Assets/Scripts/ScratchRadialProgression.cs").read_text(encoding="utf-8-sig")
+    ui = (ROOT / "Assets/Scripts/ScratchSkillTreeUI.cs").read_text(encoding="utf-8-sig")
+    scene = (ROOT / "Assets/Scenes/ScratchToRiches.unity").read_text(encoding="utf-8-sig")
+    check("ChapterOf(string id)" in radial and "UnlockedChapter(" in radial and
+          "CompletedByTier(" in radial, "Radial chapter milestones missing")
+    check("ScratchRadialProgression.Available(" in
+          (ROOT / "Assets/Scripts/ScratchSkillTree.cs").read_text(encoding="utf-8-sig"),
+          "Purchase authority bypasses radial chapters")
+    check("OpenOverview()" in ui and "LayoutRadial()" in ui and
+          "nucleusButton:" in scene and "m_Name: RadialConnections" in scene,
+          "Authored radial shop missing nucleus, hubs, or spokes")
+    check("NUCLEUS_WAIT" in code, "Autoplay no longer handles a locked chapter")
+
 
 
 def check_unity_logs(summary_path, checks_path, tickets_path, progression_path, base):
