@@ -51,6 +51,11 @@ public sealed class ScratchSkillTreeUI : MonoBehaviour
     private string hoveredId;
     private int branchIndex;
     private bool subscribed;
+    // All 90 authored nodes remain visible; this index is ONLY a navigation aid.
+    private readonly List<string> purchasableIds = new List<string>(25);
+    private int availableFocusIndex = -1;
+    private Button availableJumpButton;
+    private ScratchFlowPresentation flow;
 
     private static readonly Color[] BranchColors =
     {
@@ -106,22 +111,24 @@ public sealed class ScratchSkillTreeUI : MonoBehaviour
         }
 
         nucleusButton.onClick.AddListener(GoToCore);
-        // Reuse the old authored page indicator as a static color legend.
-        // No page navigation or extra UI elements are created.
+        flow = game.GetComponent<ScratchFlowPresentation>();
+        // Reuse the already-authored top label as a CLICKABLE availability
+        // navigator. Adds no GameObject, no extra node and no new scene asset.
         if (pageLabel != null)
         {
             pageLabel.gameObject.SetActive(true);
             pageLabel.rectTransform.anchoredPosition = new Vector2(0f, 375f);
-            pageLabel.rectTransform.sizeDelta = new Vector2(1020f, 32f);
-            pageLabel.fontSize = 17.5f;
+            pageLabel.rectTransform.sizeDelta = new Vector2(1020f, 50f);
+            pageLabel.fontSize = 21f;
             pageLabel.alignment = TextAlignmentOptions.Center;
-            pageLabel.raycastTarget = false;
-            pageLabel.text =
-                "<color=#56A9FF>■ GRATTA</color>    " +
-                "<color=#E2B655>■ BIGLIETTI</color>    " +
-                "<color=#70D491>■ ECONOMIA</color>    " +
-                "<color=#EA8BBC>■ FORTUNA</color>    " +
-                "<color=#AC93FF>■ AUTOMAZIONE</color>";
+            pageLabel.raycastTarget = true;
+            pageLabel.color = new Color(0.12f, 0.36f, 0.23f, 1f);
+            availableJumpButton = pageLabel.GetComponent<Button>();
+            if (availableJumpButton == null)
+                availableJumpButton = pageLabel.gameObject.AddComponent<Button>();
+            availableJumpButton.transition = Selectable.Transition.None;
+            availableJumpButton.targetGraphic = pageLabel;
+            availableJumpButton.onClick.AddListener(JumpToNextPurchase);
         }
         skills.Changed += Refresh;
         economy.Changed += Refresh;
@@ -133,11 +140,54 @@ public sealed class ScratchSkillTreeUI : MonoBehaviour
 
     private void OnDestroy()
     {
+        if (availableJumpButton != null)
+            availableJumpButton.onClick.RemoveListener(JumpToNextPurchase);
         if (!subscribed) return;
         skills.Changed -= Refresh;
         economy.Changed -= Refresh;
         game.Changed -= Refresh;
         nucleusButton.onClick.RemoveListener(GoToCore);
+    }
+
+    private void Update()
+    {
+        // Keyboard shortcut is active only when the shop is actually visible.
+        if (flow != null && flow.ShopVisible && Input.GetKeyDown(KeyCode.Tab))
+            JumpToNextPurchase();
+    }
+
+    /// <summary>
+    /// Find the next actually affordable node (not merely chapter-unlocked).
+    /// Never purchases automatically. Reuses the original radial camera.
+    /// The top banner is also clickable for players who do not use hotkeys.
+    /// </summary>
+    public void JumpToNextPurchase()
+    {
+        if (purchasableIds.Count == 0) return;
+        int currentlySelected = purchasableIds.IndexOf(hoveredId);
+        if (currentlySelected >= 0) availableFocusIndex = currentlySelected;
+        availableFocusIndex = (availableFocusIndex + 1) % purchasableIds.Count;
+        string id = purchasableIds[availableFocusIndex];
+        RevealSkill(id);
+#if UNITY_EDITOR
+        ScratchManualTelemetry.Emit("AVAILABLE_JUMP", "id=" + id +
+            "|available=" + purchasableIds.Count);
+#endif
+    }
+
+    private static bool IsMajorUnlock(string id) =>
+        id == "C03" || id == "C05" || id == "G08" || id == "F04";
+
+    // New skills first, major unlocks ahead of extra levels. No forced build.
+    private int ComparePurchasable(string a, string b)
+    {
+        int newA = skills.GetLevel(a) == 0 ? 0 : 1;
+        int newB = skills.GetLevel(b) == 0 ? 0 : 1;
+        if (newA != newB) return newA.CompareTo(newB);
+        int mainA = IsMajorUnlock(a) ? 0 : 1;
+        int mainB = IsMajorUnlock(b) ? 0 : 1;
+        if (mainA != mainB) return mainA.CompareTo(mainB);
+        return string.CompareOrdinal(a, b);
     }
 
     // Compatibility APIs for legacy editor tools; no page or tab changes.
@@ -212,6 +262,7 @@ public sealed class ScratchSkillTreeUI : MonoBehaviour
     private void GoToCore()
     {
         hoveredId = null;
+        availableFocusIndex = -1;
         navigation.CenterOn(Vector2.zero);
         DrawDetails();
     }
@@ -246,7 +297,8 @@ public sealed class ScratchSkillTreeUI : MonoBehaviour
         if (economy.Coins < skills.GetPrice(entry.id))
             return "SERVONO " + skills.GetPrice(entry.id).ToString("N0") +
                 " MONETE · SALDO " + economy.Coins.ToString("N0");
-        return "DISPONIBILE · TIENI PREMUTA L'ICONA (0,7 S)";
+        return "ACQUISTABILE · COSTO " + skills.GetPrice(entry.id).ToString("N0") +
+            " MONETE · TIENI PREMUTO 0,7 S";
     }
 
     private void DrawDetails()
@@ -261,10 +313,24 @@ public sealed class ScratchSkillTreeUI : MonoBehaviour
             selectedTitle.text = "NUCLEO · CAPITOLO " + chapter +
                 " · " + ScratchRadialProgression.ChapterNames[chapter - 1];
             selectedDescription.text =
-                "SORVOLA UN'ICONA PER LEGGERE IL POTENZIAMENTO. " +
-                "TRASCINA PER ESPLORARE · ROTELLA PER ZOOM · TIENI PREMUTO PER ACQUISTARE.";
-            statusLabel.text = "PROSSIMO TRAGUARDO: " +
-                ScratchRadialProgression.NextGoal(game, skills);
+                "BORDO VERDE = PUOI COMPRARE. CLICCA LA BARRA IN ALTO " +
+                "OPPURE PREMI TAB PER RAGGIUNGERE IL PROSSIMO NODO ACQUISTABILE. " +
+                "TIENI PREMUTO L'ICONA PER 0,7 S.";
+            if (purchasableIds.Count > 0)
+            {
+                string nextId = purchasableIds[0];
+                ScratchSkillCatalogV2.Entry next = ScratchSkillCatalogV2.Find(nextId);
+                statusLabel.text = "ACQUISTABILI: " + purchasableIds.Count +
+                    " · PROSSIMO: " + nextId + " " + next.title.ToUpperInvariant() +
+                    " · " + skills.GetPrice(nextId).ToString("N0") + " MONETE";
+                statusLabel.color = new Color(0.39f, 1f, 0.46f);
+            }
+            else
+            {
+                statusLabel.text = "NESSUN ACQUISTO ORA · " +
+                    ScratchRadialProgression.NextGoal(game, skills);
+                statusLabel.color = new Color(1f, 0.79f, 0.38f);
+            }
         }
         else
         {
@@ -277,7 +343,13 @@ public sealed class ScratchSkillTreeUI : MonoBehaviour
             if (entry.id == "G08") selectedDescription.text += "  [SHIFT + GRATTA: TITANICO]";
             if (entry.id == "C06") selectedDescription.text += "  [DESTRO/CTRL+CLIC: ISPEZIONA]";
             statusLabel.text = SkillStatus(entry) + " · " + entry.kind.ToUpperInvariant();
+            statusLabel.color = skills.CanPurchase(entry.id)
+                ? new Color(0.39f, 1f, 0.46f)
+                : skills.GetLevel(entry.id) >= entry.maxLevel
+                    ? new Color(0.49f, 0.83f, 1f)
+                    : new Color(1f, 0.79f, 0.38f);
         }
+        statusLabel.fontStyle = FontStyles.Bold;
         if (purchaseLabel != null) purchaseLabel.text = statusLabel.text;
     }
 
@@ -288,6 +360,33 @@ public sealed class ScratchSkillTreeUI : MonoBehaviour
         if (nucleusLabel != null)
             nucleusLabel.text = "NUCLEO\nLV " + chapter +
                 "\n" + ScratchRadialProgression.ChapterNames[chapter - 1];
+        purchasableIds.Clear();
+        foreach (ScratchSkillCatalogV2.Entry e in ScratchSkillCatalogV2.All)
+            if (skills.CanPurchase(e.id)) purchasableIds.Add(e.id);
+        purchasableIds.Sort(ComparePurchasable);
+        if (availableFocusIndex >= purchasableIds.Count)
+            availableFocusIndex = -1;
+
+        if (pageLabel != null)
+        {
+            if (purchasableIds.Count == 0)
+                pageLabel.text = "<color=#F0B96B>NESSUN ACQUISTO ORA</color>  ·  " +
+                    ScratchRadialProgression.NextGoal(game, skills) +
+                    "  ·  <color=#8A99B2>VERDE = ACQUISTABILE</color>";
+            else
+            {
+                string id = purchasableIds[0];
+                ScratchSkillCatalogV2.Entry next = ScratchSkillCatalogV2.Find(id);
+                pageLabel.text = "<color=#62FF81>● " + purchasableIds.Count +
+                    " ACQUISTABILI</color>   ·   " + id + " " +
+                    next.title.ToUpperInvariant() + " " +
+                    skills.GetPrice(id).ToString("N0") +
+                    " MONETE   ·   <color=#62FF81>CLICCA QUI / TAB PER TROVARLE</color>";
+            }
+            if (availableJumpButton != null)
+                availableJumpButton.interactable = purchasableIds.Count > 0;
+        }
+
         if (authoredMapNodes != null)
         {
             foreach (ScratchHoldToBuy control in authoredMapNodes)
@@ -299,12 +398,34 @@ public sealed class ScratchSkillTreeUI : MonoBehaviour
                 bool unavailable = ScratchSkillTree.DemoEdition && !entry.demoEligible;
                 bool locked = !ScratchRadialProgression.Available(entry.id, game, skills) ||
                     !skills.RequirementsMet(entry.id);
+                bool canBuy = purchasableIds.Contains(entry.id);
+                bool completed = level >= entry.maxLevel;
                 Color tint = BranchColors[branch];
-                if (unavailable) tint = Color.Lerp(tint, Color.gray, .60f);
-                else if (locked) tint = Color.Lerp(tint, Color.gray, .43f);
-                else if (level >= entry.maxLevel) tint = Color.Lerp(tint, Color.white, .25f);
+                // Preserve branch identity, while making affordance unambiguous.
+                if (unavailable) tint = Color.Lerp(tint, Color.black, .76f);
+                else if (locked) tint = Color.Lerp(tint, Color.gray, .66f);
+                else if (completed) tint = Color.Lerp(tint, Color.white, .30f);
+                else if (canBuy) tint = Color.Lerp(tint, Color.white, .16f);
                 Image backdrop = control.GetComponent<Image>();
-                if (backdrop != null) backdrop.color = tint;
+                if (backdrop != null)
+                {
+                    backdrop.color = tint;
+                    // A bright green border, not a different branch-colored icon.
+                    // Add only a UI effect to an existing authored square node.
+                    Outline outline = backdrop.GetComponent<Outline>();
+                    if (canBuy && outline == null)
+                        outline = backdrop.gameObject.AddComponent<Outline>();
+                    if (outline != null)
+                    {
+                        outline.enabled = canBuy;
+                        if (canBuy)
+                        {
+                            outline.effectColor = new Color(0.25f, 1f, 0.32f, 1f);
+                            outline.effectDistance = new Vector2(4f, 4f);
+                            outline.useGraphicAlpha = false;
+                        }
+                    }
+                }
                 Transform iconTransform = control.transform.Find("Icon");
                 if (iconTransform != null)
                 {
@@ -318,13 +439,21 @@ public sealed class ScratchSkillTreeUI : MonoBehaviour
                             branch * 8 + Mathf.Clamp((ord - 1) % 8, 0, 7);
                         if (upgradeSprites != null && artIndex < upgradeSprites.Length)
                             icon.sprite = upgradeSprites[artIndex];
-                        icon.color = unavailable ? new Color(1, 1, 1, .45f)
-                            : locked ? new Color(1, 1, 1, .7f) : Color.white;
+                        icon.color = unavailable ? new Color(1, 1, 1, .24f)
+                            : locked ? new Color(1, 1, 1, .54f)
+                            : Color.white;
                     }
                 }
                 TMP_Text smallLabel = control.GetComponentInChildren<TMP_Text>(true);
                 if (smallLabel != null)
-                    smallLabel.text = entry.id + (level > 0 ? "  " + level + "/" + entry.maxLevel : "");
+                {
+                    smallLabel.text = (canBuy ? "● " : "") + entry.id +
+                        (level > 0 ? "  " + level + "/" + entry.maxLevel : "");
+                    smallLabel.color = canBuy ? new Color(.27f, 1f, .41f)
+                        : unavailable ? new Color(.61f, .62f, .65f)
+                        : Color.white;
+                    smallLabel.fontStyle = canBuy ? FontStyles.Bold : FontStyles.Normal;
+                }
             }
         }
         DrawDetails();
