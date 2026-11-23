@@ -1,3 +1,17 @@
+# Scratch to Riches — stato attuale / Demo V3 (23 novembre 2026)
+
+**MILESTONE BASELINE FISSATA:** Unity Play Mode 21:21,52; 1084/1084 controlli PASS; 26 acquisti; 24/24 abilita'; 91 biglietti casuali; finale reale raggiunto.
+
+- [Snapshot regressione del codice testato](https://github.com/LdiPietr/ScratchToRiches-Unity/tree/milestone/demo-v3-21m22s-baseline), commit `dde3c9ae1abc7b5e63b8a3b406f7e34fe8e8cc2d`
+- [Milestone su GitHub / Issue #1](https://github.com/LdiPietr/ScratchToRiches-Unity/issues/1)
+- [Report di baseline e verifiche](QA/README.md)
+- [Risultati osservati con SHA-256 dei quattro log originali](QA/Baselines/DemoV3_2026-11-23.json)
+- [Verificatore di regressione](QA/verify_demo_regression.py) (check statico in GitHub Actions; controllo report Unity locale)
+
+**Nota:** i resoconti storici qui sotto descrivono versioni precedenti e possono riportare regole poi sostituite. Per la baseline corrente usare i file in `QA/` e il commit fissato. Nuove funzionalita' si sviluppano su `main`; non spostare il ramo milestone.
+
+---
+
 ## V2.9 — Demo GDD V2: catalogo 90 nodi, 24 giocabili, cinque rami (22 novembre 2026)
 
 **Scopo:** integrare il design V2 approvato senza creare UI a runtime, eliminare i blocchi degli upgrade non ancora implementati e offrire una demo dal finale basato sulle azioni invece che su un timer.
