@@ -61,7 +61,31 @@ L'evoluzione avviene solo con biglietti realmente completati, non con timer.
 | 2 | Tre Classici completati |
 | 3 | Fortunato acquistato e almeno due Fortunati completati |
 | 4 | Almeno nove Fortunati completati |
-| 5 | Dorato acquistato e almeno tre Dorati completati |
+| 5 | Dorato acquistato e almeno cinque Dorati completati |
+
+**Scaglionamento demo 20–25 minuti (da validare su Unity):**
+
+- Capitolo 4: E06 dopo 16 Fortunati, G07 dopo 19, C04 dopo 22,
+  sblocco Dorato C05 dopo 24; prima di questi traguardi la mappa mostra
+  quanti biglietti completare, anche se il giocatore ha già le monete.
+- Capitolo 5: G08 dopo 5 Dorati, F02 dopo 8, C06 dopo 11,
+  F03 dopo 14, F04 dopo 17; il giocatore ottiene e prova nuovi poteri
+  lungo la fase Dorato, non in un unico acquisto multiplo.
+- Finale dopo entrambi G08 e F04: **8 nuovi Dorati completati**, almeno
+  **3.800 monete** vinte in questi biglietti e almeno un potere finale
+  attivato davvero; il Jolly è visibile e garantito sui primi 8 Dorati
+  dopo F04, ma conta solo se il giocatore lo gratta.
+- Nessun timer imposto, nessuna vincita preconfezionata e nessuna
+  automazione obbligatoria. Il tempo esatto dipende dai premi casuali,
+  dalla strategia e dalla velocità reale del giocatore.
+
+**Motivazione quantitativa:** nel test precedente senza video la demo è
+terminata dopo 14:07, con 16 Fortunati e 8 Dorati. I nuovi traguardi
+richiedono almeno 24 Fortunati e 25 Dorati (17 prima di F04 e 8 dopo).
+Applicando ai 25 biglietti aggiuntivi la durata media del test precedente,
+la previsione grossolana sale a circa 21 minuti a 1×. Non è un test Unity
+concluso: misurare almeno tre seed e controllare che la ripetizione
+rimanga interessante.
 
 I capitoli 6-8 sono progettuali per la versione completa. L'automazione
 resta facoltativa. **Nel branch di prova C04 richiede C02 ma non più G07:**
