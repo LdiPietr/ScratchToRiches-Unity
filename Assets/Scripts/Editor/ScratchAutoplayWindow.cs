@@ -50,10 +50,11 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         new[] { ScratchSkillTree.SkillId.G1, ScratchSkillTree.SkillId.G1,
             ScratchSkillTree.SkillId.G2, ScratchSkillTree.SkillId.G3,
             ScratchSkillTree.SkillId.C1, ScratchSkillTree.SkillId.C3,
-            ScratchSkillTree.SkillId.C2 },
+            ScratchSkillTree.SkillId.C11, ScratchSkillTree.SkillId.C2 },
         // G04/G07 are not yet implemented in the scene; this legacy functional
         // tester covers ticket mechanics, not the new demo capstone.
-        new[] { ScratchSkillTree.SkillId.C4, ScratchSkillTree.SkillId.C5 },
+        new[] { ScratchSkillTree.SkillId.C4, ScratchSkillTree.SkillId.C5,
+            ScratchSkillTree.SkillId.C11 },
         new[] { ScratchSkillTree.SkillId.C6, ScratchSkillTree.SkillId.E1,
             ScratchSkillTree.SkillId.E1, ScratchSkillTree.SkillId.E1,
             ScratchSkillTree.SkillId.E2, ScratchSkillTree.SkillId.E3,
@@ -73,14 +74,17 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         ScratchSkillTree.SkillId.G1, ScratchSkillTree.SkillId.E5,
         ScratchSkillTree.SkillId.G2, ScratchSkillTree.SkillId.E2,
         ScratchSkillTree.SkillId.E3, ScratchSkillTree.SkillId.G3,
-        ScratchSkillTree.SkillId.C3, ScratchSkillTree.SkillId.G5,
+        ScratchSkillTree.SkillId.C3, ScratchSkillTree.SkillId.C11,
+        ScratchSkillTree.SkillId.G5,
         ScratchSkillTree.SkillId.G4, ScratchSkillTree.SkillId.F1,
         ScratchSkillTree.SkillId.C2, ScratchSkillTree.SkillId.G6,
         ScratchSkillTree.SkillId.E4, ScratchSkillTree.SkillId.E6,
         ScratchSkillTree.SkillId.G7, ScratchSkillTree.SkillId.C4,
-        ScratchSkillTree.SkillId.C5, ScratchSkillTree.SkillId.G8,
+        ScratchSkillTree.SkillId.C5, ScratchSkillTree.SkillId.C11,
+        ScratchSkillTree.SkillId.G8,
         ScratchSkillTree.SkillId.F2, ScratchSkillTree.SkillId.C6,
-        ScratchSkillTree.SkillId.F3, ScratchSkillTree.SkillId.F4
+        ScratchSkillTree.SkillId.F3, ScratchSkillTree.SkillId.C11,
+        ScratchSkillTree.SkillId.F4
     };
 
     private bool IsFullDemo => autoplayMode == AutoplayMode.ProgressioneDemoCompleta;
@@ -236,7 +240,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
     {
         EditorGUILayout.LabelField("SCRATCH TO RICHES - AUTOPLAY DEMO V2", EditorStyles.boldLabel);
         EditorGUILayout.HelpBox(IsFullDemo
-            ? "TEST DEMO COMPLETA: parte da zero, acquista tutte le 24 abilita' della demo " +
+            ? "TEST DEMO COMPLETA: parte da zero, acquista tutte le 25 abilita' della demo " +
               "(incluse le dipendenze), gratta biglietti reali fino al finale G08/F04 " +
               "e misura la durata effettiva contro l'obiettivo di 20-25 minuti."
             : "TEST LEGACY: verifica separatamente le tre categorie di biglietti con acquisti e grattate UI.",
@@ -279,7 +283,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
                 "e selezionano le stesse posizioni per verificare i pagamenti. La ripetizione e' INTENZIONALE e non " +
                 "misura la fortuna naturale del gioco.", MessageType.Warning);
         else
-            EditorGUILayout.HelpBox("NESSUN CHEAT: progressi e portafoglio azzerati; 24 skill demo; " +
+            EditorGUILayout.HelpBox("NESSUN CHEAT: progressi e portafoglio azzerati; 25 skill demo; " +
                 "simboli casuali; scelte solo da grattate e anteprime visibili; " +
                 "finale con tre veri Dorati e almeno un JOLLY grattato. " +
                 "Il test misura la durata, non la forza artificialmente.", MessageType.Info);
@@ -390,7 +394,8 @@ public sealed class ScratchAutoplayWindow : EditorWindow
             if (economy.Coins != 0 ||
                 skills.GetLevel(ScratchSkillTree.SkillId.C3) != 0 ||
                 skills.GetLevel(ScratchSkillTree.SkillId.C5) != 0 ||
-                skills.GetLevel(ScratchSkillTree.SkillId.C7) != 0)
+                skills.GetLevel(ScratchSkillTree.SkillId.C7) != 0 ||
+                skills.GetLevel(ScratchSkillTree.SkillId.C11) != 0)
             {
                 EditorUtility.DisplayDialog("Autoplay", "Reset iniziale non riuscito: controlla i progressi salvati.", "OK");
                 return;
@@ -559,7 +564,8 @@ public sealed class ScratchAutoplayWindow : EditorWindow
                 "no_forced_outcome_in_real_play", "Current symbol pattern: " + activePattern);
         Check(cellManager.ActiveCells.Length == game.CurrentGridSide * game.CurrentGridSide,
             "grid_size", game.CurrentGridSide + "x" + game.CurrentGridSide);
-        Check(game.MaxScratches == game.CurrentGridSide, "pick_cap", "MaxScelte=" + game.MaxScratches);
+        Check(game.MaxScratches == ScratchTicketRules.PickLimit(skills.GetLevel("C11"), game.CurrentGridSide),
+            "pick_cap", "C11=" + skills.GetLevel("C11") + ";MaxScelte=" + game.MaxScratches);
         if (stage == 3 && !farming)
         {
             HashSet<string> unique = new HashSet<string>();
@@ -760,9 +766,9 @@ public sealed class ScratchAutoplayWindow : EditorWindow
             if (!running) return;
             if (IsFullDemo && game.DemoFinished)
             {
-                bool ownedAll = CountOwnedDemoSkills() == 24;
-                Check(ownedAll, "all_24_demo_skills_purchased",
-                    "Acquistate " + CountOwnedDemoSkills() + "/24 skill.");
+                bool ownedAll = CountOwnedDemoSkills() == 25;
+                Check(ownedAll, "all_25_demo_skills_purchased",
+                    "Acquistate " + CountOwnedDemoSkills() + "/25 skill.");
                 Check(forcedTicketsPlayed == 0 && !qaFunds, "full_demo_natural",
                     "Forzati=" + forcedTicketsPlayed + ";creditoQA=" + qaFunds);
                 Check(game.DemoFinalGoldTickets >= game.DemoFinalGoldMinTickets,
@@ -1064,12 +1070,12 @@ public sealed class ScratchAutoplayWindow : EditorWindow
             Safe(skillId) + ";" + level + ";" + price + ";" + Safe(details));
     }
 
-    /// <summary>Validate all 26 purchase steps, 24 unique demo effects and all edges.</summary>
+    /// <summary>Validate 29 purchases, 25 demo effects and prerequisite edges.</summary>
     [MenuItem("Tools/Scratch to Riches/Verifica piano autoplay demo")]
     private static void TestFullDemoPlan()
     {
         if (ValidateFullDemoPlan(out string error))
-            Debug.Log("STR FULL DEMO QA: 26 acquisti, 24 skill demo, prerequisiti PASS.");
+            Debug.Log("STR FULL DEMO QA: 29 acquisti, 25 skill demo, prerequisiti PASS.");
         else
             Debug.LogError("STR FULL DEMO QA: piano FAIL - " + error);
     }
@@ -1107,7 +1113,8 @@ public sealed class ScratchAutoplayWindow : EditorWindow
             owned[stableId] = next;
         }
         var route = new List<ScratchSkillTree.SkillId>(FullDemoPlan);
-        if (FullDemoPlan.Length != 26 || owned.Count != 24 ||
+        if (FullDemoPlan.Length != 29 || owned.Count != 25 ||
+            !owned.TryGetValue("C11", out int extraChoices) || extraChoices != 3 ||
             FullDemoPlan[FullDemoPlan.Length - 1] != ScratchSkillTree.SkillId.F4 ||
             !owned.ContainsKey("G08") || !owned.ContainsKey("C05") ||
             !(route.IndexOf(ScratchSkillTree.SkillId.C2) <
@@ -1119,7 +1126,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
               route.IndexOf(ScratchSkillTree.SkillId.G8) <
               route.IndexOf(ScratchSkillTree.SkillId.F4)))
         {
-            error = "Il piano non copre le 24 skill o manca il finale.";
+            error = "Il piano non copre le 25 skill, C11 x3 o il finale.";
             return false;
         }
         error = string.Empty;
@@ -1188,8 +1195,11 @@ public sealed class ScratchAutoplayWindow : EditorWindow
             return;
         }
 
-        int branch = (int)id / 8;
         string stableId = ScratchSkillTree.StableId(id);
+        // C11 is appended after 32 legacy enum values to preserve saved indices.
+        int branch = stableId[0] == 'G' ? 0 :
+            stableId[0] == 'C' ? 1 : stableId[0] == 'E' ? 2 :
+            stableId[0] == 'F' ? 3 : 4;
         // The catalog controls visual order independently of stable IDs:
         // C03 appears before C02. Never assume enum index == UI slot.
         int position = -1;
@@ -1698,9 +1708,9 @@ public sealed class ScratchAutoplayWindow : EditorWindow
             "Esplorazioni deliberate: " + randomExplorationChoices + "\n" +
             "Frames PNG richiesti: " + frameCount + "\n" +
             (IsFullDemo
-                ? "MODALITA' DEMO COMPLETA - 24 SKILL / 26 ACQUISTI\n" +
+                ? "MODALITA' DEMO COMPLETA - 25 SKILL / 29 ACQUISTI\n" +
                   "Acquisti completati: " + purchaseIndex + "/" + FullDemoPlan.Length + "\n" +
-                  "Skill demo possedute: " + CountOwnedDemoSkills() + "/24\n" +
+                  "Skill demo possedute: " + CountOwnedDemoSkills() + "/25\n" +
                   "DemoFinished reale: " + (game != null && game.DemoFinished) + "\n" +
                   "Dorati finali: " + (game != null ? game.DemoFinalGoldTickets : 0) + "/3 minimo\n" +
                   "Incassi Dorati finali: " + (game != null ? game.DemoFinalGoldPayout : 0) +
