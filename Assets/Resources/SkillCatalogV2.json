@@ -336,7 +336,7 @@
       "id": "C03",
       "branch": "Biglietti",
       "title": "Sblocca Fortunato",
-      "description": "Sblocca il biglietto Fortunato 4×4 con 4 scelte e premio base 25 (costo biglietto 10).",
+      "description": "Sblocca il biglietto Fortunato 4×4: 6 simboli possibili su 7, premio base 30 (costo 10). Le scelte dipendono solo dal perk C11.",
       "maxLevel": 1,
       "initialPrice": 144,
       "prerequisites": "C01:1",
@@ -344,7 +344,7 @@
       "kind": "Game changer",
       "demoEligible": true,
       "source": "Esistente C3, prezzo proposto",
-      "test": "Acquisto biglietto solo se wallet≥10; sblocco permanente",
+      "test": "Sblocco Fortunato non cambia il limite di scelte; pool casuale di 6 simboli",
       "note": ""
     },
     {
@@ -366,7 +366,7 @@
       "id": "C05",
       "branch": "Biglietti",
       "title": "Sblocca Dorato",
-      "description": "Sblocca Dorato 5×5, 5 scelte, premio base 45 (costo biglietto 25).",
+      "description": "Sblocca il biglietto Dorato 5×5: 5 simboli possibili su 7, premio base 55 (costo 25). Le scelte dipendono solo dal perk C11.",
       "maxLevel": 1,
       "initialPrice": 512,
       "prerequisites": "C04:1",
@@ -374,7 +374,7 @@
       "kind": "Game changer",
       "demoEligible": true,
       "source": "Esistente C5, prezzo proposto",
-      "test": "Il giocatore può sempre continuare con Classico/Fortunato",
+      "test": "Sblocco Dorato non cambia il limite di scelte; pool casuale di 5 simboli",
       "note": ""
     },
     {
@@ -396,7 +396,7 @@
       "id": "C07",
       "branch": "Biglietti",
       "title": "Sblocca Diamante",
-      "description": "Sblocca Diamante 5×5, 5 scelte, pool 4 simboli, premio base 70 (costo 60).",
+      "description": "Sblocca Diamante 5×5, pool casuale da 4 simboli su 7, premio base 70 (costo 60). Le scelte dipendono solo dal perk C11.",
       "maxLevel": 1,
       "initialPrice": 2000,
       "prerequisites": "C06:1",
@@ -455,17 +455,17 @@
     {
       "id": "C11",
       "branch": "Biglietti",
-      "title": "Scelta bonus",
-      "description": "Una casella aggiuntiva grattabile ogni 5 biglietti pagati (massimo 6 scelte sul 5×5).",
-      "maxLevel": 1,
-      "initialPrice": 8500,
-      "prerequisites": "C10:1",
-      "phase": "Completo · mid",
+      "title": "Scelte aggiuntive",
+      "description": "Perk globale: +1 casella grattabile per livello su QUALSIASI biglietto. Si parte sempre da 3 scelte; con i 3 livelli si arriva a 4, 5 e 6 (entro la griglia). Non modifica prezzi, simboli o dimensioni dei biglietti.",
+      "maxLevel": 3,
+      "initialPrice": 90,
+      "prerequisites": "C01:1",
+      "phase": "Demo · 5–25′",
       "kind": "Game changer",
-      "demoEligible": false,
-      "source": "Nuovo",
-      "test": "Limite picks, sette simboli, moltiplicatore massimo x5",
-      "note": ""
+      "demoEligible": true,
+      "source": "Rielaborazione del nodo C11 esistente",
+      "test": "Con C11 0/1/2/3: limite 3/4/5/6 su tutti i biglietti; acquisto, salvataggio e reset persistenti",
+      "note": "Nessuna scelta bonus periodica: il limite vale sempre e su qualunque ticket."
     },
     {
       "id": "C12",
