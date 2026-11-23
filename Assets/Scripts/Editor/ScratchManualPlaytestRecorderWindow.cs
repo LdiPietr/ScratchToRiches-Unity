@@ -132,6 +132,11 @@ public sealed class ScratchManualPlaytestRecorderWindow : EditorWindow
             error = "Un'altra sessione manuale e' gia' in ascolto.";
             return;
         }
+        if (ScratchAutoplayWindow.AnyTestRunning)
+        {
+            error = "Autoplay QA attivo: fermalo prima della registrazione manuale.";
+            return;
+        }
         game = UnityEngine.Object.FindAnyObjectByType<ScratchGameManager>();
         if (game == null)
         {
