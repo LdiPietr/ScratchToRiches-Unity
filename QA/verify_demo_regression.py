@@ -117,8 +117,8 @@ def check_static():
     # Verify Unity YAML parentage and identity without relying on an installed
     # Unity editor. 90 authored icons, not 90 runtime-instantiated buttons.
     blocks = {}
-    for chunk in re.split(r"(?=^--- !u!\\d+ &\\d+)", scene, flags=re.MULTILINE):
-        match = re.match(r"^--- !u!\\d+ &(\\d+)", chunk)
+    for chunk in re.split(r"(?=^--- !u!\d+ &\d+)", scene, flags=re.MULTILINE):
+        match = re.match(r"^--- !u!\d+ &(\d+)", chunk)
         if match:
             key = match.group(1)
             check(key not in blocks, "Duplicate Unity YAML object ID " + key)
@@ -126,7 +126,7 @@ def check_static():
     check(len(blocks) >= 2674, "Radial map scene lost authored objects")
 
     for field in ("component", "m_GameObject", "m_Father"):
-        for ref in re.findall(r"^ *" + field + r": \\{fileID: (\\d+)\\}", scene, re.MULTILINE):
+        for ref in re.findall(r"^ *" + field + r": \{fileID: (\d+)\}", scene, re.MULTILINE):
             check(ref == "0" or ref in blocks,
                   "Broken authored " + field + " reference: " + ref)
 
@@ -151,7 +151,7 @@ def check_static():
         if not named:
             continue
         root = named[0]
-        rt_match = re.search(r"component: \\{fileID: (\\d+)\\}", root)
+        rt_match = re.search(r"component: \{fileID: (\d+)\}", root)
         rect = blocks.get(rt_match.group(1), "") if rt_match else ""
         check("m_Father: {fileID: 810000000012}" in rect and
               "m_SizeDelta: {x: 116, y: 116}" in rect,
