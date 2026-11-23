@@ -8,16 +8,21 @@ using UnityEngine.UI;
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class ScratchHoldToBuy : MonoBehaviour,
-    IPointerDownHandler, IPointerUpHandler, IPointerExitHandler
+    IPointerDownHandler, IPointerUpHandler, IPointerEnterHandler, IPointerExitHandler
 {
     [SerializeField] private ScratchSkillTreeUI treeUI;
     [SerializeField, Range(0, 7)] private int nodeSlot;
+    // On the 90-node map, stable IDs supersede the old 8 visual slots.
+    [SerializeField] private string stableSkillId;
+    public string StableSkillId => stableSkillId;
     [SerializeField, Min(0.1f)] private float holdDuration = 0.7f;
     [SerializeField] private Image progressFill;
 
     private bool holding;
     private float elapsed;
     private int pressedBranch;
+    private string pressedSkillId;
+    private bool IsMapNode => !string.IsNullOrEmpty(stableSkillId);
 #if UNITY_EDITOR
     private bool qaHolding;
     public bool QaHolding => qaHolding && holding;
@@ -37,16 +42,25 @@ public sealed class ScratchHoldToBuy : MonoBehaviour,
         }
     }
 
+    public void OnPointerEnter(PointerEventData data)
+    {
+        if (IsMapNode && treeUI != null) treeUI.HoverSkill(stableSkillId);
+    }
+
     public void OnPointerDown(PointerEventData eventData)
     {
-        if (eventData.button != PointerEventData.InputButton.Left || treeUI == null)
+        if (eventData == null || eventData.button != PointerEventData.InputButton.Left || treeUI == null)
             return;
-        treeUI.SelectSlot(nodeSlot);
-        if (!treeUI.CanHoldPurchase(nodeSlot))
-            return;
+        if (IsMapNode) treeUI.HoverSkill(stableSkillId);
+        else treeUI.SelectSlot(nodeSlot);
+        bool allowed = IsMapNode
+            ? treeUI.CanPurchaseSkill(stableSkillId)
+            : treeUI.CanHoldPurchase(nodeSlot);
+        if (!allowed) return;
         holding = true;
         elapsed = 0f;
         pressedBranch = treeUI.BranchIndex;
+        pressedSkillId = stableSkillId;
         UpdateFill();
     }
 
@@ -64,7 +78,11 @@ public sealed class ScratchHoldToBuy : MonoBehaviour,
         if (qaHolding) return;
 #endif
         Cancel();
+        if (IsMapNode && treeUI != null) treeUI.ClearHoverSkill(stableSkillId);
     }
+
+    // Called by parent navigation when a pointer gesture becomes a map drag.
+    public void CancelForMapPan() => Cancel();
 
     private void OnDisable() => Cancel();
 
@@ -110,8 +128,10 @@ public sealed class ScratchHoldToBuy : MonoBehaviour,
     private void TickHold(float deltaSeconds)
     {
         if (!holding) return;
-        if (treeUI == null || treeUI.BranchIndex != pressedBranch ||
-            !treeUI.CanHoldPurchase(nodeSlot))
+        if (treeUI == null ||
+            (IsMapNode
+                ? pressedSkillId != stableSkillId || !treeUI.CanPurchaseSkill(stableSkillId)
+                : treeUI.BranchIndex != pressedBranch || !treeUI.CanHoldPurchase(nodeSlot)))
         {
             Cancel();
             return;
@@ -126,7 +146,8 @@ public sealed class ScratchHoldToBuy : MonoBehaviour,
         holding = false;
         elapsed = 0f;
         UpdateFill();
-        treeUI.PurchaseHeldNode(nodeSlot);
+        if (IsMapNode) treeUI.PurchaseHeldSkill(stableSkillId);
+        else treeUI.PurchaseHeldNode(nodeSlot);
     }
 
     private void UpdateFill()
