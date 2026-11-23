@@ -140,7 +140,7 @@ public sealed class ScratchSkillTree : MonoBehaviour
         titanCharges = Mathf.Clamp(PlayerPrefs.GetInt(TitanChargesKey, 0), 0, 3);
         titanChargeProgress = Mathf.Clamp(PlayerPrefs.GetInt(TitanProgressKey, 0), 0, 4);
         titanUsedCount = Mathf.Max(0, PlayerPrefs.GetInt(TitanUsedKey, 0));
-        jollyGoldGuarantees = Mathf.Clamp(PlayerPrefs.GetInt(JollyBonusKey, 0), 0, 3);
+        jollyGoldGuarantees = Mathf.Clamp(PlayerPrefs.GetInt(JollyBonusKey, 0), 0, 8);
         jollyUsedCount = Mathf.Max(0, PlayerPrefs.GetInt(JollyUsedKey, 0));
         foreach (ScratchSkillCatalogV2.Entry entry in ScratchSkillCatalogV2.All)
             stableLevels.Add(entry.id, Mathf.Clamp(
@@ -267,8 +267,9 @@ public sealed class ScratchSkillTree : MonoBehaviour
         }
         if (stableId == "F04" && stableLevels[stableId] == 1)
         {
-            // Three authentic Golden tickets with a guaranteed visible joker.
-            jollyGoldGuarantees = 3;
+            // The eight-ticket finale lets the player enjoy the new Joker
+            // without extending its duration by artificial idle time.
+            jollyGoldGuarantees = 8;
             PlayerPrefs.SetInt(JollyBonusKey, jollyGoldGuarantees);
         }
         // Keep legacy indices mirrored while gameplay and QA transition to IDs.
@@ -296,14 +297,14 @@ public sealed class ScratchSkillTree : MonoBehaviour
     public int JollyActivationCount => jollyUsedCount;
 
     /// <summary>
-    /// Begin the genuine final challenge with three guaranteed Golden jokers,
+    /// Begin the genuine final challenge with eight guaranteed Golden jokers,
     /// even if F04 was bought well before G08 and its initial uses ran out.
     /// Called only once by the authored demo milestone.
     /// </summary>
     public void RechargeFinalJollyGuarantees()
     {
         if (GetLevel("F04") == 0) return;
-        jollyGoldGuarantees = Math.Max(jollyGoldGuarantees, 3);
+        jollyGoldGuarantees = Math.Max(jollyGoldGuarantees, 8);
         PlayerPrefs.SetInt(JollyBonusKey, jollyGoldGuarantees);
         PlayerPrefs.Save();
         // The enclosing skill purchase and GameManager already refresh UI.
