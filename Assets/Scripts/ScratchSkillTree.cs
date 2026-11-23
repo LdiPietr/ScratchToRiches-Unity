@@ -292,6 +292,20 @@ public sealed class ScratchSkillTree : MonoBehaviour
         GetLevel("F04") > 0 ? jollyGoldGuarantees : 0;
     public int JollyActivationCount => jollyUsedCount;
 
+    /// <summary>
+    /// Begin the genuine final challenge with three guaranteed Golden jokers,
+    /// even if F04 was bought well before G08 and its initial uses ran out.
+    /// Called only once by the authored demo milestone.
+    /// </summary>
+    public void RechargeFinalJollyGuarantees()
+    {
+        if (GetLevel("F04") == 0) return;
+        jollyGoldGuarantees = Math.Max(jollyGoldGuarantees, 3);
+        PlayerPrefs.SetInt(JollyBonusKey, jollyGoldGuarantees);
+        PlayerPrefs.Save();
+        Changed?.Invoke();
+    }
+
     public void OnGoldenJollyTicketPurchased()
     {
         if (GetLevel("F04") <= 0 || jollyGoldGuarantees <= 0) return;
