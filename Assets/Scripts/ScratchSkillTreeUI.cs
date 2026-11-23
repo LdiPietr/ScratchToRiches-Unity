@@ -103,6 +103,23 @@ public sealed class ScratchSkillTreeUI : MonoBehaviour
         }
 
         nucleusButton.onClick.AddListener(GoToCore);
+        // Reuse the old authored page indicator as a static color legend.
+        // No page navigation or extra UI elements are created.
+        if (pageLabel != null)
+        {
+            pageLabel.gameObject.SetActive(true);
+            pageLabel.rectTransform.anchoredPosition = new Vector2(0f, 375f);
+            pageLabel.rectTransform.sizeDelta = new Vector2(1020f, 32f);
+            pageLabel.fontSize = 17.5f;
+            pageLabel.alignment = TextAlignmentOptions.Center;
+            pageLabel.raycastTarget = false;
+            pageLabel.text =
+                "<color=#56A9FF>■ GRATTA</color>    " +
+                "<color=#E2B655>■ BIGLIETTI</color>    " +
+                "<color=#70D491>■ ECONOMIA</color>    " +
+                "<color=#EA8BBC>■ FORTUNA</color>    " +
+                "<color=#AC93FF>■ AUTOMAZIONE</color>";
+        }
         skills.Changed += Refresh;
         economy.Changed += Refresh;
         game.Changed += Refresh;
