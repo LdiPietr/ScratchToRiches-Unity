@@ -73,6 +73,7 @@ internal static class ScratchAutoplayPreviewStrategy
             throw new ArgumentException("Invalid strategy parameters.");
 
         int[] revealed = new int[SymbolTypes];
+        int scratchedJollies = 0;
         int[] previews = new int[SymbolTypes];
         var labels = new Dictionary<string, int>(StringComparer.Ordinal);
         var visibleCells = new List<ScratchCell>[SymbolTypes];
@@ -90,6 +91,8 @@ internal static class ScratchAutoplayPreviewStrategy
             {
                 if (!cell.TryGetVisibleSymbol(out symbol))
                     throw new InvalidOperationException("Completed cell lacks visible symbol: " + cell.name);
+                // Joker is a wildcard, not an eighth normal pool symbol.
+                if (symbol == "JOLLY") { scratchedJollies++; continue; }
                 int id = IdOf(symbol, labels);
                 revealed[id]++;
             }
@@ -107,6 +110,15 @@ internal static class ScratchAutoplayPreviewStrategy
         }
 
         int knownDistinct = labels.Count;
+        // Approximate an already-scratched Joker by crediting the strongest
+        // visible normal symbol. This uses only public scratch/preview data.
+        if (scratchedJollies > 0 && knownDistinct > 0)
+        {
+            int strongest = 0;
+            for (int i = 1; i < knownDistinct; i++)
+                if (revealed[i] > revealed[strongest]) strongest = i;
+            revealed[strongest] += scratchedJollies;
+        }
         if (knownDistinct > activeSymbolPoolSize)
             throw new InvalidOperationException("Visible symbols exceed the ticket's distinct symbol pool.");
         if (remainingPicks > visibleCount + opaqueCells.Count)
@@ -241,11 +253,11 @@ internal static class ScratchAutoplayPreviewStrategy
         if (remaining <= 0 || (opaqueCount == 0 && !HasPreviews(previews, known)))
             return TerminalPayout(revealed, payouts);
 
-        // 6^14 * 8 * 26 * 6 fits in 64-bit and avoids per-node string allocation.
+        // 8^14 * 8 * 26 * 7 fits in 64-bit; six picks require a radix above six.
         long key = 0L;
-        for (int i = 0; i < SymbolTypes; i++) key = key * 6L + revealed[i];
-        for (int i = 0; i < SymbolTypes; i++) key = key * 6L + previews[i];
-        key = ((key * 8L + known) * 26L + opaqueCount) * 6L + remaining;
+        for (int i = 0; i < SymbolTypes; i++) key = key * 8L + revealed[i];
+        for (int i = 0; i < SymbolTypes; i++) key = key * 8L + previews[i];
+        key = ((key * 8L + known) * 26L + opaqueCount) * 7L + remaining;
 
         if (memo.TryGetValue(key, out double cached))
             return cached;
