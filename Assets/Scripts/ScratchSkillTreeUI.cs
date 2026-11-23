@@ -79,7 +79,10 @@ public sealed class ScratchSkillTreeUI : MonoBehaviour
             return;
         }
 
-        var all = GetComponentsInChildren<ScratchHoldToBuy>(true);
+        // The map is under the shop Canvas, not under the GameManager
+        // transform that holds this script. Search the explicitly assigned
+        // authored viewport, otherwise zero controls are discovered.
+        var all = navigation.GetComponentsInChildren<ScratchHoldToBuy>(true);
         var nodes = new List<ScratchHoldToBuy>(90);
         foreach (ScratchHoldToBuy control in all)
         {
