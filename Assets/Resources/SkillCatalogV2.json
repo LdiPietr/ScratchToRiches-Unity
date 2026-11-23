@@ -114,7 +114,7 @@
       "description": "Una carica Titanico subito all’acquisto, poi una carica ogni 5 caselle completate. Il prossimo gesto manuale attivato volontariamente usa raggio ×2,5 e 3 strisce extra sulla stessa casella; la carica non gratterà mai da sola.",
       "maxLevel": 1,
       "initialPrice": 416,
-      "prerequisites": "G07:1;G05:1",
+      "prerequisites": "G07:1;G05:1;C05:1",
       "phase": "Demo · 16–21′",
       "kind": "Game changer",
       "demoEligible": true,
