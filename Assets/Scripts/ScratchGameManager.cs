@@ -261,10 +261,10 @@ public sealed class ScratchGameManager : MonoBehaviour
     public void OnRoundAction()
     {
         if (presentation != null && presentation.ShopOpen) return;
+        // Tickets finish automatically after every selected cell is scratched.
+        // Early exit used to leave chapter counters unchanged while paying
+        // partial winnings, misleading human playtesters about progression.
         if (state == RoundState.Ready) StartNewRun();
-        else if (state == RoundState.Playing && ticketActive &&
-                 (presentation == null || presentation.CanScratch))
-            FinishTicket(RoundEndReason.PlayerEnded);
     }
 
     public void OnDemoCapstonePurchased()
@@ -495,11 +495,9 @@ public sealed class ScratchGameManager : MonoBehaviour
         RefreshHud();
     }
 
-    public void EndRoundEarly()
-    {
-        if (state == RoundState.Playing && ticketActive)
-            FinishTicket(RoundEndReason.PlayerEnded);
-    }
+    // Legacy public scene/API entry point deliberately disabled: no early exit.
+    // Keep the method for serialization compatibility; it cannot void progress.
+    public void EndRoundEarly() { }
 
     private void FinishTicket(RoundEndReason reason)
     {
@@ -606,10 +604,10 @@ public sealed class ScratchGameManager : MonoBehaviour
         if (roundActionLabel != null)
             roundActionLabel.text = state == RoundState.Ready ? "SI PARTE!"
                 : state == RoundState.Finished ? "FINE DEMO"
-                : ticketActive ? "PASSA OLTRE" : "SCEGLI IL BIGLIETTO";
+                : ticketActive ? "COMPLETA LE GRATTATE" : "SCEGLI IL BIGLIETTO";
 
         if (roundActionButton != null)
-            roundActionButton.interactable = state == RoundState.Ready || ticketActive;
+            roundActionButton.interactable = state == RoundState.Ready;
 
         if (matchResultText != null)
         {
