@@ -1,5 +1,30 @@
 # Scratch to Riches — mappa unica delle abilità (esperimento Unity)
 
+## Aggiornamento sperimentale — grattate globali e premi per ticket
+
+La quantità di caselle che si possono grattare **non** deriva più da 3×3/4×4/5×5.
+
+- **C11 — Scelta bonus** spostato vicino al nucleo, disponibile dal capitolo 2,
+  dopo C01. Due livelli: 3 grattate di partenza, 4 dopo L1, 5 dopo L2,
+  permanentemente su tutti i biglietti.
+- I biglietti determinano soltanto griglia, pool, costo e premio base.
+- **Premi base:** Classico 10 (gratuito), Fortunato 50 (costo 10),
+  Dorato 110 (costo 25), Diamante 250 (costo 60).
+- Stesso numero di grattate su biglietti diversi; il Fortunato e il Dorato
+  pagano nettamente di più anche per la stessa coppia.
+- Restano 90 abilità visibili; la demo passa a **25 abilità / 28 acquisti**
+  nell'autoplay completo. Non cambia il resto degli effetti.
+- La ricollocazione di C11 scambia la posizione visiva con C04, senza duplicare nodi.
+- Con 7 simboli equiprobabili e scelte casuali (senza anteprime/bonus),
+  la probabilità di almeno una coppia è 38,8% con 3 grattate,
+  65,0% con 4 e 85,0% con 5.
+- Con 4 grattate, l'EV netto indicativo senza bonus è 13,8 per
+  Classico, 58,8 per Fortunato, 126,4 per Dorato.
+- Test matematico ripetibile: `python QA/test_pick_economy.py`.
+  Si esegue anche su GitHub Actions insieme ai controlli statici.
+- **Non ancora validati:** durata demo 20–25 minuti e progressione
+  economica con veri seed e movimento umano; usare l'autoplay Unity.
+
 > **Branch di prova:** `feature/radial-skill-tree-unity`.
 > **NON è la milestone stabile:** `main` e `milestone/demo-v3-21m22s-baseline`
 > rimangono separati e non sono stati modificati per questo esperimento.
@@ -21,8 +46,8 @@ abilità**, che si espande radialmente da un nucleo centrale.
 - **Acquisto:** tieni premuta l'icona per 0,7 secondi. Trascinare la mappa
   annulla la pressione, prevenendo acquisti involontari.
 - **Ritorno al nucleo:** clicca il nucleo centrale. Non esistono pagine.
-- **Demo:** le 24 abilità demo sono acquistabili dopo lo sblocco; le altre
-  66 restano visibili ma non acquistabili.
+- **Demo:** le 25 abilità demo sono acquistabili dopo lo sblocco; le altre
+  65 restano visibili ma non acquistabili.
 - **Collegamenti:** grafica non interattiva dietro le icone, con collegamenti
   di ramo e prerequisiti locali.
 
