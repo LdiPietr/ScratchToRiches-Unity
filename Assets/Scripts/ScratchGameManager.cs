@@ -39,9 +39,16 @@ public sealed class ScratchGameManager : MonoBehaviour
     private const string DemoTitanBaseKey = "STR_GDDV2_DemoTitanBaseline";
     private const string DemoJollyBaseKey = "STR_GDDV2_DemoJollyBaseline";
     private const string DemoDoneKey = "STR_GDDV2_DemoFinished";
+    private const string DemoGoldPayoutKey = "STR_GDDV2_FinalGoldPayout";
+    private const string DemoRuleVersionKey = "STR_GDDV2_FinalRuleVersion";
+    private const int DemoRuleVersion = 2;
+    private const int FinalGoldMinTickets = 3;
+    private const int FinalGoldPayoutTarget = 1800;
     private bool demoCapstoneActive;
     private bool demoFinished;
     private int demoGoldCompleted;
+    private int demoGoldPayout;
+    private bool targetedPreviewUsed;
     private int demoExcludedTicketId = -1;
     private int titanActivationBaseline;
     private int jollyActivationBaseline;
@@ -69,6 +76,13 @@ public sealed class ScratchGameManager : MonoBehaviour
     public int TicketPayout => ticketPayout;
     public bool DemoFinished => demoFinished;
     public int DemoFinalGoldTickets => demoGoldCompleted;
+    public int DemoFinalGoldPayout => demoGoldPayout;
+    public int DemoFinalGoldPayoutTarget => FinalGoldPayoutTarget;
+    public int DemoFinalGoldMinTickets => FinalGoldMinTickets;
+    public bool DemoFinalPowerActivated => skillTree != null &&
+        (skillTree.TitanActivationCount > titanActivationBaseline ||
+         skillTree.JollyActivationCount > jollyActivationBaseline);
+    public bool InspectionUsedThisTicket => targetedPreviewUsed;
     public TicketKind CurrentTicketKind => currentTicketKind;
     public bool WaitingForTicketChoice => state == RoundState.Playing && !ticketActive && ticketNumberInRun > 0;
 
@@ -168,10 +182,24 @@ public sealed class ScratchGameManager : MonoBehaviour
     private void Awake()
     {
         demoCapstoneActive = PlayerPrefs.GetInt(DemoActiveKey, 0) == 1;
-        demoGoldCompleted = Mathf.Clamp(PlayerPrefs.GetInt(DemoGoldKey, 0), 0, 3);
+        demoGoldCompleted = Mathf.Max(0, PlayerPrefs.GetInt(DemoGoldKey, 0));
+        demoGoldPayout = Mathf.Max(0, PlayerPrefs.GetInt(DemoGoldPayoutKey, 0));
         titanActivationBaseline = Mathf.Max(0, PlayerPrefs.GetInt(DemoTitanBaseKey, 0));
         jollyActivationBaseline = Mathf.Max(0, PlayerPrefs.GetInt(DemoJollyBaseKey, 0));
         demoFinished = PlayerPrefs.GetInt(DemoDoneKey, 0) == 1;
+        // Existing unfinished saves used the old "three Gold or either capstone"
+        // rule. Restart that milestone once, without touching skill levels/coins.
+        if (!demoFinished && PlayerPrefs.GetInt(DemoRuleVersionKey, 0) != DemoRuleVersion)
+        {
+            demoCapstoneActive = false;
+            demoGoldCompleted = demoGoldPayout = 0;
+            titanActivationBaseline = jollyActivationBaseline = 0;
+            PlayerPrefs.SetInt(DemoActiveKey, 0);
+            PlayerPrefs.SetInt(DemoGoldKey, 0);
+            PlayerPrefs.SetInt(DemoGoldPayoutKey, 0);
+            PlayerPrefs.SetInt(DemoRuleVersionKey, DemoRuleVersion);
+            PlayerPrefs.Save();
+        }
         if (demoFinished) state = RoundState.Finished;
         if (demoEndOverlay != null) demoEndOverlay.SetActive(demoFinished);
         if (cellManager == null) cellManager = GetComponent<ScratchCellManager>();
@@ -197,7 +225,7 @@ public sealed class ScratchGameManager : MonoBehaviour
         cellManager.CollectCells();
         cellManager.ConfigureGrid(3);
         if (!demoCapstoneActive && skillTree != null &&
-            (skillTree.GetLevel("G08") > 0 || skillTree.GetLevel("F04") > 0))
+            skillTree.GetLevel("G08") > 0 && skillTree.GetLevel("F04") > 0)
             OnDemoCapstonePurchased();
         RefreshHud();
     }
@@ -219,32 +247,43 @@ public sealed class ScratchGameManager : MonoBehaviour
 
     public void OnDemoCapstonePurchased()
     {
-        if (!ScratchSkillTree.DemoEdition || demoCapstoneActive || demoFinished)
+        // The finale begins only AFTER both late-game powers are owned.
+        // Unlocking G08 early must not finish the demo before the player
+        // experiences F04; the final Gold performance starts at this moment.
+        if (!ScratchSkillTree.DemoEdition || demoCapstoneActive || demoFinished ||
+            skillTree == null || skillTree.GetLevel("G08") == 0 ||
+            skillTree.GetLevel("F04") == 0)
             return;
         demoCapstoneActive = true;
-        demoGoldCompleted = 0;
-        // A ticket that was already running when the capstone was bought
-        // is NOT one of the three post-purchase Gold tickets.
+        demoGoldCompleted = demoGoldPayout = 0;
         demoExcludedTicketId = ticketActive ? currentTicketId : -1;
-        titanActivationBaseline = skillTree != null ? skillTree.TitanActivationCount : 0;
-        jollyActivationBaseline = skillTree != null ? skillTree.JollyActivationCount : 0;
+        titanActivationBaseline = skillTree.TitanActivationCount;
+        jollyActivationBaseline = skillTree.JollyActivationCount;
+        // F04 may have been bought first; ensure the finale is not left
+        // depending on a 10% random joker or on keyboard-only SHIFT input.
+        skillTree.RechargeFinalJollyGuarantees();
         PlayerPrefs.SetInt(DemoActiveKey, 1);
         PlayerPrefs.SetInt(DemoGoldKey, 0);
+        PlayerPrefs.SetInt(DemoGoldPayoutKey, 0);
         PlayerPrefs.SetInt(DemoTitanBaseKey, titanActivationBaseline);
         PlayerPrefs.SetInt(DemoJollyBaseKey, jollyActivationBaseline);
+        PlayerPrefs.SetInt(DemoRuleVersionKey, DemoRuleVersion);
         PlayerPrefs.Save();
+        RefreshHud();
     }
 
     public void ResetDemoMilestone()
     {
         demoCapstoneActive = demoFinished = false;
-        demoGoldCompleted = titanActivationBaseline = jollyActivationBaseline = 0;
+        demoGoldCompleted = demoGoldPayout = titanActivationBaseline = jollyActivationBaseline = 0;
         demoExcludedTicketId = -1;
+        targetedPreviewUsed = false;
         foreach (string key in new[] { DemoActiveKey, DemoGoldKey,
-            DemoTitanBaseKey, DemoJollyBaseKey, DemoDoneKey })
+            DemoGoldPayoutKey, DemoTitanBaseKey, DemoJollyBaseKey, DemoDoneKey })
             PlayerPrefs.DeleteKey(key);
         if (state == RoundState.Finished) state = RoundState.Ready;
         if (demoEndOverlay != null) demoEndOverlay.SetActive(false);
+        PlayerPrefs.SetInt(DemoRuleVersionKey, DemoRuleVersion);
         PlayerPrefs.Save();
         RefreshHud();
     }
@@ -288,6 +327,7 @@ public sealed class ScratchGameManager : MonoBehaviour
         settledMatch = default;
         endReason = RoundEndReason.None;
         ticketVoided = false;
+        targetedPreviewUsed = false;
 
         // Hide all symbol artwork BEFORE any active-cell geometry changes.
         // This prevents the prior or next ticket's symbols from flashing while
@@ -358,6 +398,30 @@ public sealed class ScratchGameManager : MonoBehaviour
         return true;
     }
 
+    /// <summary>
+    /// C06: one player-chosen, truthful preview per ticket. Right-click on a
+    /// covered unpreviewed cell; no scratch selection or hidden-board inspection.
+    /// </summary>
+    public bool TryInspectCell(ScratchCell cell)
+    {
+        if (state != RoundState.Playing || !ticketActive || targetedPreviewUsed ||
+            Level(ScratchSkillTree.SkillId.C6) <= 0 || cell == null ||
+            !cell.isActiveAndEnabled || cell.IsComplete || cell.IsPreviewVisible ||
+            cell.RevealedPercentage > 0f ||
+            (presentation != null && !presentation.CanScratch))
+            return false;
+
+        bool active = false;
+        foreach (ScratchCell candidate in cellManager.ActiveCells)
+            if (candidate == cell) { active = true; break; }
+        if (!active || symbolManager == null || !symbolManager.TryGetSymbol(cell, out string symbol))
+            return false;
+        targetedPreviewUsed = true;
+        cell.SetPreview(symbol);
+        RefreshHud();
+        return true;
+    }
+
     public void OnCellCompleted(ScratchCell cell)
     {
         if (state != RoundState.Playing || !ticketActive || !selectedCells.Contains(cell) ||
@@ -415,12 +479,14 @@ public sealed class ScratchGameManager : MonoBehaviour
         if (!ticketVoided && fullyCompleted && currentTicketKind == TicketKind.Gold &&
             demoCapstoneActive && !demoFinished && currentTicketId != demoExcludedTicketId)
         {
-            demoGoldCompleted = Mathf.Min(3, demoGoldCompleted + 1);
+            demoGoldCompleted++;
+            demoGoldPayout = (int)Math.Min(int.MaxValue, (long)demoGoldPayout + Mathf.Max(0, ticketPayout));
             PlayerPrefs.SetInt(DemoGoldKey, demoGoldCompleted);
-            bool activated = skillTree != null &&
-                (skillTree.TitanActivationCount > titanActivationBaseline ||
-                 skillTree.JollyActivationCount > jollyActivationBaseline);
-            if (demoGoldCompleted >= 3 && activated)
+            PlayerPrefs.SetInt(DemoGoldPayoutKey, demoGoldPayout);
+            // Three completed Gold tickets, actual earnings and at least one
+            // real late-game activation: skill, not raw waiting, ends the demo.
+            if (demoGoldCompleted >= FinalGoldMinTickets &&
+                demoGoldPayout >= FinalGoldPayoutTarget && DemoFinalPowerActivated)
             {
                 demoFinished = true;
                 state = RoundState.Finished;
@@ -438,8 +504,9 @@ public sealed class ScratchGameManager : MonoBehaviour
         for (int i = 0; i < cells.Length; i++)
             cells[i].SetPreview(null);
 
-        int count = Level(ScratchSkillTree.SkillId.C6) > 0 ? 5 :
-            Level(ScratchSkillTree.SkillId.C4) > 0 ? 3 :
+        // C06 is now a separate manual right-click inspection, not five
+        // randomly revealed symbols at ticket generation.
+        int count = Level(ScratchSkillTree.SkillId.C4) > 0 ? 3 :
             Level(ScratchSkillTree.SkillId.C2) > 0 ? 2 :
             Level(ScratchSkillTree.SkillId.C1) > 0 ? 1 : 0;
 
@@ -500,8 +567,15 @@ public sealed class ScratchGameManager : MonoBehaviour
                 ? "Gratta senza tempo limite, migliora le abilita' e sblocca biglietti!"
                 : ticketActive
                     ? ticketVoided ? "Questo biglietto di prova non assegna premi."
-                    : $"{TicketDisplayName(currentTicketKind)} {CurrentGridSide}x{CurrentGridSide} - {MaxScratches} caselle da grattare!"
-                    : $"+{ticketPayout} monete! Scegli il prossimo biglietto o apri i potenziamenti.";
+                    : demoCapstoneActive && !demoFinished
+                        ? $"FINALE: {Mathf.Min(demoGoldCompleted, FinalGoldMinTickets)}/{FinalGoldMinTickets} DORATI | INCASSI {demoGoldPayout}/{FinalGoldPayoutTarget} | POTERE {(DemoFinalPowerActivated ? "OK" : "DA USARE")}"
+                        : $"{TicketDisplayName(currentTicketKind)} {CurrentGridSide}x{CurrentGridSide} - {MaxScratches} caselle!" +
+                          (Level(ScratchSkillTree.SkillId.C6) > 0
+                              ? targetedPreviewUsed ? " | ISPEZIONE USATA" : " | CLIC DESTRO: ISPEZIONA"
+                              : string.Empty)
+                    : demoCapstoneActive && !demoFinished
+                        ? $"FINALE: {Mathf.Min(demoGoldCompleted, FinalGoldMinTickets)}/{FinalGoldMinTickets} DORATI | INCASSI {demoGoldPayout}/{FinalGoldPayoutTarget} | POTERE {(DemoFinalPowerActivated ? "OK" : "DA USARE")}"
+                        : $"+{ticketPayout} monete! Scegli il prossimo biglietto o apri i potenziamenti.";
 
         Changed?.Invoke();
     }
