@@ -95,6 +95,12 @@ def check_static():
           "OnDrag(PointerEventData data)" in navigation and
           "CenterOn(Vector2 positionInContent)" in navigation,
           "Single map lost pan/zoom or centering")
+    audit = (ROOT / "Assets/Scripts/Editor/ScratchV2SceneAudit.cs").read_text(encoding="utf-8-sig")
+    check("navigation.GetComponentsInChildren<ScratchHoldToBuy>(true)" in ui,
+          "Map node discovery must use the authored shop viewport, not manager hierarchy")
+    check("Object.FindAnyObjectByType<ScratchRadialLinks>(FindObjectsInactive.Include)" in audit and
+          "Object.FindAnyObjectByType<ScratchRadialMapNavigation>(FindObjectsInactive.Include)" in audit,
+          "Scene audit must find inactive shop graphics and navigation, not only direct manager children")
     check("HoverSkill(string id)" in ui and "ClearHoverSkill(string id)" in ui and
           "DrawDetails()" in ui and "selectedDescription.text = entry.description" in ui,
           "Fixed bottom hover panel no longer reports actual skills")
