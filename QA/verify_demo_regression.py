@@ -34,12 +34,12 @@ def check_static():
     skills = catalog["skills"]
     by_id = {skill["id"]: skill for skill in skills}
     check(len(skills) == 90 and len(by_id) == 90, "Catalog must have 90 unique IDs")
-    check(sum(bool(s["demoEligible"]) for s in skills) == 24, "24 demo abilities required")
+    check(sum(bool(s["demoEligible"]) for s in skills) == 25, "25 demo abilities required")
 
     required = {
         "C01": "", "C03": "C01:1", "C02": "C03:1",
         "C04": "C02:1", "C05": "C04:1",
-        "C06": "C05:1", "G08": "G07:1;G05:1;C05:1",
+        "C06": "C05:1", "C11": "C01:1", "G08": "G07:1;G05:1;C05:1",
     }
     for skill_id, prereq in required.items():
         check(skill_id in by_id and by_id[skill_id]["prerequisites"] == prereq,
@@ -52,7 +52,7 @@ def check_static():
     plan_source = code[start:end] if start >= 0 and end > start else ""
     plan = [m[0] + m[1:].zfill(2) for m in
             re.findall(r"ScratchSkillTree\.SkillId\.([GCEF]\d+)", plan_source)]
-    check(len(plan) == 26 and len(set(plan)) == 24, "26 purchases / 24 distinct skills required")
+    check(len(plan) == 28 and len(set(plan)) == 25, "28 purchases / 25 distinct skills required")
     owned = {}
     for skill_id in plan:
         skill = by_id.get(skill_id)
@@ -65,6 +65,8 @@ def check_static():
         owned[skill_id] = owned.get(skill_id, 0) + 1
         check(owned[skill_id] <= skill["maxLevel"], "Excess level: " + skill_id)
     sequence = ["C01", "C03", "C02", "G07", "C04", "C05", "G08", "C06", "F04"]
+    check(plan.count("C11") == 2 and plan.index("C11") < plan.index("C03"),
+          "Two C11 purchases required, first before Fortunato")
     check(all(x in plan for x in sequence) and
           all(plan.index(a) < plan.index(b) for a, b in zip(sequence, sequence[1:])),
           "Major upgrade sequence changed")
@@ -81,6 +83,18 @@ def check_static():
     check("QaActivateTitanDuringGesture()" in cell and
           "G08_real_titan_activation" in code, "Titan gesture QA removed")
     check("C06_chosen_preview" in code, "C06 QA removed")
+    check("global_pick_perk" in code, "Independent pick-cap QA removed")
+    check("PickLimitFromPerk(" in game and
+          "3 + extraPickLevel" in game and
+          "TicketSide(currentTicketKind);" not in game.split("public int MaxScratches =>")[1].split(";")[0],
+          "Pick count still tied to ticket tier")
+    check('case TicketKind.Fortunato: return 50;' in game and
+          'case TicketKind.Gold: return 110;' in game and
+          'case TicketKind.Diamond: return 250;' in game,
+          "Distinct ticket prizes or prize tiers changed")
+    check(by_id["C11"]["maxLevel"] == 2 and by_id["C11"]["demoEligible"]
+          and by_id["C11"]["phase"].startswith("Demo"),
+          "C11 two-level global perk must be available in demo")
     radial = (ROOT / "Assets/Scripts/ScratchRadialProgression.cs").read_text(encoding="utf-8-sig")
     ui = (ROOT / "Assets/Scripts/ScratchSkillTreeUI.cs").read_text(encoding="utf-8-sig")
     scene = (ROOT / "Assets/Scenes/ScratchToRiches.unity").read_text(encoding="utf-8-sig")
@@ -195,8 +209,8 @@ def check_unity_logs(summary_path, checks_path, tickets_path, progression_path, 
     check(field("DemoFinished reale") == "True", "DemoFinished is false")
     check(field("Credito QA incluso") == "False", "QA coins were enabled")
     check(field("Durata non accelerata artificialmente") == "True", "Speed changed")
-    check(field("Acquisti completati") == "26/26", "Not all 26 purchases")
-    check(field("Skill demo possedute") == "24/24", "Not all 24 skills")
+    check(field("Acquisti completati") == "28/28", "Not all 28 purchases")
+    check(field("Skill demo possedute") == "25/25", "Not all 25 skills")
     check(number("Biglietti con combinazione forzata") == 0, "Forced outcomes detected")
     check(number("Biglietti con combinazione NON forzata") ==
           number("Biglietti giocati totali"), "Not every ticket was natural")
@@ -219,7 +233,7 @@ def check_unity_logs(summary_path, checks_path, tickets_path, progression_path, 
     history = read_csv(progression_path)
     purchases = [row for row in history if row["event"] == "SKILL_PURCHASED"]
     settled = [row for row in history if row["event"] == "TICKET_SETTLED"]
-    check(len(purchases) == 26 and len(set(row["skill_id"] for row in purchases)) == 24,
+    check(len(purchases) == 28 and len(set(row["skill_id"] for row in purchases)) == 25,
           "Progression CSV purchase count mismatch")
     check(len(settled) == int(number("Biglietti giocati totali")),
           "Settled ticket count mismatch")
