@@ -1191,7 +1191,8 @@ public sealed class ScratchAutoplayWindow : EditorWindow
             Fail("Non acquistabile " + id + " (wallet=" + economy.Coins +
                 ";prezzo=" + skills.GetPrice(id) +
                 ";riserva biglietto=" + TicketReserveForCurrentPurchase() +
-                ";requisiti=" + skills.RequirementText(id) + ")");
+                ";requisiti=" + skills.RequirementText(id) + ";" +
+                skills.PurchaseDiagnostic(ScratchSkillTree.StableId(id)) + ")");
             return;
         }
 
