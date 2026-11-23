@@ -354,7 +354,7 @@
       "description": "Porta da 2 a 3 le anteprime reali per biglietto (non cumulative).",
       "maxLevel": 1,
       "initialPrice": 136,
-      "prerequisites": "C02:1;G07:1",
+      "prerequisites": "C02:1",
       "phase": "Demo · 16–21′",
       "kind": "Incrementale",
       "demoEligible": true,
