@@ -80,7 +80,7 @@ public static class ScratchSkillCatalogV2
         new HashSet<string>(StringComparer.Ordinal)
         {
             "G01", "G02", "G03", "G04", "G05", "G06", "G07", "G08",
-            "C01", "C02", "C03", "C04", "C05", "C06",
+            "C01", "C02", "C03", "C04", "C05", "C06", "C11",
             "E01", "E02", "E03", "E04", "E05", "E06",
             "F01", "F02", "F03", "F04"
         };
@@ -116,9 +116,9 @@ public static class ScratchSkillCatalogV2
                 if (entry.id.StartsWith(branchPrefixes[branch], StringComparison.Ordinal))
                     branches[branch]++;
         }
-        if (demo != 24 || branches[0] != 20 || branches[1] != 20 ||
+        if (demo != 25 || branches[0] != 20 || branches[1] != 20 ||
             branches[2] != 20 || branches[3] != 20 || branches[4] != 10)
-            throw new InvalidOperationException("Catalog must have 90 nodes and exactly 24 demo-eligible nodes.");
+            throw new InvalidOperationException("Catalog must have 90 nodes and exactly 25 demo-eligible nodes.");
 
         // Verify all requirement edges and reject circular prerequisites.
         var state = new Dictionary<string, int>(StringComparer.Ordinal);
