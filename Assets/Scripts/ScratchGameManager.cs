@@ -291,6 +291,10 @@ public sealed class ScratchGameManager : MonoBehaviour
         PlayerPrefs.SetInt(DemoJollyBaseKey, jollyActivationBaseline);
         PlayerPrefs.SetInt(DemoRuleVersionKey, DemoRuleVersion);
         PlayerPrefs.Save();
+#if UNITY_EDITOR
+        ScratchManualTelemetry.Emit("FINAL_CHALLENGE_STARTED", "gold_target=" +
+            FinalGoldMinTickets + "|coins_target=" + FinalGoldPayoutTarget);
+#endif
         RefreshHud();
     }
 
@@ -400,6 +404,11 @@ public sealed class ScratchGameManager : MonoBehaviour
         if (!cellManager.EndTicketVisualPreparation())
             Debug.LogError("V2: one or more scratch masks are not ready before showing symbols.", this);
         RefreshHud();
+#if UNITY_EDITOR
+        ScratchManualTelemetry.Emit("TICKET_START", "ticket=" + ticketNumberInRun +
+            "|kind=" + kind + "|cost=" + cost + "|picks=" + MaxScratches +
+            "|grid=" + TicketSide(kind));
+#endif
         return true;
     }
 
@@ -421,6 +430,10 @@ public sealed class ScratchGameManager : MonoBehaviour
             return false;
 
         selectedCells.Add(cell);
+#if UNITY_EDITOR
+        ScratchManualTelemetry.Emit("CELL_SELECTED", "cell=" + cell.name +
+            "|pick=" + selectedCells.Count + "|limit=" + MaxScratches);
+#endif
         RefreshHud();
         return true;
     }
@@ -445,6 +458,9 @@ public sealed class ScratchGameManager : MonoBehaviour
             return false;
         targetedPreviewUsed = true;
         cell.SetPreview(symbol);
+#if UNITY_EDITOR
+        ScratchManualTelemetry.Emit("C06_INSPECTION", "cell=" + cell.name);
+#endif
         RefreshHud();
         return true;
     }
@@ -456,6 +472,11 @@ public sealed class ScratchGameManager : MonoBehaviour
             return;
         // Complete() calls only once; duplicate callbacks after settlement cannot recharge.
         skillTree?.OnCompletedScratchCell();
+#if UNITY_EDITOR
+        ScratchManualTelemetry.Emit("CELL_COMPLETED", "cell=" + cell.name +
+            "|revealed_percent=" + cell.RevealedPercentage.ToString("F0") +
+            "|selected=" + selectedCells.Count + "|limit=" + MaxScratches);
+#endif
         if (symbolManager != null && cell == symbolManager.JollyCell)
             skillTree?.OnJollyScratched();
         if (selectedCells.Count == MaxScratches && RevealedCount == MaxScratches)
@@ -532,6 +553,13 @@ public sealed class ScratchGameManager : MonoBehaviour
             }
             PlayerPrefs.Save();
         }
+#if UNITY_EDITOR
+        ScratchManualTelemetry.Emit("TICKET_END", "ticket=" + ticketNumberInRun +
+            "|kind=" + currentTicketKind + "|complete=" + fullyCompleted +
+            "|void=" + ticketVoided + "|payout=" + ticketPayout +
+            "|match=" + settledMatch.Tier + "|wallet=" + economyManager.Coins +
+            "|demo_finished=" + demoFinished);
+#endif
         RefreshHud();
     }
 
