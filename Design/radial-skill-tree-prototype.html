@@ -80,7 +80,7 @@ function draw(){
    let arr=group.filter(function(s){return tier(s)===t});
    arr.forEach(function(s,index){let spread=arr.length<2?0:Math.min(48,arr.length*6.5);let d=ang+(arr.length<2?0:-spread/2+index*spread/(arr.length-1));POS[s.id]=polar(295+(t-1)*110,d)})
   }
-  let label=el("g",{class:"branch-label"});label.appendChild(el("circle",{cx:root.x,cy:root.y,r:52,fill:"#222035",stroke:co,"stroke-width":3,opacity:1}));label.appendChild(el("text",{x:root.x,y:root.y+6,fill:co,"font-size":branch==="Automazione"?18:20,"text-anchor":"middle","font-weight":800},branch.toUpperCase()));svg.appendChild(label)
+  let label=el("g",{class:"branch-label",style:"cursor:pointer"});label.appendChild(el("circle",{cx:root.x,cy:root.y,r:52,fill:"#222035",stroke:co,"stroke-width":3,opacity:1}));label.appendChild(el("text",{x:root.x,y:root.y+6,fill:co,"font-size":branch==="Automazione"?15:20,"text-anchor":"middle","font-weight":800},branch.toUpperCase()));label.addEventListener("click",function(){state.selected=group.find(function(item){return item.demoEligible})?.id||group[0].id;refresh()});svg.appendChild(label)
  });
  // Edges follow real local prerequisites. Cross-branch prerequisites use subtler dashed strokes.
  DATA.forEach(function(s){let end=POS[s.id];deps(s).forEach(function(d){let start=POS[d.id];if(!start||!end)return;let other=byId[d.id],cross=other.branch!==s.branch;let hi=state.selected===s.id||state.selected===d.id;svg.appendChild(el("path",{d:"M "+start.x+" "+start.y+" Q "+((start.x+end.x)/2*(cross?.22:1.0))+" "+((start.y+end.y)/2*(cross?.22:1.0))+" "+end.x+" "+end.y,stroke:hi?"#ffe2a3":colors[s.branch],"stroke-width":hi?4:cross?1:2,"stroke-dasharray":cross?"9 9":"none",opacity:hi?.8:cross?.08:.18,fill:"none","pointer-events":"none"}))})});
@@ -90,12 +90,14 @@ function draw(){
  group.appendChild(el("text",{x:p.x,y:p.y+6,"font-size":18,"font-weight":800,"text-anchor":"middle",fill:selected?"#fff":style[0]} ,s.id));
  if(s.kind==="Game changer"){group.appendChild(el("circle",{cx:p.x+23,cy:p.y-23,r:6,fill:"#ffd26b",stroke:"#171622","stroke-width":2}))}
  let tip=el("title",{},s.id+" — "+s.title);group.appendChild(tip);group.addEventListener("click",function(ev){ev.stopPropagation();state.selected=s.id;refresh()});svg.appendChild(group)});
- svg.appendChild(el("circle",{cx:0,cy:0,r:115,fill:"#30233a",stroke:"#f1c37d","stroke-width":5,filter:"url(#glow)"}));
- svg.appendChild(el("text",{x:0,y:-33,fill:"#f8e6b9","text-anchor":"middle","font-size":28,"font-weight":900},"NUCLEO"));
- svg.appendChild(el("text",{x:0,y:9,fill:"#fff4e4","text-anchor":"middle","font-size":21,"font-weight":700},"CAPITOLO "+state.chapter));
- svg.appendChild(el("text",{x:0,y:43,fill:"#cfbecd","text-anchor":"middle","font-size":16},chapterNames[state.chapter-1].toUpperCase()));
- svg.appendChild(el("text",{x:0,y:74,fill:"#c1abb2","text-anchor":"middle","font-size":12},"CLICCA PER AVANZARE"));
- svg.lastChild.addEventListener("click",function(){state.chapter=state.chapter%(state.full?8:5)+1;refresh()});
+ let core=el("g",{class:"core",style:"cursor:pointer"});
+ core.appendChild(el("circle",{cx:0,cy:0,r:115,fill:"#30233a",stroke:"#f1c37d","stroke-width":5,filter:"url(#glow)"}));
+ core.appendChild(el("text",{x:0,y:-33,fill:"#f8e6b9","text-anchor":"middle","font-size":28,"font-weight":900},"NUCLEO"));
+ core.appendChild(el("text",{x:0,y:9,fill:"#fff4e4","text-anchor":"middle","font-size":21,"font-weight":700},"CAPITOLO "+state.chapter));
+ core.appendChild(el("text",{x:0,y:43,fill:"#cfbecd","text-anchor":"middle","font-size":16},chapterNames[state.chapter-1].toUpperCase()));
+ core.appendChild(el("text",{x:0,y:74,fill:"#c1abb2","text-anchor":"middle","font-size":12},"CLICCA PER AVANZARE"));
+ core.addEventListener("click",function(){state.chapter=state.chapter%(state.full?8:5)+1;refresh()});
+ svg.appendChild(core);
  setView();
 }
 function refresh(){
@@ -122,7 +124,7 @@ document.getElementById("zoomOut").addEventListener("click",function(){zoom(1.25
 document.getElementById("zoomReset").addEventListener("click",function(){state.view={x:-1170,y:-1170,w:2340,h:2340};setView()});
 svg.addEventListener("wheel",function(e){e.preventDefault();zoom(e.deltaY>0?1.11:.9)},{passive:false});
 let drag=null;
-svg.addEventListener("pointerdown",function(e){if(e.target.closest(".skill"))return;drag={x:e.clientX,y:e.clientY,vx:state.view.x,vy:state.view.y};svg.setPointerCapture(e.pointerId)});
+svg.addEventListener("pointerdown",function(e){if(e.target.closest(".skill")||e.target.closest(".core")||e.target.closest(".branch-label"))return;drag={x:e.clientX,y:e.clientY,vx:state.view.x,vy:state.view.y};svg.setPointerCapture(e.pointerId)});
 svg.addEventListener("pointermove",function(e){if(!drag)return;let box=svg.getBoundingClientRect();state.view.x=drag.vx-(e.clientX-drag.x)*state.view.w/box.width;state.view.y=drag.vy-(e.clientY-drag.y)*state.view.h/box.height;setView()});
 svg.addEventListener("pointerup",function(){drag=null});svg.addEventListener("pointercancel",function(){drag=null});
 refresh();
