@@ -64,6 +64,10 @@ public sealed class ScratchGameManager : MonoBehaviour
     private int currentTicketId;
     private int ticketNumberInRun;
     private int ticketsCompleted;
+    // Lifetime completions persist between sessions to prevent the radial
+    // nucleus from locking again after a new run or editor restart.
+    private const string RadialTicketPrefix = "STR_Radial_CompletedTier_";
+    private readonly int[] completedByTier = new int[4];
     private int ticketPayout;
     private TicketKind currentTicketKind = TicketKind.Standard;
 
@@ -73,6 +77,11 @@ public sealed class ScratchGameManager : MonoBehaviour
     public bool TicketActive => ticketActive;
     public int TicketNumber => ticketNumberInRun;
     public int TicketsCompleted => ticketsCompleted;
+    public int CompletedByTier(TicketKind kind)
+    {
+        int index = (int)kind;
+        return index >= 0 && index < completedByTier.Length ? completedByTier[index] : 0;
+    }
     public int TicketPayout => ticketPayout;
     public bool DemoFinished => demoFinished;
     public int DemoFinalGoldTickets => demoGoldCompleted;
@@ -187,6 +196,9 @@ public sealed class ScratchGameManager : MonoBehaviour
 
     private void Awake()
     {
+        for (int tier = 0; tier < completedByTier.Length; tier++)
+            completedByTier[tier] = Mathf.Max(0,
+                PlayerPrefs.GetInt(RadialTicketPrefix + tier, 0));
         demoCapstoneActive = PlayerPrefs.GetInt(DemoActiveKey, 0) == 1;
         demoGoldCompleted = Mathf.Max(0, PlayerPrefs.GetInt(DemoGoldKey, 0));
         demoGoldPayout = Mathf.Max(0, PlayerPrefs.GetInt(DemoGoldPayoutKey, 0));
@@ -284,6 +296,11 @@ public sealed class ScratchGameManager : MonoBehaviour
         demoGoldCompleted = demoGoldPayout = titanActivationBaseline = jollyActivationBaseline = 0;
         demoExcludedTicketId = -1;
         targetedPreviewUsed = false;
+        for (int tier = 0; tier < completedByTier.Length; tier++)
+        {
+            completedByTier[tier] = 0;
+            PlayerPrefs.DeleteKey(RadialTicketPrefix + tier);
+        }
         foreach (string key in new[] { DemoActiveKey, DemoGoldKey,
             DemoGoldPayoutKey, DemoTitanBaseKey, DemoJollyBaseKey, DemoDoneKey })
             PlayerPrefs.DeleteKey(key);
@@ -480,7 +497,17 @@ public sealed class ScratchGameManager : MonoBehaviour
         {
             ticketPayout = economyManager.SettleTicket(currentTicketId, settledMatch, fullyCompleted,
                 TicketPrize(currentTicketKind), TicketPrice(currentTicketKind));
-            if (fullyCompleted) ticketsCompleted++;
+            if (fullyCompleted)
+            {
+                ticketsCompleted++;
+                int tier = (int)currentTicketKind;
+                if (tier >= 0 && tier < completedByTier.Length)
+                {
+                    completedByTier[tier]++;
+                    PlayerPrefs.SetInt(RadialTicketPrefix + tier, completedByTier[tier]);
+                    PlayerPrefs.Save();
+                }
+            }
         }
         if (!ticketVoided && fullyCompleted && currentTicketKind == TicketKind.Gold &&
             demoCapstoneActive && !demoFinished && currentTicketId != demoExcludedTicketId)
