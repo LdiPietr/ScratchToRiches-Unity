@@ -49,7 +49,7 @@ public static class ScratchRadialProgression
         if (standard >= 3) chapter = 2;
         if (chapter >= 2 && hasFortunato && fortunate >= 2) chapter = 3;
         if (chapter >= 3 && fortunate >= 9) chapter = 4;
-        if (chapter >= 4 && hasGold && gold >= 3) chapter = 5;
+        if (chapter >= 4 && hasGold && gold >= 5) chapter = 5;
         if (!demo && chapter >= 5 && hasDiamond && diamond >= 6) chapter = 6;
         if (!demo && chapter >= 6 && diamond >= 25) chapter = 7;
         if (!demo && chapter >= 7 && diamond >= 70) chapter = 8;
@@ -75,8 +75,64 @@ public static class ScratchRadialProgression
         return Mathf.Clamp(chapter, 1, ScratchSkillTree.DemoEdition ? 5 : 8);
     }
 
-    public static bool Available(string id, ScratchGameManager game, ScratchSkillTree skills) =>
-        ChapterOf(id) <= UnlockedChapter(game, skills);
+    // Progression beats raw wealth: the final ring's five skills are released
+    // on consecutive earned milestones rather than bought in one shop visit.
+    // Fortunato goals likewise keep the fourth ring unfolding over real play.
+    public static int RequiredFortunato(string id)
+    {
+        switch (id)
+        {
+            case "E06": return 16;
+            case "G07": return 19;
+            case "C04": return 22;
+            case "C05": return 24;
+            default: return 0;
+        }
+    }
+
+    public static int RequiredGold(string id)
+    {
+        switch (id)
+        {
+            case "G08": return 5;
+            case "F02": return 8;
+            case "C06": return 11;
+            case "F03": return 14;
+            case "F04": return 17;
+            default: return 0;
+        }
+    }
+
+    public static bool TicketGoalMet(string id, int fortunate, int gold) =>
+        fortunate >= RequiredFortunato(id) && gold >= RequiredGold(id);
+
+    public static bool Available(string id, ScratchGameManager game, ScratchSkillTree skills)
+    {
+        if (game == null || skills == null || ChapterOf(id) > UnlockedChapter(game, skills))
+            return false;
+        // Legacy saves never lose a skill already bought before pacing changed.
+        return skills.GetLevel(id) > 0 || TicketGoalMet(id,
+            game.CompletedByTier(ScratchGameManager.TicketKind.Fortunato),
+            game.CompletedByTier(ScratchGameManager.TicketKind.Gold));
+    }
+
+    public static string SkillGoal(string id, ScratchGameManager game, ScratchSkillTree skills)
+    {
+        if (game == null || skills == null) return "AVVIA LA PARTITA";
+        int fortunate = game.CompletedByTier(ScratchGameManager.TicketKind.Fortunato);
+        int gold = game.CompletedByTier(ScratchGameManager.TicketKind.Gold);
+        int requiredFortunate = RequiredFortunato(id);
+        int requiredGold = RequiredGold(id);
+        if (requiredFortunate > fortunate)
+            return "COMPLETA " + requiredFortunate + " FORTUNATI (" +
+                fortunate + "/" + requiredFortunate + ")";
+        if (requiredGold > gold)
+            return "COMPLETA " + requiredGold + " DORATI (" +
+                gold + "/" + requiredGold + ")";
+        if (ChapterOf(id) > UnlockedChapter(game, skills))
+            return "NUCLEO CAPITOLO " + ChapterOf(id);
+        return "PRONTO PER L'ACQUISTO";
+    }
 
     public static string NextGoal(ScratchGameManager game, ScratchSkillTree skills)
     {
@@ -88,11 +144,21 @@ public static class ScratchRadialProgression
                 ? "ACQUISTA FORTUNATO (C03)"
                 : "COMPLETA 2 FORTUNATI (" + game.CompletedByTier(ScratchGameManager.TicketKind.Fortunato) + "/2)";
             case 3: return "COMPLETA 9 FORTUNATI (" + game.CompletedByTier(ScratchGameManager.TicketKind.Fortunato) + "/9)";
-            case 4: return skills.GetLevel("C05") == 0
-                ? "ACQUISTA DORATO (C05)"
-                : "COMPLETA 3 DORATI (" + game.CompletedByTier(ScratchGameManager.TicketKind.Gold) + "/3)";
-            case 5: return ScratchSkillTree.DemoEdition ? "NUCLEO DEMO COMPLETATO"
-                : skills.GetLevel("C07") == 0
+            case 4:
+                foreach (string id in new[] { "E06", "G07", "C04", "C05" })
+                    if (skills.GetLevel(id) == 0)
+                        return "PER " + id + ": " + SkillGoal(id, game, skills);
+                return "COMPLETA 5 DORATI (" +
+                    game.CompletedByTier(ScratchGameManager.TicketKind.Gold) + "/5)";
+            case 5:
+                if (ScratchSkillTree.DemoEdition)
+                {
+                    foreach (string id in new[] { "G08", "F02", "C06", "F03", "F04" })
+                        if (skills.GetLevel(id) == 0)
+                            return "PER " + id + ": " + SkillGoal(id, game, skills);
+                    return "FINALE: 8 DORATI, 3800 MONETE E POTERE ATTIVATO";
+                }
+                return skills.GetLevel("C07") == 0
                     ? "SBLOCCA DIAMANTE" : "COMPLETA 6 DIAMANTI";
             case 6: return "COMPLETA 25 DIAMANTI";
             case 7: return "COMPLETA 70 DIAMANTI";
