@@ -38,30 +38,34 @@ public static class ScratchRadialProgression
         return int.MaxValue;
     }
 
+    /// <summary>
+    /// Pure and deterministic milestone calculation, exercised in the scene audit.
+    /// Normal tickets count only when fully scratched and actually settled.
+    /// </summary>
+    public static int ChapterFromMilestones(int standard, int fortunate, int gold,
+        int diamond, bool hasFortunato, bool hasGold, bool hasDiamond, bool demo)
+    {
+        int chapter = 1;
+        if (standard >= 3) chapter = 2;
+        if (chapter >= 2 && hasFortunato && fortunate >= 2) chapter = 3;
+        if (chapter >= 3 && fortunate >= 9) chapter = 4;
+        if (chapter >= 4 && hasGold && gold >= 3) chapter = 5;
+        if (!demo && chapter >= 5 && hasDiamond && diamond >= 6) chapter = 6;
+        if (!demo && chapter >= 6 && diamond >= 25) chapter = 7;
+        if (!demo && chapter >= 7 && diamond >= 70) chapter = 8;
+        return chapter;
+    }
+
     public static int UnlockedChapter(ScratchGameManager game, ScratchSkillTree skills)
     {
         if (game == null || skills == null) return 1;
-        int chapter = 1;
-        if (game.CompletedByTier(ScratchGameManager.TicketKind.Standard) >= 3)
-            chapter = 2;
-        if (chapter >= 2 && skills.GetLevel("C03") > 0 &&
-            game.CompletedByTier(ScratchGameManager.TicketKind.Fortunato) >= 2)
-            chapter = 3;
-        if (chapter >= 3 && game.CompletedByTier(ScratchGameManager.TicketKind.Fortunato) >= 9)
-            chapter = 4;
-        if (chapter >= 4 && skills.GetLevel("C05") > 0 &&
-            game.CompletedByTier(ScratchGameManager.TicketKind.Gold) >= 3)
-            chapter = 5;
-        if (!ScratchSkillTree.DemoEdition && chapter >= 5 &&
-            skills.GetLevel("C07") > 0 &&
-            game.CompletedByTier(ScratchGameManager.TicketKind.Diamond) >= 6)
-            chapter = 6;
-        if (!ScratchSkillTree.DemoEdition && chapter >= 6 &&
-            game.CompletedByTier(ScratchGameManager.TicketKind.Diamond) >= 25)
-            chapter = 7;
-        if (!ScratchSkillTree.DemoEdition && chapter >= 7 &&
-            game.CompletedByTier(ScratchGameManager.TicketKind.Diamond) >= 70)
-            chapter = 8;
+        int chapter = ChapterFromMilestones(
+            game.CompletedByTier(ScratchGameManager.TicketKind.Standard),
+            game.CompletedByTier(ScratchGameManager.TicketKind.Fortunato),
+            game.CompletedByTier(ScratchGameManager.TicketKind.Gold),
+            game.CompletedByTier(ScratchGameManager.TicketKind.Diamond),
+            skills.GetLevel("C03") > 0, skills.GetLevel("C05") > 0,
+            skills.GetLevel("C07") > 0, ScratchSkillTree.DemoEdition);
 
         // Existing saves do not lose access to purchased skill levels. A
         // chapter cannot regress merely because a legacy run lacked counters.
