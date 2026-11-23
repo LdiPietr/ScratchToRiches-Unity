@@ -73,7 +73,8 @@ def check_static():
 
     game = (ROOT / "Assets/Scripts/ScratchGameManager.cs").read_text(encoding="utf-8-sig")
     cell = (ROOT / "Assets/Scripts/ScratchCell.cs").read_text(encoding="utf-8-sig")
-    check("FinalGoldPayoutTarget = 1800" in game and
+    check("FinalGoldPayoutTarget = 3800" in game and
+          "FinalGoldMinTickets = 8" in game and
           "FinalChallengeComplete(" in game and
           'skillTree.GetLevel("F04") == 0' in game,
           "Performance-based finale changed")
@@ -100,6 +101,12 @@ def check_static():
     scene = (ROOT / "Assets/Scenes/ScratchToRiches.unity").read_text(encoding="utf-8-sig")
     check("ChapterOf(string id)" in radial and "UnlockedChapter(" in radial and
           "CompletedByTier(" in radial, "Radial chapter milestones missing")
+    check(all(('case "' + sid + '": return ' + str(amount) + ';') in radial
+              for sid, amount in {"E06": 16, "G07": 19, "C04": 22, "C05": 24,
+                                  "G08": 5, "F02": 8, "C06": 11,
+                                  "F03": 14, "F04": 17}.items()) and
+          "TicketGoalMet(" in radial and "SkillGoal(" in radial,
+          "Progressive Fortunato/Gold chapter milestone gates missing")
     check("ScratchRadialProgression.Available(" in
           (ROOT / "Assets/Scripts/ScratchSkillTree.cs").read_text(encoding="utf-8-sig"),
           "Purchase authority bypasses radial chapters")
@@ -218,8 +225,8 @@ def check_unity_logs(summary_path, checks_path, tickets_path, progression_path, 
     check(number("Check OK") > 0, "Unity assertions missing")
     check(20 * 60 <= number("Durata reale (s)") <= 25 * 60,
           "Duration outside 20-25 minute demo target")
-    check(number("Dorati finali") >= 3, "Insufficient final Gold tickets")
-    check(number("Incassi Dorati finali") >= 1800, "Final earnings below 1800")
+    check(number("Dorati finali") >= 8, "Insufficient final Gold tickets")
+    check(number("Incassi Dorati finali") >= 3800, "Final earnings below 3800")
     check(field("Potere finale attivato") == "True", "Final power not activated")
     check(number("Ispezioni C06") > 0, "C06 was not exercised")
     check(number("Gestualita' Titanico G08") > 0, "G08 was not exercised")
