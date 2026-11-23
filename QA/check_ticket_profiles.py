@@ -28,7 +28,7 @@ def read_profile(source, method):
     if end < 0:
         raise AssertionError("Unterminated C# method: " + method)
     part = source[start:end]
-    pattern = r"case ScratchGameManager\\.TicketKind\\.(\\w+): return (\\d+);"
+    pattern = r"case ScratchGameManager\.TicketKind\.(\w+): return (\d+);"
     values = {name: int(value) for name, value in re.findall(pattern, part)}
     if method == "BasePrize":
         # Standard uses Math.Max(1, classicBasePrize), not a numeric literal.
