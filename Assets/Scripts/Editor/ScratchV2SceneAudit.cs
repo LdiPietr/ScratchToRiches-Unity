@@ -165,20 +165,34 @@ public static class ScratchV2SceneAudit
               ScratchRadialProgression.ChapterFromMilestones(3, 0, 0, 0, false, false, false, true) == 2 &&
               ScratchRadialProgression.ChapterFromMilestones(3, 2, 0, 0, true, false, false, true) == 3 &&
               ScratchRadialProgression.ChapterFromMilestones(3, 9, 0, 0, true, false, false, true) == 4 &&
-              ScratchRadialProgression.ChapterFromMilestones(3, 9, 3, 0, true, true, false, true) == 5 &&
+              ScratchRadialProgression.ChapterFromMilestones(3, 9, 5, 0, true, true, false, true) == 5 &&
               ScratchRadialProgression.ChapterFromMilestones(3, 9, 3, 6, true, true, true, false) == 6 &&
               ScratchRadialProgression.ChapterFromMilestones(3, 9, 3, 25, true, true, true, false) == 7 &&
               ScratchRadialProgression.ChapterFromMilestones(3, 9, 3, 70, true, true, true, false) == 8,
               "radial chapters unlock strictly from real gameplay milestones", ref errors);
+        Check(ScratchRadialProgression.RequiredFortunato("E06") == 16 &&
+              ScratchRadialProgression.RequiredFortunato("G07") == 19 &&
+              ScratchRadialProgression.RequiredFortunato("C04") == 22 &&
+              ScratchRadialProgression.RequiredFortunato("C05") == 24 &&
+              ScratchRadialProgression.RequiredGold("G08") == 5 &&
+              ScratchRadialProgression.RequiredGold("F02") == 8 &&
+              ScratchRadialProgression.RequiredGold("C06") == 11 &&
+              ScratchRadialProgression.RequiredGold("F03") == 14 &&
+              ScratchRadialProgression.RequiredGold("F04") == 17 &&
+              !ScratchRadialProgression.TicketGoalMet("G08", 24, 4) &&
+              ScratchRadialProgression.TicketGoalMet("G08", 24, 5) &&
+              !ScratchRadialProgression.TicketGoalMet("C05", 23, 0) &&
+              ScratchRadialProgression.TicketGoalMet("C05", 24, 0),
+              "Demo pacing: progressive ring 4/5 milestones", ref errors);
         Check(ScratchSkillCatalogV2.Find("C06")?.description.Contains("clic destro") == true &&
               ScratchSkillCatalogV2.Find("C06")?.prerequisites == "C05:1",
               "C06 is player-selected right-click inspection, not five random previews", ref errors);
         Check(ScratchSkillCatalogV2.Find("G08")?.prerequisites == "G07:1;G05:1;C05:1",
               "G08 Titan is a late-game skill only after Golden ticket", ref errors);
-        Check(ScratchGameManager.FinalChallengeComplete(3, 1800, true) &&
-              !ScratchGameManager.FinalChallengeComplete(2, 1800, true) &&
-              !ScratchGameManager.FinalChallengeComplete(3, 1799, true) &&
-              !ScratchGameManager.FinalChallengeComplete(3, 1800, false),
+        Check(ScratchGameManager.FinalChallengeComplete(8, 3800, true) &&
+              !ScratchGameManager.FinalChallengeComplete(7, 3800, true) &&
+              !ScratchGameManager.FinalChallengeComplete(8, 3799, true) &&
+              !ScratchGameManager.FinalChallengeComplete(8, 3800, false),
               "earned-performance finale requires tickets, payout, and power", ref errors);
 
         ScratchSkillTreeUI tree = manager.GetComponent<ScratchSkillTreeUI>();
