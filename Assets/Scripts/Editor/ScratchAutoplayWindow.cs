@@ -1284,6 +1284,15 @@ public sealed class ScratchAutoplayWindow : EditorWindow
             ProgressEvent("SKILL_PURCHASED", ScratchSkillTree.StableId(id),
                 expectedSkillLevel, pendingPurchasePrice,
                 "target_step=" + (purchaseIndex + 1) + "/" + FullDemoPlan.Length);
+            if (id == ScratchSkillTree.SkillId.G8)
+                Check(!game.DemoFinished && game.DemoFinalGoldTickets == 0,
+                    "G08_cannot_end_demo_alone",
+                    "Il Titanico deve essere utilizzabile prima del Jolly.");
+            if (id == ScratchSkillTree.SkillId.F4)
+                Check(!game.DemoFinished && game.DemoFinalGoldTickets == 0 &&
+                      game.DemoFinalGoldPayout == 0,
+                    "F04_opens_fresh_finale",
+                    "Finale inizia dopo entrambi gli sblocchi, con contatori azzerati.");
             UpdateFullDemoTicketTier();
         }
         if ((!IsFullDemo && purchaseIndex == UnlockPlans[stage].Length - 1) ||
