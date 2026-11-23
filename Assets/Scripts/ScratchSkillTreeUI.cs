@@ -179,6 +179,9 @@ public sealed class ScratchSkillTreeUI : MonoBehaviour
         if (currentlySelected >= 0) availableFocusIndex = currentlySelected;
         availableFocusIndex = (availableFocusIndex + 1) % purchasableIds.Count;
         string id = purchasableIds[availableFocusIndex];
+        // A map zoomed out to show all 90 nodes makes the target unreadable.
+        // Restore a practical inspection zoom ONLY when using the finder.
+        navigation.SetZoom(Mathf.Max(navigation.Zoom, 0.95f), Vector2.zero);
         RevealSkill(id);
 #if UNITY_EDITOR
         ScratchManualTelemetry.Emit("AVAILABLE_JUMP", "id=" + id +
