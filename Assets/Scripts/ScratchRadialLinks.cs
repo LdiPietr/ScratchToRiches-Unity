@@ -1,35 +1,22 @@
+using System;
 using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// Draws radial spokes on ONE authored scene Graphic. No prefab, node or UI
-/// creation during gameplay. The eight actual hold-to-buy nodes remain authored.
+/// One scene-authored decorative Graphic behind all ninety square icons.
+/// The radial layout is deterministic and shared by the map controller.
+/// It never creates UI at runtime and never catches pointer events.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class ScratchRadialLinks : MaskableGraphic
 {
-    private bool overview = true;
-    private int branch;
-
-    private static readonly Vector2[] OverviewHubs =
-    {
-        new Vector2(-360, 175), new Vector2(360, 175),
-        new Vector2(-235, -65), new Vector2(235, -65), new Vector2(0, -105)
-    };
-    private static readonly Vector2[] FocusNodes =
-    {
-        new Vector2(-405, 170), new Vector2(-165, 205),
-        new Vector2(165, 205), new Vector2(405, 170),
-        new Vector2(-405, -45), new Vector2(-165, -100),
-        new Vector2(165, -100), new Vector2(405, -45)
-    };
     private static readonly Color32[] BranchColors =
     {
-        new Color32(90, 171, 255, 180),
-        new Color32(237, 193, 120, 180),
-        new Color32(117, 223, 158, 180),
-        new Color32(240, 139, 196, 180),
-        new Color32(178, 154, 255, 180)
+        new Color32(75, 160, 245, 150),
+        new Color32(232, 181, 81, 150),
+        new Color32(93, 213, 132, 150),
+        new Color32(235, 114, 177, 150),
+        new Color32(152, 129, 248, 150)
     };
 
     protected override void Awake()
@@ -38,79 +25,121 @@ public sealed class ScratchRadialLinks : MaskableGraphic
         raycastTarget = false;
     }
 
-    public void Configure(bool overviewMode, int branchIndex)
+    /// <summary>Positions each branch in a 72-degree wedge around one nucleus.</summary>
+    public static Vector2 PositionOf(string stableId)
     {
-        if (overview == overviewMode && branch == branchIndex) return;
-        overview = overviewMode;
-        branch = Mathf.Clamp(branchIndex, 0, 4);
-        SetVerticesDirty();
+        if (string.IsNullOrEmpty(stableId)) return Vector2.zero;
+        int branch = BranchIndex(stableId);
+        int count = ScratchSkillCatalogV2.CountForBranch(branch);
+        for (int i = 0; i < count; i++)
+        {
+            ScratchSkillCatalogV2.Entry entry = ScratchSkillCatalogV2.At(branch, i);
+            if (entry != null && entry.id == stableId)
+                return Position(branch, i);
+        }
+        return Vector2.zero;
+    }
+
+    private static int BranchIndex(string id)
+    {
+        if (string.IsNullOrEmpty(id)) return 0;
+        switch (id[0])
+        {
+            case 'G': return 0;
+            case 'C': return 1;
+            case 'E': return 2;
+            case 'F': return 3;
+            case 'A': return 4;
+            default: return 0;
+        }
+    }
+
+    private static Vector2 Position(int branch, int index)
+    {
+        int lanes = branch == 4 ? 2 : 4;
+        int ring = index / lanes + 1;
+        float angle = -90f + 72f * branch +
+            (index % lanes - (lanes - 1) * .5f) * 16f;
+        float radius = 230f + ring * 220f;
+        float radians = angle * Mathf.Deg2Rad;
+        return new Vector2(Mathf.Cos(radians), Mathf.Sin(radians)) * radius;
     }
 
     protected override void OnPopulateMesh(VertexHelper vh)
     {
         vh.Clear();
-        Vector2 nucleus = new Vector2(0, 58);
-        DrawRing(vh, nucleus, 108, 3.5f, new Color32(246, 199, 118, 190), 64);
-        DrawRing(vh, nucleus, 119, 1.5f, new Color32(246, 199, 118, 56), 64);
-
-        if (overview)
+        DrawRing(vh, Vector2.zero, 121, 5,
+            new Color32(246, 200, 112, 170), 64);
+        DrawRing(vh, Vector2.zero, 138, 2,
+            new Color32(246, 200, 112, 52), 64);
+        for (int branch = 0; branch < 5; branch++)
         {
-            for (int i = 0; i < OverviewHubs.Length; i++)
+            int count = ScratchSkillCatalogV2.CountForBranch(branch);
+            int lanes = branch == 4 ? 2 : 4;
+            Color32 color = BranchColors[branch];
+            for (int i = 0; i < count; i++)
             {
-                DrawLine(vh, nucleus, OverviewHubs[i], 5,
-                    BranchColors[i]);
-                DrawRing(vh, OverviewHubs[i], 34, 2,
-                    BranchColors[i], 32);
-            }
-        }
-        else
-        {
-            Vector2 hub = new Vector2(0, 283);
-            Color32 tint = BranchColors[Mathf.Clamp(branch, 0, 4)];
-            DrawLine(vh, nucleus, hub, 6, tint);
-            for (int i = 0; i < FocusNodes.Length; i++)
-            {
-                DrawLine(vh, nucleus, FocusNodes[i], 2.5f,
-                    new Color32(tint.r, tint.g, tint.b, 70));
-                DrawRing(vh, FocusNodes[i], 39, 1.5f,
-                    new Color32(tint.r, tint.g, tint.b, 54), 24);
+                ScratchSkillCatalogV2.Entry entry =
+                    ScratchSkillCatalogV2.At(branch, i);
+                if (entry == null) continue;
+                Vector2 end = Position(branch, i);
+                if (i < lanes)
+                {
+                    DrawLine(vh, Vector2.zero, end, 5, color);
+                    continue;
+                }
+                // Connect to the preceding ring in the same visual lane,
+                // and draw skill-specific dependency links below.
+                DrawLine(vh, Position(branch, i - lanes), end, 3.5f,
+                    new Color32(color.r, color.g, color.b, 110));
+                string[] prerequisites = (entry.prerequisites ?? "").Split(';');
+                foreach (string raw in prerequisites)
+                {
+                    if (string.IsNullOrEmpty(raw)) continue;
+                    string[] parts = raw.Split(':');
+                    if (parts.Length != 2) continue;
+                    Vector2 start = PositionOf(parts[0]);
+                    bool cross = BranchIndex(parts[0]) != branch;
+                    DrawLine(vh, start, end, cross ? 1.2f : 2.5f,
+                        new Color32(color.r, color.g, color.b, (byte)(cross ? 34 : 105)));
+                }
             }
         }
     }
 
-    private static void DrawRing(VertexHelper vh, Vector2 center, float radius,
-        float width, Color32 color, int segments)
+    private static void DrawRing(VertexHelper vh, Vector2 center,
+        float radius, float width, Color32 tint, int segments)
     {
         for (int i = 0; i < segments; i++)
         {
-            float first = 2f * Mathf.PI * i / segments;
-            float second = 2f * Mathf.PI * (i + 1) / segments;
-            Vector2 a = center + new Vector2(Mathf.Cos(first), Mathf.Sin(first)) * radius;
-            Vector2 b = center + new Vector2(Mathf.Cos(second), Mathf.Sin(second)) * radius;
-            DrawLine(vh, a, b, width, color);
+            float a = Mathf.PI * 2f * i / segments;
+            float b = Mathf.PI * 2f * (i + 1) / segments;
+            Vector2 start = center + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * radius;
+            Vector2 end = center + new Vector2(Mathf.Cos(b), Mathf.Sin(b)) * radius;
+            DrawLine(vh, start, end, width, tint);
         }
     }
 
     private static void DrawLine(VertexHelper vh, Vector2 from, Vector2 to,
-        float width, Color32 color)
+        float width, Color32 tint)
     {
         Vector2 delta = to - from;
         if (delta.sqrMagnitude < 1f) return;
-        Vector2 normal = new Vector2(-delta.y, delta.x).normalized * (width * .5f);
+        Vector2 normal = new Vector2(-delta.y, delta.x).normalized * width * .5f;
         int start = vh.currentVertCount;
-        Add(vh, from - normal, color);
-        Add(vh, from + normal, color);
-        Add(vh, to + normal, color);
-        Add(vh, to - normal, color);
+        AddVert(vh, from - normal, tint);
+        AddVert(vh, from + normal, tint);
+        AddVert(vh, to + normal, tint);
+        AddVert(vh, to - normal, tint);
         vh.AddTriangle(start, start + 1, start + 2);
         vh.AddTriangle(start, start + 2, start + 3);
     }
 
-    private static void Add(VertexHelper vh, Vector2 position, Color32 tint)
+    private static void AddVert(VertexHelper vh, Vector2 pos, Color32 tint)
     {
-        UIVertex vertex = UIVertex.simpleVert;
-        vertex.position = position;
-        vertex.color = tint;
-        vh.AddVert(vertex);
+        UIVertex v = UIVertex.simpleVert;
+        v.position = pos;
+        v.color = tint;
+        vh.AddVert(v);
     }
 }
