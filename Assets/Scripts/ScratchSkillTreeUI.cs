@@ -223,8 +223,13 @@ public sealed class ScratchSkillTreeUI : MonoBehaviour
             {
                 // Temporary scene-authored placeholders. The GDD's 90 unique
                 // artworks will replace these before publishing the demo.
+                // Resolve the artwork from the stable ID, not the display
+                // slot: C03 now appears before C02 in the ticket branch.
+                int ordinal = 1;
+                if (entry.id.Length >= 2)
+                    int.TryParse(entry.id.Substring(1), out ordinal);
                 int artIndex = branchIndex == 4 ? 7 :
-                    branchIndex * 8 + (pageIndex * PageSize + i) % 8;
+                    branchIndex * 8 + Mathf.Clamp((ordinal - 1) % 8, 0, 7);
                 if (upgradeSprites != null && artIndex >= 0 &&
                     artIndex < upgradeSprites.Length)
                     nodeIcons[i].sprite = upgradeSprites[artIndex];
