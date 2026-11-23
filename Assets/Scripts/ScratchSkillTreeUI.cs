@@ -235,8 +235,8 @@ public sealed class ScratchSkillTreeUI : MonoBehaviour
             return "EFFETTO NON ANCORA IMPLEMENTATO";
         if (level >= entry.maxLevel) return "POTENZIAMENTO COMPLETATO";
         if (!ScratchRadialProgression.Available(entry.id, game, skills))
-            return "BLOCCATO · NUCLEO CAPITOLO " +
-                ScratchRadialProgression.ChapterOf(entry.id);
+            return "BLOCCATO · " +
+                ScratchRadialProgression.SkillGoal(entry.id, game, skills);
         if (!skills.RequirementsMet(entry.id))
             return "BLOCCATO · " + skills.RequirementText(entry.id);
         if (economy.Coins < skills.GetPrice(entry.id))
