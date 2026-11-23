@@ -221,6 +221,15 @@ def check_static():
           "FrameRatePlayback.Variable" in recorder and
           "TargetBitRate" in recorder,
           "Manual video must be compact, segmented, time-true and size checked")
+    mapui = (ROOT / "Assets/Scripts/ScratchSkillTreeUI.cs").read_text(encoding="utf-8-sig")
+    check("JumpToNextPurchase" in mapui and
+          "purchasableIds.Sort(ComparePurchasable)" in mapui and
+          "availableJumpButton.onClick.AddListener(JumpToNextPurchase)" in mapui and
+          "Input.GetKeyDown(KeyCode.Tab)" in mapui and
+          "outline.effectColor" in mapui and
+          "skills.CanPurchase(e.id)" in mapui and
+          "ORA PUOI COMPRARE" in mapui,
+          "Human radial map must make actually affordable upgrades findable")
     check("public static event Action<string, string> Logged;" in telemetry and
           "public static void Emit(" in telemetry,
           "Manual event bus missing")
