@@ -76,7 +76,16 @@ public sealed class ScratchRadialMapNavigation : MonoBehaviour,
         ClampPosition();
     }
 
-    public void OnEndDrag(PointerEventData data) => dragging = false;
+    public void OnEndDrag(PointerEventData data)
+    {
+#if UNITY_EDITOR
+        if (dragging)
+            ScratchManualTelemetry.Emit("MAP_PAN", "zoom=" + zoom.ToString("F2") +
+                "|x=" + content.anchoredPosition.x.ToString("F0") +
+                "|y=" + content.anchoredPosition.y.ToString("F0"));
+#endif
+        dragging = false;
+    }
 
     public void OnScroll(PointerEventData data)
     {
@@ -85,6 +94,9 @@ public sealed class ScratchRadialMapNavigation : MonoBehaviour,
             viewport, data.position, data.pressEventCamera, out Vector2 point))
             point = Vector2.zero;
         SetZoom(zoom * Mathf.Pow(wheelFactor, data.scrollDelta.y), point);
+#if UNITY_EDITOR
+        ScratchManualTelemetry.Emit("MAP_ZOOM", "zoom=" + zoom.ToString("F2"));
+#endif
     }
 
     public void ZoomIn() => SetZoom(zoom * 1.2f, Vector2.zero);
