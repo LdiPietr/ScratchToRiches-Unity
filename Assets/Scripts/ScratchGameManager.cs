@@ -16,7 +16,7 @@ public sealed class ScratchGameManager : MonoBehaviour
 {
     public enum RoundState { Ready, Playing, Finished }
     public enum RoundEndReason { None, AllCellsRevealed, PlayerEnded }
-    // Ticket selection changes the payout, never the run timer or scratch limit.
+    // Ticket selection changes the grid and payout, not the scratch limit.
     public enum TicketKind { Standard, Fortunato, Gold, Diamond }
 
     [Header("Scene references")]
@@ -144,9 +144,9 @@ public sealed class ScratchGameManager : MonoBehaviour
         switch (kind)
         {
             case TicketKind.Standard: return economyManager != null ? economyManager.BasePrize : 10;
-            case TicketKind.Fortunato: return 25;
-            case TicketKind.Gold: return 45;
-            case TicketKind.Diamond: return 70;
+            case TicketKind.Fortunato: return 50;
+            case TicketKind.Gold: return 110;
+            case TicketKind.Diamond: return 250;
             default: return 0;
         }
     }
@@ -186,8 +186,12 @@ public sealed class ScratchGameManager : MonoBehaviour
         }
     }
 
-    // A ticket's grid determines both the pick cap and its highest possible match.
-    public int MaxScratches => TicketSide(currentTicketKind);
+    // Pick count is global: C11 controls it, independently of ticket tier.
+    // Grid dimensions and symbol pools remain ticket-specific.
+    public static int PickLimitFromPerk(int extraPickLevel) =>
+        Mathf.Clamp(3 + extraPickLevel, 3, 5);
+
+    public int MaxScratches => PickLimitFromPerk(skillTree != null ? skillTree.GetLevel("C11") : 0);
 
     public ScratchSymbolManager.MatchResult CurrentMatch =>
         !ticketActive ? settledMatch : symbolManager != null ? symbolManager.Evaluate(selectedCells) : default;
