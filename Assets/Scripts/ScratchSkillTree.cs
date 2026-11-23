@@ -241,7 +241,8 @@ public sealed class ScratchSkillTree : MonoBehaviour
             ScratchSkillCatalogV2.EffectImplemented(stableId) &&
             GetLevel(stableId) < entry.maxLevel &&
             RequirementsMet(stableId) &&
-            game != null && economy != null &&
+            game != null && ScratchRadialProgression.Available(stableId, game, this) &&
+            economy != null &&
             economy.Coins >= GetPrice(stableId);
     }
 
