@@ -22,7 +22,7 @@ public static class ScratchRadialProgression
         switch (id)
         {
             case "G01": case "C01": case "E01": return 1;
-            case "G02": case "G03": case "C03": case "E02": case "E05": return 2;
+            case "G02": case "G03": case "C03": case "C11": case "E02": case "E05": return 2;
             case "G04": case "G05": case "C02": case "E03": case "F01": return 3;
             case "G06": case "G07": case "C04": case "C05": case "E04": case "E06": return 4;
             case "G08": case "C06": case "F02": case "F03": case "F04": return 5;
