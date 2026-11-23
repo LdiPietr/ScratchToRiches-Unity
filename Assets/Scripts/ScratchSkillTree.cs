@@ -252,7 +252,10 @@ public sealed class ScratchSkillTree : MonoBehaviour
 
     public bool TryPurchase(string stableId)
     {
-        if (!CanPurchase(stableId) || !economy.TrySpendCoins(GetPrice(stableId)))
+        if (!CanPurchase(stableId))
+            return false;
+        int paidPrice = GetPrice(stableId);
+        if (!economy.TrySpendCoins(paidPrice))
             return false;
         EnsureStableLevels();
         stableLevels[stableId]++;
@@ -288,6 +291,11 @@ public sealed class ScratchSkillTree : MonoBehaviour
         PlayerPrefs.Save();
         if ((stableId == "G08" || stableId == "F04") && game != null)
             game.OnDemoCapstonePurchased();
+#if UNITY_EDITOR
+        ScratchManualTelemetry.Emit("SKILL_PURCHASED", "id=" + stableId +
+            "|level=" + stableLevels[stableId] + "|price=" + paidPrice +
+            "|wallet=" + economy.Coins);
+#endif
         Changed?.Invoke();
         return true;
     }
@@ -325,6 +333,9 @@ public sealed class ScratchSkillTree : MonoBehaviour
         jollyUsedCount++;
         PlayerPrefs.SetInt(JollyUsedKey, jollyUsedCount);
         PlayerPrefs.Save();
+#if UNITY_EDITOR
+        ScratchManualTelemetry.Emit("JOLLY_SCRATCHED", "total=" + jollyUsedCount);
+#endif
         Changed?.Invoke();
     }
 
@@ -340,6 +351,10 @@ public sealed class ScratchSkillTree : MonoBehaviour
         PlayerPrefs.SetInt(TitanChargesKey, titanCharges);
         PlayerPrefs.SetInt(TitanUsedKey, titanUsedCount);
         PlayerPrefs.Save();
+#if UNITY_EDITOR
+        ScratchManualTelemetry.Emit("TITAN_USED", "total=" + titanUsedCount +
+            "|charges_left=" + titanCharges);
+#endif
         Changed?.Invoke();
         return true;
     }
