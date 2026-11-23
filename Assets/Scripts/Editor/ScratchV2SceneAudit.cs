@@ -118,8 +118,14 @@ public static class ScratchV2SceneAudit
               "ticket skill UI order C01-C03-C02-C04", ref errors);
         Check(ScratchSkillCatalogV2.Find("C03")?.prerequisites == "C01:1" &&
               ScratchSkillCatalogV2.Find("C02")?.prerequisites == "C03:1" &&
-              ScratchSkillCatalogV2.Find("C04")?.prerequisites == "C02:1;G07:1",
-              "third preview only after continuous scratch G07", ref errors);
+              ScratchSkillCatalogV2.Find("C04")?.prerequisites == "C02:1",
+              "C04 keeps local C02 prerequisite; radial chapter 4 replaces G07", ref errors);
+        Check(ScratchRadialProgression.ChapterOf("C01") == 1 &&
+              ScratchRadialProgression.ChapterOf("C03") == 2 &&
+              ScratchRadialProgression.ChapterOf("C04") == 4 &&
+              ScratchRadialProgression.ChapterOf("G08") == 5 &&
+              ScratchRadialProgression.ChapterOf("A08") == 7,
+              "radial nucleus chapter assignment", ref errors);
         Check(ScratchSkillCatalogV2.Find("C06")?.description.Contains("clic destro") == true &&
               ScratchSkillCatalogV2.Find("C06")?.prerequisites == "C05:1",
               "C06 is player-selected right-click inspection, not five random previews", ref errors);
@@ -133,11 +139,21 @@ public static class ScratchV2SceneAudit
 
         ScratchSkillTreeUI tree = manager.GetComponent<ScratchSkillTreeUI>();
         Check(tree != null, "skill tree interface component", ref errors);
+        ScratchRadialLinks links = manager.GetComponentInChildren<ScratchRadialLinks>(true);
+        Check(links != null && !links.raycastTarget,
+              "authored radial spokes graphic does not intercept clicks", ref errors);
         if (tree != null)
         {
             SerializedObject so = new SerializedObject(tree);
             SerializedProperty tabs = so.FindProperty("branchButtons");
             SerializedProperty nodes = so.FindProperty("nodeButtons");
+            SerializedProperty nucleus = so.FindProperty("nucleusButton");
+            SerializedProperty nucleusLabel = so.FindProperty("nucleusLabel");
+            SerializedProperty connections = so.FindProperty("radialLinks");
+            Check(nucleus != null && nucleus.objectReferenceValue != null &&
+                  nucleusLabel != null && nucleusLabel.objectReferenceValue != null &&
+                  connections != null && connections.objectReferenceValue == links,
+                  "authored radial nucleus button, label and connectors wired", ref errors);
             Check(tabs != null && tabs.arraySize == 5, "five authored skill tabs", ref errors);
             Check(nodes != null && nodes.arraySize == 8, "eight authored reusable skill slots", ref errors);
             if (tabs != null && tabs.arraySize == 5)
