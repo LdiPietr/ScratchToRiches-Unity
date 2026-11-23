@@ -10,7 +10,7 @@ using UnityEngine;
 /// RANDOM tickets only. The policy reads ONLY fully scratched and explicitly
 /// previewed symbols via ScratchCell.TryGetVisibleSymbol().
 ///
-/// The seven symbol labels are exchangeable, so unseen labels are represented
+/// The 4-7 symbol labels within each ticket pool are exchangeable, so unseen labels are represented
 /// as a single "new label" outcome in the recurrence. For the Diamond's
 /// randomly chosen four-of-seven pool, the posterior predictive probability
 /// of each already-observed symbol is 1/4; total probability of a new symbol
@@ -68,7 +68,7 @@ internal static class ScratchAutoplayPreviewStrategy
         int activeSymbolPoolSize, double[] payoutByMultiplicity, System.Random rng)
     {
         if (cells == null || rng == null || remainingPicks < 1 ||
-            (activeSymbolPoolSize != 4 && activeSymbolPoolSize != 7) ||
+            (activeSymbolPoolSize < 4 || activeSymbolPoolSize > 7) ||
             payoutByMultiplicity == null || payoutByMultiplicity.Length < 6)
             throw new ArgumentException("Invalid strategy parameters.");
 
