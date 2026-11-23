@@ -1,3 +1,13 @@
+# QA V3.1 — nuova economia biglietti (main, da validare in Unity)
+
+Su `main` i **90 nodi** rimangono invariati; diventano **25** le skill demo, con il perk **C11 Scelte aggiuntive** acquistabile su tre livelli. L'autoplay richiede **29 acquisti** (anziché 26) e deve superare un NUOVO test completo per dimostrare la durata di 20–25 minuti. Il nuovo verificatore rifiuta i log V3 storici come se fossero log V3.1.
+
+Per il test statistico indipendente da Unity: `python QA/check_ticket_profiles.py`. Questo verifica le probabilità combinatorie di 3/4/5/6 scelte e il margine tra biglietti senza talenti, Jolly o anteprime.
+
+La sezione seguente è la documentazione **storica** della milestone V3, con numeri 24/26 autentici ma non applicabili all'attuale `main`.
+
+---
+
 # Demo V3 — milestone di regressione (23 novembre 2026)
 
 **Stato:** baseline Unity Play Mode completata e approvata sul piano tecnico (non ancora playtest umano).
@@ -41,7 +51,7 @@ git switch -c verify-demo-v3 dde3c9ae1abc7b5e63b8a3b406f7e34fe8e8cc2d
 python QA/verify_demo_regression.py --static
 ```
 
-Controlla 90 nodi, 24 abilità disponibili, 26 acquisti legali, ordine degli sblocchi, gate C06/G08, presenza dei controlli di input e del finale a incassi. Non può accertare che la UI o i premi funzionino in Play Mode.
+Controlla 90 nodi, 25 abilità disponibili in V3.1, 29 acquisti legali, ordine degli sblocchi, gate C06/G08, presenza dei controlli di input e del finale a incassi. Non può accertare che la UI o i premi funzionino in Play Mode.
 
 **2. Audit scena** (in Unity, scena principale aperta):
 
@@ -53,7 +63,7 @@ Aprire Play Mode prima di premere `SI PARTE!`, poi `Tools → Scratch to Riches 
 - Modalità: `ProgressioneDemoCompleta`; velocità `1×`.
 - `Nuovo seed a ogni avvio` attivo per provare altri scenari; nessun credito QA.
 - Avviare `START - TEST COMPLETO`, non intervenire.
-- La run è valida se finale reale, zero check KO, 24/24 abilità, 26/26 acquisti, 0 combinazioni forzate, C06/G08 esercitate e durata tra 20 e 25 minuti.
+- La run è valida se finale reale, zero check KO, 25/25 abilità, 29/29 acquisti, 0 combinazioni forzate, C06/G08 esercitate e durata tra 20 e 25 minuti.
 
 **4. Controllo automatico dei quattro report**:
 
