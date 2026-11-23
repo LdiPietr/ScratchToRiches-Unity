@@ -207,9 +207,9 @@ public sealed class ScratchFlowPresentation : MonoBehaviour
         ticketCanvasGroup.alpha = 1f;
         phase = Phase.TicketLive;
         ticketCanvasGroup.blocksRaycasts = true;
-        if (primaryActionButton != null && game.TicketActive &&
-            game.State == ScratchGameManager.RoundState.Playing)
-            primaryActionButton.interactable = true;
+        // No early ticket skip: only scratching all selected cells settles.
+        if (primaryActionButton != null)
+            primaryActionButton.interactable = false;
         motion = null;
     }
 
@@ -313,8 +313,7 @@ public sealed class ScratchFlowPresentation : MonoBehaviour
         phase = phaseBeforeShop;
         ticketCanvasGroup.blocksRaycasts = phase == Phase.TicketLive;
         if (primaryActionButton != null)
-            primaryActionButton.interactable = game.State == ScratchGameManager.RoundState.Ready
-                || (game.TicketActive && phase == Phase.TicketLive);
+            primaryActionButton.interactable = game.State == ScratchGameManager.RoundState.Ready;
         ticketChooser.Refresh();
         motion = null;
     }
