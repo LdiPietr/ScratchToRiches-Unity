@@ -48,7 +48,9 @@ public sealed class ScratchManualPlaytestRecorderWindow : EditorWindow
     private double finalizationDeadline;
     private int eventCount;
     private int finishedTickets;
+    private int startedTickets;
     private int purchasedSkills;
+    private float finalDurationSeconds;
     private int hoveredSkills;
     private int inspectedCells;
     private int manualTitanUses;
@@ -157,9 +159,10 @@ public sealed class ScratchManualPlaytestRecorderWindow : EditorWindow
         }
         error = string.Empty;
         parts.Clear();
-        eventCount = finishedTickets = purchasedSkills = hoveredSkills =
+        eventCount = finishedTickets = startedTickets = purchasedSkills = hoveredSkills =
             inspectedCells = manualTitanUses = scratchedJokers = 0;
         startTime = Time.realtimeSinceStartup;
+        finalDurationSeconds = 0f;
         nextHeartbeat = startTime + 15f;
         lastPauseState = EditorApplication.isPaused;
         awaitingVideoFinalization = false;
@@ -306,7 +309,11 @@ public sealed class ScratchManualPlaytestRecorderWindow : EditorWindow
         if (!recording) return;
         switch (kind)
         {
-            case "TICKET_END": finishedTickets++; break;
+            case "TICKET_START": startedTickets++; break;
+            case "TICKET_END":
+                if (details != null && details.Contains("|complete=True"))
+                    finishedTickets++;
+                break;
             case "SKILL_PURCHASED": purchasedSkills++; break;
             case "SKILL_HOVER": hoveredSkills++; break;
             case "C06_INSPECTION": inspectedCells++; break;
@@ -342,6 +349,7 @@ public sealed class ScratchManualPlaytestRecorderWindow : EditorWindow
     private void StopSession(string reason)
     {
         if (!recording) return;
+        finalDurationSeconds = Time.realtimeSinceStartup - startTime;
         WriteEvent("SESSION_END", "reason=" + reason + "|demo_finished=" +
             (game != null && game.DemoFinished));
         ScratchManualTelemetry.Logged -= OnGameEvent;
@@ -378,7 +386,6 @@ public sealed class ScratchManualPlaytestRecorderWindow : EditorWindow
             return;
 
         awaitingVideoFinalization = false;
-        WriteSummary();
         if (oversize)
         {
             error = "Una clip supera il margine di 400 MB. Verifica video_manifest.csv.";
@@ -391,6 +398,7 @@ public sealed class ScratchManualPlaytestRecorderWindow : EditorWindow
         }
         else
             status = "COMPLETATO: video verificati sotto 400 MB + log salvato";
+        WriteSummary();
         Repaint();
     }
 
@@ -413,7 +421,8 @@ public sealed class ScratchManualPlaytestRecorderWindow : EditorWindow
         var summary = new[]
         {
             "Scratch to Riches - PLAYTEST MANUALE",
-            "Durata (s): " + (Time.realtimeSinceStartup - startTime).ToString("F2", CultureInfo.InvariantCulture),
+            "Durata (s): " + finalDurationSeconds.ToString("F2", CultureInfo.InvariantCulture),
+            "Biglietti avviati: " + startedTickets,
             "Biglietti completati: " + finishedTickets,
             "Acquisti: " + purchasedSkills,
             "Hover abilita': " + hoveredSkills,
