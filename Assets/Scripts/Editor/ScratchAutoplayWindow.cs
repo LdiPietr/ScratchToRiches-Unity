@@ -49,8 +49,8 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         Array.Empty<ScratchSkillTree.SkillId>(),
         new[] { ScratchSkillTree.SkillId.G1, ScratchSkillTree.SkillId.G1,
             ScratchSkillTree.SkillId.G2, ScratchSkillTree.SkillId.G3,
-            ScratchSkillTree.SkillId.C1, ScratchSkillTree.SkillId.C2,
-            ScratchSkillTree.SkillId.C3 },
+            ScratchSkillTree.SkillId.C1, ScratchSkillTree.SkillId.C3,
+            ScratchSkillTree.SkillId.C2 },
         // G04/G07 are not yet implemented in the scene; this legacy functional
         // tester covers ticket mechanics, not the new demo capstone.
         new[] { ScratchSkillTree.SkillId.C4, ScratchSkillTree.SkillId.C5 },
@@ -70,11 +70,11 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         ScratchSkillTree.SkillId.E1, ScratchSkillTree.SkillId.G1,
         ScratchSkillTree.SkillId.C1, ScratchSkillTree.SkillId.E1,
         ScratchSkillTree.SkillId.G1, ScratchSkillTree.SkillId.E5,
-        ScratchSkillTree.SkillId.G2, ScratchSkillTree.SkillId.C2,
-        ScratchSkillTree.SkillId.E2, ScratchSkillTree.SkillId.G3,
-        ScratchSkillTree.SkillId.C3, ScratchSkillTree.SkillId.E3,
-        ScratchSkillTree.SkillId.G5, ScratchSkillTree.SkillId.G4,
-        ScratchSkillTree.SkillId.C4, ScratchSkillTree.SkillId.F1,
+        ScratchSkillTree.SkillId.G2, ScratchSkillTree.SkillId.E2,
+        ScratchSkillTree.SkillId.E3, ScratchSkillTree.SkillId.G3,
+        ScratchSkillTree.SkillId.C3, ScratchSkillTree.SkillId.G5,
+        ScratchSkillTree.SkillId.G4, ScratchSkillTree.SkillId.F1,
+        ScratchSkillTree.SkillId.C2, ScratchSkillTree.SkillId.C4,
         ScratchSkillTree.SkillId.G6, ScratchSkillTree.SkillId.E4,
         ScratchSkillTree.SkillId.E6, ScratchSkillTree.SkillId.G7,
         ScratchSkillTree.SkillId.C5, ScratchSkillTree.SkillId.F2,
@@ -1106,8 +1106,28 @@ public sealed class ScratchAutoplayWindow : EditorWindow
         }
 
         int branch = (int)id / 8;
-        int slot = (int)id % 8;
+        string stableId = ScratchSkillTree.StableId(id);
+        // The catalog controls visual order independently of stable IDs:
+        // C03 appears before C02. Never assume enum index == UI slot.
+        int position = -1;
+        for (int i = 0; i < ScratchSkillCatalogV2.CountForBranch(branch); i++)
+        {
+            ScratchSkillCatalogV2.Entry candidate = ScratchSkillCatalogV2.At(branch, i);
+            if (candidate != null && candidate.id == stableId)
+            {
+                position = i;
+                break;
+            }
+        }
+        if (position < 0)
+        {
+            Fail("Nodo non trovato nel catalogo per " + stableId);
+            return;
+        }
         treeUI.SelectBranch(branch);
+        for (int page = 0; page < position / 8; page++)
+            treeUI.NextPage();
+        int slot = position % 8;
         pressedHold = null;
         foreach (ScratchHoldToBuy hold in holdButtons)
         {
