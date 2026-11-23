@@ -56,7 +56,14 @@ public sealed class ScratchHoldToBuy : MonoBehaviour,
         bool allowed = IsMapNode
             ? treeUI.CanPurchaseSkill(stableSkillId)
             : treeUI.CanHoldPurchase(nodeSlot);
-        if (!allowed) return;
+        if (!allowed)
+        {
+#if UNITY_EDITOR
+            if (IsMapNode)
+                ScratchManualTelemetry.Emit("SKILL_BLOCKED_CLICK", "id=" + stableSkillId);
+#endif
+            return;
+        }
         holding = true;
         elapsed = 0f;
         pressedBranch = treeUI.BranchIndex;
