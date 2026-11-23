@@ -184,6 +184,10 @@ public sealed class ScratchSkillTreeUI : MonoBehaviour
     public void HoverSkill(string id)
     {
         if (ScratchSkillCatalogV2.Find(id) == null) return;
+#if UNITY_EDITOR
+        if (hoveredId != id)
+            ScratchManualTelemetry.Emit("SKILL_HOVER", "id=" + id);
+#endif
         hoveredId = id;
         DrawDetails();
     }
