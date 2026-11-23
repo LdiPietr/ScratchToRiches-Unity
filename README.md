@@ -1,3 +1,11 @@
+# Scratch to Riches — V3.1: economie biglietti (IN VERIFICA)
+
+**`main` è ora una versione di sviluppo, non ancora certificata in Unity Play Mode.** M01–M03: il limite di caselle è un perk unico **C11** (3 scelte iniziali, poi 4/5/6 su tutti i biglietti), indipendente dai tier. Classico/Fortunato/Dorato usano rispettivamente pool casuali di **7/6/5 simboli** e premi base **10/30/55**. La demo contiene ancora 90 nodi: **25 acquistabili e 65 visibili/bloccati**; piano QA da **29 acquisti**. Il Diamante resta bloccato nella demo.
+
+Lo storico finale di 21:21,52 e 1084 PASS appartiene **solo alla milestone V3**, non costituisce una prova della nuova progressione. Nuova verifica: `python QA/verify_demo_regression.py --static` e `python QA/check_ticket_profiles.py`, poi audit in Unity e autoplay completo con registrazione.
+
+---
+
 # Scratch to Riches — stato attuale / Demo V3 (23 novembre 2026)
 
 **MILESTONE BASELINE FISSATA:** Unity Play Mode 21:21,52; 1084/1084 controlli PASS; 26 acquisti; 24/24 abilita'; 91 biglietti casuali; finale reale raggiunto.
