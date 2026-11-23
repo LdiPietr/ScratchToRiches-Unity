@@ -101,6 +101,24 @@ public static class ScratchV2SceneAudit
               ScratchGameManager.TicketSide(ScratchGameManager.TicketKind.Gold) == 5 &&
               ScratchGameManager.TicketSide(ScratchGameManager.TicketKind.Diamond) == 5,
               "ticket grid sides 3/4/5/5", ref errors);
+        Check(ScratchGameManager.PickLimitFromPerk(0) == 3 &&
+              ScratchGameManager.PickLimitFromPerk(1) == 4 &&
+              ScratchGameManager.PickLimitFromPerk(2) == 5 &&
+              ScratchGameManager.PickLimitFromPerk(3) == 5,
+              "C11 unlocks global picks 3/4/5 regardless of ticket", ref errors);
+        Check(ScratchSkillCatalogV2.Find("C11")?.demoEligible == true &&
+              ScratchSkillCatalogV2.Find("C11")?.maxLevel == 2 &&
+              ScratchSkillCatalogV2.Find("C11")?.prerequisites == "C01:1" &&
+              ScratchSkillCatalogV2.EffectImplemented("C11"),
+              "C11 permanent extra scratch perk authored in catalog", ref errors);
+        if (game != null)
+            Check(game.TicketPrize(ScratchGameManager.TicketKind.Fortunato) == 50 &&
+                  game.TicketPrize(ScratchGameManager.TicketKind.Gold) == 110 &&
+                  game.TicketPrize(ScratchGameManager.TicketKind.Diamond) == 250 &&
+                  game.TicketPrize(ScratchGameManager.TicketKind.Standard) <
+                  game.TicketPrize(ScratchGameManager.TicketKind.Fortunato) / 3,
+                  "ticket prizes strongly separated from independent scratch count", ref errors);
+
         Check(ScratchGameManager.SymbolPoolSize(ScratchGameManager.TicketKind.Diamond) == 4,
               "Diamond four-symbol pool", ref errors);
         Check(ScratchSkillCatalogV2.All.Count == 90,
@@ -119,8 +137,8 @@ public static class ScratchV2SceneAudit
             else if (ScratchSkillCatalogV2.EffectImplemented(entry.id))
                 implementedOutsideDemo++;
         }
-        Check(availableInDemo == 24, "24 demo-eligible / 66 full-game-only nodes", ref errors);
-        Check(missingImplementation == 0, "all 24 demo effects implemented", ref errors);
+        Check(availableInDemo == 25, "25 demo-eligible / 65 full-game-only nodes", ref errors);
+        Check(missingImplementation == 0, "all 25 demo effects implemented", ref errors);
         Check(implementedOutsideDemo == 0, "no full-game-only upgrade enabled", ref errors);
         Check(ScratchSkillTree.DemoEdition, "demo edition gating enabled", ref errors);
 
@@ -129,14 +147,16 @@ public static class ScratchV2SceneAudit
         Check(ScratchSkillCatalogV2.At(1, 0)?.id == "C01" &&
               ScratchSkillCatalogV2.At(1, 1)?.id == "C03" &&
               ScratchSkillCatalogV2.At(1, 2)?.id == "C02" &&
-              ScratchSkillCatalogV2.At(1, 3)?.id == "C04",
-              "ticket skill UI order C01-C03-C02-C04", ref errors);
+              ScratchSkillCatalogV2.At(1, 3)?.id == "C11" &&
+              ScratchSkillCatalogV2.At(1, 10)?.id == "C04",
+              "early ticket skill layout C01-C03-C02-C11, C04 shifted outward", ref errors);
         Check(ScratchSkillCatalogV2.Find("C03")?.prerequisites == "C01:1" &&
               ScratchSkillCatalogV2.Find("C02")?.prerequisites == "C03:1" &&
               ScratchSkillCatalogV2.Find("C04")?.prerequisites == "C02:1",
               "C04 keeps local C02 prerequisite; radial chapter 4 replaces G07", ref errors);
         Check(ScratchRadialProgression.ChapterOf("C01") == 1 &&
               ScratchRadialProgression.ChapterOf("C03") == 2 &&
+              ScratchRadialProgression.ChapterOf("C11") == 2 &&
               ScratchRadialProgression.ChapterOf("C04") == 4 &&
               ScratchRadialProgression.ChapterOf("G08") == 5 &&
               ScratchRadialProgression.ChapterOf("A08") == 7,
