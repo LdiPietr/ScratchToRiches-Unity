@@ -181,3 +181,12 @@ checks+=["PASS nine non-overlapping 3x3 cells within the artwork opening","PASS 
 (OUT/"manifest.json").write_text(json.dumps({"assets":records,"referenceResolution":[1920,1080],"ticketRect":[608,154,704,800],"cellRects":[[v*2 for v in c] for c in cells],"limitations":["No Unity editor test performed","The existing ConfigureGrid uses a square 532-unit grid; adapting its visual layout to the approved rectangular cells is a separate integration step","Proof uses Italian sample HUD strings, not actual runtime state","Branding and printed ticket text only are baked"]},indent=2))
 (OUT/"README.txt").write_text("""S02 Vintage Lottery - Pack 1\n21 PNG sprites with unique .meta files. Copy Assets/Art/UI/S02_Classic into the Unity project preserving .meta. Existing assets are not overwritten. See manifest.json for sizes and reference placement. Use SpriteRenderer/UI Image as appropriate; set panels/button Image.type=Sliced. Assign ScratchCover_Classic to brushedCover only when integrating S02; source is Read/Write enabled and opaque. Keep cell frame, symbol and scratch layer independent. HUD labels and serial use TMP/localization. Preview is a composition check, not a Unity screenshot. Current runtime uses square cells; rectangular layout requires a separate visual integration. No gameplay changes. Sources are included for revisions. The proof font is Liberation Sans; choose an appropriately licensed TMP font during integration.\n""")
 print("\n".join(checks))
+
+
+# Compact visual proof in CI logs for inspection without extracting the archive.
+import base64
+buf=BytesIO()
+proof.convert("RGB").resize((960,540),Image.Resampling.LANCZOS).save(buf,format="JPEG",quality=85)
+encoded=base64.b64encode(buf.getvalue()).decode("ascii")
+for i in range(0,len(encoded),512):
+    print("S02_PROOF_JPEG "+encoded[i:i+512])
