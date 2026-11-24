@@ -75,6 +75,7 @@ public sealed partial class ScratchGameManager : MonoBehaviour
     public RoundState State => state;
     public RoundEndReason EndReason => endReason;
     public bool TicketActive => ticketActive;
+    public bool TicketVoided => ticketVoided;
     public int TicketNumber => ticketNumberInRun;
     public int TicketsCompleted => ticketsCompleted;
     public int CompletedByTier(TicketKind kind)
