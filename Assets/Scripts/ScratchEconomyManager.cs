@@ -62,31 +62,12 @@ public sealed class ScratchEconomyManager : MonoBehaviour
         lastSettledTicketId = ticketId;
         lastTicketWin = 0;
 
-        if (match.IsMatch)
-        {
-            int rewardBase = Mathf.Max(1, ticketBasePrize > 0 ? ticketBasePrize : basePrize)
-                + 2 * Level(ScratchSkillTree.SkillId.E1);
-            double multiplier = match.Tier == ScratchSymbolManager.MatchTier.Pair
-                ? 1.0 + 0.1 * Level(ScratchSkillTree.SkillId.E2)
-                : match.Tier == ScratchSymbolManager.MatchTier.Triple
-                    ? 1.0 + 0.15 * Level(ScratchSkillTree.SkillId.E3)
-                    : (match.Tier == ScratchSymbolManager.MatchTier.Poker || match.Tier == ScratchSymbolManager.MatchTier.Five)
-                        ? 1.0 + 0.2 * Level(ScratchSkillTree.SkillId.E4) : 1.0;
-            long requested = (long)Math.Ceiling(rewardBase * (double)match.Multiplier * multiplier);
-            if (Level(ScratchSkillTree.SkillId.E6) > 0 && consecutiveWinningTickets > 0)
-                requested = (long)Math.Ceiling(requested *
-                    (1.0 + 0.05 * Mathf.Min(4, consecutiveWinningTickets)));
-            AwardCoins(requested);
-            consecutiveWinningTickets = Mathf.Min(4, consecutiveWinningTickets + 1);
-        }
-        else
-        {
-            consecutiveWinningTickets = 0;
-            int parachuteLevel = Level(ScratchSkillTree.SkillId.E5);
-            if (allPicksCompleted && parachuteLevel > 0)
-                AwardCoins(3L * parachuteLevel +
-                    (long)Math.Ceiling(Math.Max(0, ticketPrice) * 0.2));
-        }
+        ScratchRewardPolicy.Settlement settlement = ScratchRewardPolicy.Calculate(
+            match, allPicksCompleted, ticketBasePrize, basePrize, ticketPrice,
+            consecutiveWinningTickets, Level);
+        if (settlement.HasAward)
+            AwardCoins(settlement.RequestedCoins);
+        consecutiveWinningTickets = settlement.WinningStreak;
 
         Save();
         RefreshWallet();

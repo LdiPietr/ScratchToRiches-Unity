@@ -235,8 +235,34 @@ public static class ScratchV2SceneAudit
             }
         }
 
+        CheckDomainRules(ref errors);
         if (errors == 0) Debug.Log("V2 AUDIT PASS: single navigable 90-icon skill map, bottom hover, pan/zoom and ticket UI wired.");
         else Debug.LogError("V2 AUDIT FAILED: " + errors + " error(s). See Console for details.");
+    }
+
+    private static void CheckDomainRules(ref int errors)
+    {
+        string[] labels = { "A", "B", "C" };
+        var pair = ScratchMatchEvaluator.Evaluate(new[] { 0, 1, 0 }, 7, labels);
+        var tie = ScratchMatchEvaluator.Evaluate(new[] { 1, 0, 1, 0 }, 7, labels);
+        var joker = ScratchMatchEvaluator.Evaluate(new[] { 2, 2, 7 }, 7, labels);
+        var loneJoker = ScratchMatchEvaluator.Evaluate(new[] { 7 }, 7, labels);
+        Check(pair.Tier == ScratchSymbolManager.MatchTier.Pair && pair.Symbol == "A" &&
+              tie.Symbol == "B" && joker.Tier == ScratchSymbolManager.MatchTier.Triple &&
+              loneJoker.Tier == ScratchSymbolManager.MatchTier.None,
+              "pure matching policy: pair, tie, revealed joker, lone joker", ref errors);
+
+        var reward = ScratchRewardPolicy.Calculate(pair, true, 50, 10, 10, 0, _ => 0);
+        var streak = ScratchRewardPolicy.Calculate(pair, true, 50, 10, 10, 4,
+            id => id == ScratchSkillTree.SkillId.E6 ? 1 : 0);
+        var loss = ScratchRewardPolicy.Calculate(loneJoker, true, 50, 10, 10, 4,
+            id => id == ScratchSkillTree.SkillId.E5 ? 1 : 0);
+        var incomplete = ScratchRewardPolicy.Calculate(loneJoker, false, 50, 10, 10, 4,
+            id => id == ScratchSkillTree.SkillId.E5 ? 1 : 0);
+        Check(reward.RequestedCoins == 100 && reward.WinningStreak == 1 &&
+              streak.RequestedCoins == 120 && streak.WinningStreak == 4 &&
+              loss.RequestedCoins == 5 && loss.WinningStreak == 0 && !incomplete.HasAward,
+              "pure reward policy: base, streak, consolation, incomplete ticket", ref errors);
     }
 
     private static void Check(bool condition, string description, ref int errors)

@@ -228,44 +228,14 @@ public sealed class ScratchSymbolManager : MonoBehaviour
         if (selectedCells == null)
             return new MatchResult(MatchTier.None, string.Empty, 0);
 
-        Dictionary<int, int> counts = new Dictionary<int, int>();
-        int bestSymbol = -1;
-        int bestCount = 0;
-        int scratchedJollies = 0;
+        return ScratchMatchEvaluator.Evaluate(RevealedSymbols(selectedCells), JollyId, symbolLabels);
+    }
 
+    private IEnumerable<int> RevealedSymbols(IEnumerable<ScratchCell> selectedCells)
+    {
         foreach (ScratchCell cell in selectedCells)
-        {
-            if (cell == null || !cell.IsComplete || !currentSymbols.TryGetValue(cell, out int symbol))
-                continue;
-
-            if (symbol == JollyId)
-            {
-                scratchedJollies++;
-                continue;
-            }
-            counts.TryGetValue(symbol, out int count);
-            count++;
-            counts[symbol] = count;
-
-            if (count > bestCount)
-            {
-                bestCount = count;
-                bestSymbol = symbol;
-            }
-        }
-
-        // A scratched joker counts as the strongest other revealed symbol,
-        // but the un-scratched joker never counts.
-        if (bestSymbol >= 0) bestCount += scratchedJollies;
-        MatchTier tier = bestCount >= 5 ? MatchTier.Five
-            : bestCount == 4 ? MatchTier.Poker
-            : bestCount == 3 ? MatchTier.Triple
-            : bestCount == 2 ? MatchTier.Pair
-            : MatchTier.None;
-
-        return new MatchResult(tier,
-            tier == MatchTier.None || bestSymbol < 0 ? string.Empty : symbolLabels[bestSymbol],
-            bestCount);
+            if (cell != null && cell.IsComplete && currentSymbols.TryGetValue(cell, out int symbol))
+                yield return symbol;
     }
 
 #if UNITY_EDITOR

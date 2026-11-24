@@ -29,6 +29,12 @@ def read_csv(path):
         return list(csv.DictReader(handle, delimiter=";"))
 
 
+def read_script(relative):
+    path = ROOT / "Assets/Scripts" / relative
+    files = [path] + sorted(path.parent.glob(path.stem + ".*.cs"))
+    return "\n".join(item.read_text(encoding="utf-8-sig") for item in files)
+
+
 def check_static():
     catalog = json.loads((ROOT / "Assets/Resources/SkillCatalogV2.json").read_text(encoding="utf-8-sig"))
     skills = catalog["skills"]
@@ -45,7 +51,7 @@ def check_static():
         check(skill_id in by_id and by_id[skill_id]["prerequisites"] == prereq,
               "Changed prerequisites for " + skill_id)
 
-    code = (ROOT / "Assets/Scripts/Editor/ScratchAutoplayWindow.cs").read_text(encoding="utf-8-sig")
+    code = read_script("Editor/ScratchAutoplayWindow.cs")
     start = code.find("private static readonly ScratchSkillTree.SkillId[] FullDemoPlan =")
     end = code.find("private bool IsFullDemo", start)
     check(start != -1 and end != -1, "FullDemoPlan is missing")
@@ -71,8 +77,8 @@ def check_static():
           all(plan.index(a) < plan.index(b) for a, b in zip(sequence, sequence[1:])),
           "Major upgrade sequence changed")
 
-    game = (ROOT / "Assets/Scripts/ScratchGameManager.cs").read_text(encoding="utf-8-sig")
-    cell = (ROOT / "Assets/Scripts/ScratchCell.cs").read_text(encoding="utf-8-sig")
+    game = read_script("ScratchGameManager.cs")
+    cell = read_script("ScratchCell.cs")
     check("FinalGoldPayoutTarget = 3800" in game and
           "FinalGoldMinTickets = 8" in game and
           "FinalChallengeComplete(" in game and
@@ -96,8 +102,8 @@ def check_static():
     check(by_id["C11"]["maxLevel"] == 2 and by_id["C11"]["demoEligible"]
           and by_id["C11"]["phase"].startswith("Demo"),
           "C11 two-level global perk must be available in demo")
-    radial = (ROOT / "Assets/Scripts/ScratchRadialProgression.cs").read_text(encoding="utf-8-sig")
-    ui = (ROOT / "Assets/Scripts/ScratchSkillTreeUI.cs").read_text(encoding="utf-8-sig")
+    radial = read_script("ScratchRadialProgression.cs")
+    ui = read_script("ScratchSkillTreeUI.cs")
     scene = (ROOT / "Assets/Scenes/ScratchToRiches.unity").read_text(encoding="utf-8-sig")
     check("ChapterOf(string id)" in radial and "UnlockedChapter(" in radial and
           "CompletedByTier(" in radial, "Radial chapter milestones missing")
@@ -108,15 +114,15 @@ def check_static():
           "TicketGoalMet(" in radial and "SkillGoal(" in radial,
           "Progressive Fortunato/Gold chapter milestone gates missing")
     check("ScratchRadialProgression.Available(" in
-          (ROOT / "Assets/Scripts/ScratchSkillTree.cs").read_text(encoding="utf-8-sig"),
+          read_script("ScratchSkillTree.cs"),
           "Purchase authority bypasses radial chapters")
-    navigation = (ROOT / "Assets/Scripts/ScratchRadialMapNavigation.cs").read_text(encoding="utf-8-sig")
-    node = (ROOT / "Assets/Scripts/ScratchHoldToBuy.cs").read_text(encoding="utf-8-sig")
+    navigation = read_script("ScratchRadialMapNavigation.cs")
+    node = read_script("ScratchHoldToBuy.cs")
     check("OnScroll(PointerEventData data)" in navigation and
           "OnDrag(PointerEventData data)" in navigation and
           "CenterOn(Vector2 positionInContent)" in navigation,
           "Single map lost pan/zoom or centering")
-    audit = (ROOT / "Assets/Scripts/Editor/ScratchV2SceneAudit.cs").read_text(encoding="utf-8-sig")
+    audit = read_script("Editor/ScratchV2SceneAudit.cs")
     check("navigation.GetComponentsInChildren<ScratchHoldToBuy>(true)" in ui,
           "Map node discovery must use the authored shop viewport, not manager hierarchy")
     check("Object.FindAnyObjectByType<ScratchRadialLinks>(FindObjectsInactive.Include)" in audit and
@@ -197,7 +203,7 @@ def check_static():
               "m_SizeDelta: {x: 116, y: 116}" in rect,
               "Node not a square inside map: " + skill_id)
 
-    nav = (ROOT / "Assets/Scripts/ScratchRadialMapNavigation.cs").read_text(encoding="utf-8-sig")
+    nav = read_script("ScratchRadialMapNavigation.cs")
     check("RectTransformUtility.ScreenPointToLocalPointInRectangle" in nav and
           "CancelForMapPan()" in nav, "Map drag and hold safety missing")
 
@@ -205,9 +211,9 @@ def check_static():
 
     # Human playtest capture must stay separate from bot-driven QA and not
     # alter game rules or exceed the upload-safe recording profile.
-    manual = (ROOT / "Assets/Scripts/Editor/ScratchManualPlaytestRecorderWindow.cs").read_text(encoding="utf-8-sig")
-    telemetry = (ROOT / "Assets/Scripts/ScratchManualTelemetry.cs").read_text(encoding="utf-8-sig")
-    recorder = (ROOT / "Assets/Scripts/Editor/ScratchAutoplayMovieRecorder.cs").read_text(encoding="utf-8-sig")
+    manual = read_script("Editor/ScratchManualPlaytestRecorderWindow.cs")
+    telemetry = read_script("ScratchManualTelemetry.cs")
+    recorder = read_script("Editor/ScratchAutoplayMovieRecorder.cs")
     check("Registra partita manuale" in manual and
           "ScratchAutoplayWindow.AnyTestRunning" in manual and
           "ScratchManualTelemetry.Logged += OnGameEvent" in manual and
@@ -225,17 +231,18 @@ def check_static():
           "FrameRatePlayback.Variable" in recorder and
           "TargetBitRate" in recorder,
           "Manual video must be compact, segmented, time-true and size checked")
-    mapui = (ROOT / "Assets/Scripts/ScratchSkillTreeUI.cs").read_text(encoding="utf-8-sig")
+    mapui = read_script("ScratchSkillTreeUI.cs")
     check("JumpToNextPurchase" in mapui and
           "purchasableIds.Sort(ComparePurchasable)" in mapui and
           "availableJumpButton.onClick.AddListener(JumpToNextPurchase)" in mapui and
           "Input.GetKeyDown(KeyCode.Tab)" in mapui and
-          "outline.effectColor" in mapui and
+          "ScratchSkillMapNodeView.Render(" in mapui and
+          "outline.effectColor" in read_script("ScratchSkillMapNodeView.cs") and
           "skills.CanPurchase(e.id)" in mapui and
           "ORA PUOI COMPRARE" in mapui,
           "Human radial map must make actually affordable upgrades findable")
-    game_src = (ROOT / "Assets/Scripts/ScratchGameManager.cs").read_text(encoding="utf-8-sig")
-    flow_src = (ROOT / "Assets/Scripts/ScratchFlowPresentation.cs").read_text(encoding="utf-8-sig")
+    game_src = read_script("ScratchGameManager.cs")
+    flow_src = read_script("ScratchFlowPresentation.cs")
     check("FinishTicket(RoundEndReason.PlayerEnded)" not in game_src and
           'ticketActive ? "COMPLETA LE GRATTATE"' in game_src and
           "roundActionButton.interactable = state == RoundState.Ready;" in game_src and
@@ -243,6 +250,13 @@ def check_static():
           "Human tickets must not allow early exit that skips chapter milestone credit")
     check("navigation.SetZoom(Mathf.Max(navigation.Zoom, 0.95f)" in mapui,
           "Affordable-node finder must zoom in enough to inspect the node")
+    check("ScratchRewardPolicy.Calculate(" in read_script("ScratchEconomyManager.cs") and
+          "ScratchMatchEvaluator.Evaluate(" in read_script("ScratchSymbolManager.cs"),
+          "Runtime domain adapters must delegate to deterministic rules")
+    check("UnityEngine" not in read_script("ScratchRewardPolicy.cs") and
+          "PlayerPrefs" not in read_script("ScratchRewardPolicy.cs") and
+          "UnityEngine" not in read_script("ScratchMatchEvaluator.cs"),
+          "Pure reward/match policies must not depend on scene state")
     check("public static event Action<string, string> Logged;" in telemetry and
           "public static void Emit(" in telemetry,
           "Manual event bus missing")
@@ -254,15 +268,15 @@ def check_static():
         "ScratchSkillTreeUI.cs": ["SKILL_HOVER"],
         "ScratchRadialMapNavigation.cs": ["MAP_PAN", "MAP_ZOOM"],
     }.items():
-        source = (ROOT / "Assets/Scripts" / script).read_text(encoding="utf-8-sig")
+        source = read_script(script)
         check(all('ScratchManualTelemetry.Emit("' + name + '"' in source for name in events),
               "Human telemetry hook missing from " + script)
     check(not (ROOT / "Assets/Scripts/Editor/ScratchCellManagerEditor.cs").exists(),
           "Obsolete Inspector reset tool is still present")
     check('Test strategia anteprime")' not in
-          (ROOT / "Assets/Scripts/Editor/ScratchAutoplayPreviewStrategy.cs").read_text(encoding="utf-8-sig") and
+          read_script("Editor/ScratchAutoplayPreviewStrategy.cs") and
           'Test riserva biglietti autoplay")' not in
-          (ROOT / "Assets/Scripts/Editor/ScratchAutoplayWindow.cs").read_text(encoding="utf-8-sig"),
+          read_script("Editor/ScratchAutoplayWindow.cs"),
           "Redundant test menus were not hidden")
 
 
