@@ -14,6 +14,8 @@ using UnityEngine;
 public sealed class ScratchManualPlaytestRecorderWindow : EditorWindow
 {
     private const int SegmentSeconds = 30 * 60;
+    // Show the actual last-ticket reward and end screen in the recorded video.
+    private const float FinaleVideoHoldSeconds = 10f;
     private const int VideoHeight = 720;
     private const int VideoFps = 24;
     private const float VideoMbps = 1.5f;
@@ -51,6 +53,7 @@ public sealed class ScratchManualPlaytestRecorderWindow : EditorWindow
     private int startedTickets;
     private int purchasedSkills;
     private float finalDurationSeconds;
+    private float finaleDetectedAt = -1f;
     private int hoveredSkills;
     private int inspectedCells;
     private int manualTitanUses;
@@ -163,6 +166,7 @@ public sealed class ScratchManualPlaytestRecorderWindow : EditorWindow
             inspectedCells = manualTitanUses = scratchedJokers = 0;
         startTime = Time.realtimeSinceStartup;
         finalDurationSeconds = 0f;
+        finaleDetectedAt = -1f;
         nextHeartbeat = startTime + 15f;
         lastPauseState = EditorApplication.isPaused;
         awaitingVideoFinalization = false;
@@ -259,8 +263,18 @@ public sealed class ScratchManualPlaytestRecorderWindow : EditorWindow
             }
             if (game.DemoFinished)
             {
-                StopSession("Finale demo completato");
-                return;
+                if (finaleDetectedAt < 0f)
+                {
+                    finaleDetectedAt = Time.realtimeSinceStartup;
+                    WriteEvent("DEMO_END_VISIBLE", "video_hold_seconds=" + FinaleVideoHoldSeconds);
+                    status = "FINALE RAGGIUNTO - registro altri 10 secondi per analizzare la schermata";
+                    Repaint();
+                }
+                if (Time.realtimeSinceStartup - finaleDetectedAt >= FinaleVideoHoldSeconds)
+                {
+                    StopSession("Finale demo completato e mostrato per 10 secondi");
+                    return;
+                }
             }
 
             bool paused = EditorApplication.isPaused;
