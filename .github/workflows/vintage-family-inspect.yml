@@ -1,0 +1,21 @@
+name: Vintage ticket asset geometry
+on:
+  push:
+    branches: [feature/radial-skill-tree-unity]
+    paths: ['QA/S02/inspect_family.py','.github/workflows/vintage-family-inspect.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install Pillow==11.3.0 numpy==2.2.6
+      - run: mkdir geometry && python QA/S02/inspect_family.py | tee geometry/report.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ticket-geometry
+          path: geometry/
