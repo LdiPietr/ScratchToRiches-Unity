@@ -2,7 +2,7 @@ name: Vintage ticket integration
 on:
   push:
     branches: [feature/radial-skill-tree-unity]
-    paths: ['Assets/Scenes/ScratchTicketLab.unity','Assets/Scenes/ScratchToRiches.unity','Assets/Scripts/ScratchCell*','Assets/Art/UI/VintageLottery/**','Design/S02/vintage-layout.json','QA/S02/test_vintage_family.py','.github/workflows/vintage-integration.yml']
+    paths: ['Assets/Scenes/ScratchTicketLab.unity','Assets/Scenes/ScratchToRiches.unity','Assets/Scripts/ScratchCell*','Assets/Art/UI/VintageLottery/**','Design/S02/vintage-layout.json','QA/S02/test_vintage_family.py','QA/S02/test_gameplay_hud.py','Assets/Scripts/ScratchVintageGameplayHUD.cs','.github/workflows/vintage-integration.yml']
 permissions:
   contents: read
 jobs:

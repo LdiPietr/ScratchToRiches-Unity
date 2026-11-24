@@ -12,7 +12,13 @@ for b in re.split(r"(?=^--- !u!\d+ &\d+)", scene, flags=re.M):
     cls, id = match.groups()
     assert id not in blocks, id
     # Parse each Unity object independently; strip the Unity tag/header.
-    data = yaml.safe_load(b.split("\n", 1)[1])
+    # Unity emits a bare dash for some legacy TMP placeholder strings.
+    # Normalize this one Unity scalar for the external YAML parser, not the scene.
+    body = re.sub(r"^  m_text: -$", '  m_text: "-"', b.split("\n", 1)[1], flags=re.M)
+    try:
+        data = yaml.safe_load(body)
+    except yaml.YAMLError as exc:
+        raise AssertionError(f"Unity object {id}, class {cls}: {exc}") from exc
     blocks[id] = (cls, next(iter(data.values())))
 assert len([x for x in blocks.values() if x[0] == "1" and re.fullmatch(r"Cell_\d+", x[1].get("m_Name",""))]) == 25
 assert len([x for x in blocks.values() if x[0] == "1" and x[1].get("m_Name","").startswith("MapSkillNode_")]) == 90
@@ -40,7 +46,7 @@ for id,(cls,b) in blocks.items():
         p = str(b["m_Father"]["fileID"])
         if p != "0":
             assert int(id) in [c["fileID"] for c in blocks[p][1]["m_Children"]], (id,p)
-        for c in b["m_Children"]:
+        for c in (b["m_Children"] or []):
             assert blocks[str(c["fileID"])][1]["m_Father"]["fileID"] == int(id)
     if cls == "1":
         for c in b["m_Component"]:
