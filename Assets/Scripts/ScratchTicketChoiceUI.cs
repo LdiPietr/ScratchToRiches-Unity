@@ -114,7 +114,7 @@ public sealed class ScratchTicketChoiceUI : MonoBehaviour
             if (actionLabels[i] != null)
             {
                 actionLabels[i].text = !unlocked ? $"BLOCCATO\n<size=17>Sblocca {UnlockIds[i]}</size>"
-                    : !affordable ? "MONETE INSUFFICIENTI" : "SELEZIONA";
+                    : !affordable ? "MONETE\nINSUFFICIENTI" : "SELEZIONA";
                 actionLabels[i].color = unlocked && affordable ? Dark : Cream;
             }
             if (actionBackgrounds[i] != null)
