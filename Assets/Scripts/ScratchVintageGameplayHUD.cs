@@ -85,7 +85,8 @@ public sealed class ScratchVintageGameplayHUD : MonoBehaviour
         int buyable = 0;
         foreach (var entry in skills.Catalog)
             if (skills.CanPurchase(entry.id)) buyable++;
-        Set(available, buyable == 1 ? "1 acquistabile" : buyable + " acquistabili");
+        Set(available, game.TicketActive ? "Completa il biglietto" :
+            buyable == 1 ? "1 acquistabile" : buyable + " acquistabili");
         Set(pairRule, max >= 4 ? "Coppia ×2\nPoker ×4" : "Coppia ×2");
         Set(tripleRule, max >= 5 ? "Tris ×3\nCinquina ×5" : "Tris ×3");
         if (pairRule != null) pairRule.rectTransform.sizeDelta = new Vector2(230, max >= 4 ? 78 : 46);
