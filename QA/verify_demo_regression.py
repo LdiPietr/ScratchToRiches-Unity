@@ -213,6 +213,10 @@ def check_static():
           "ScratchManualTelemetry.Logged += OnGameEvent" in manual and
           "ScratchManualTelemetry.Logged -= OnGameEvent" in manual,
           "Manual recording must have independent opt-in lifecycle")
+    check("FinaleVideoHoldSeconds = 10f" in manual and
+          'WriteEvent("DEMO_END_VISIBLE"' in manual and
+          "Time.realtimeSinceStartup - finaleDetectedAt >= FinaleVideoHoldSeconds" in manual,
+          "End screen must remain on camera for ten seconds after demo completion")
     check("SegmentSeconds = 30 * 60" in manual and
           "EarlyRotateBytes = 350L * 1024L * 1024L" in manual and
           "SafePartBytes = 400L * 1024L * 1024L" in manual and
