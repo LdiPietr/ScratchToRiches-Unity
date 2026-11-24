@@ -1,0 +1,28 @@
+name: S02 Vintage Lottery asset pack
+on:
+  push:
+    branches: [feature/radial-skill-tree-unity]
+    paths: ["Design/S02/**", ".github/workflows/s02-asset-pack.yml"]
+permissions:
+  contents: read
+jobs:
+  export-and-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install reproducible raster tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libcairo2 fonts-liberation2
+          pip install cairosvg==2.7.1 Pillow==11.3.0
+      - name: Export and validate assets
+        run: python Design/S02/build_pack.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Scratchaholic-S02-Pack1
+          path: S02-Pack/
+          if-no-files-found: error
+          retention-days: 30
