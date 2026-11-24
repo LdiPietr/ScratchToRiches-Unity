@@ -1,0 +1,427 @@
+{
+  "productionScale": 0.94,
+  "tiers": [
+    {
+      "n": "Classico",
+      "size": [
+        704,
+        800
+      ],
+      "cell": [
+        184,
+        140
+      ],
+      "coverSize": [
+        172,
+        128
+      ],
+      "symbol": 108,
+      "centers": [
+        [
+          156,
+          344
+        ],
+        [
+          352,
+          344
+        ],
+        [
+          548,
+          344
+        ],
+        [
+          156,
+          494
+        ],
+        [
+          352,
+          494
+        ],
+        [
+          548,
+          494
+        ],
+        [
+          156,
+          644
+        ],
+        [
+          352,
+          644
+        ],
+        [
+          548,
+          644
+        ]
+      ],
+      "artwork": "Classico/Ticket",
+      "frame": "Classico/Cell_Frame",
+      "revealed": "Classico/Cell_Revealed",
+      "cover": "Classico/ScratchCover",
+      "mask": null
+    },
+    {
+      "n": "Fortunato",
+      "size": [
+        780,
+        816
+      ],
+      "cell": [
+        168,
+        134
+      ],
+      "coverSize": [
+        168,
+        134
+      ],
+      "symbol": 94,
+      "centers": [
+        [
+          120,
+          258
+        ],
+        [
+          300,
+          258
+        ],
+        [
+          480,
+          258
+        ],
+        [
+          660,
+          258
+        ],
+        [
+          120,
+          402
+        ],
+        [
+          300,
+          402
+        ],
+        [
+          480,
+          402
+        ],
+        [
+          660,
+          402
+        ],
+        [
+          120,
+          546
+        ],
+        [
+          300,
+          546
+        ],
+        [
+          480,
+          546
+        ],
+        [
+          660,
+          546
+        ],
+        [
+          120,
+          690
+        ],
+        [
+          300,
+          690
+        ],
+        [
+          480,
+          690
+        ],
+        [
+          660,
+          690
+        ]
+      ],
+      "artwork": "Fortunato/Ticket",
+      "frame": "Fortunato/Cell_Frame",
+      "revealed": "Fortunato/Cell_Revealed",
+      "cover": "Fortunato/ScratchCover",
+      "mask": "Fortunato/ScratchMask"
+    },
+    {
+      "n": "Dorato",
+      "size": [
+        830,
+        834
+      ],
+      "cell": [
+        112,
+        112
+      ],
+      "coverSize": [
+        112,
+        112
+      ],
+      "symbol": 62,
+      "centers": [
+        [
+          183,
+          252
+        ],
+        [
+          299,
+          252
+        ],
+        [
+          415,
+          252
+        ],
+        [
+          531,
+          252
+        ],
+        [
+          647,
+          252
+        ],
+        [
+          183,
+          368
+        ],
+        [
+          299,
+          368
+        ],
+        [
+          415,
+          368
+        ],
+        [
+          531,
+          368
+        ],
+        [
+          647,
+          368
+        ],
+        [
+          183,
+          484
+        ],
+        [
+          299,
+          484
+        ],
+        [
+          415,
+          484
+        ],
+        [
+          531,
+          484
+        ],
+        [
+          647,
+          484
+        ],
+        [
+          183,
+          600
+        ],
+        [
+          299,
+          600
+        ],
+        [
+          415,
+          600
+        ],
+        [
+          531,
+          600
+        ],
+        [
+          647,
+          600
+        ],
+        [
+          183,
+          716
+        ],
+        [
+          299,
+          716
+        ],
+        [
+          415,
+          716
+        ],
+        [
+          531,
+          716
+        ],
+        [
+          647,
+          716
+        ]
+      ],
+      "artwork": "Dorato/Ticket",
+      "frame": "Dorato/Cell_Frame",
+      "revealed": "Dorato/Cell_Revealed",
+      "cover": "Dorato/ScratchCover",
+      "mask": "Dorato/ScratchMask"
+    },
+    {
+      "n": "Diamante",
+      "size": [
+        880,
+        844
+      ],
+      "cell": [
+        112,
+        130
+      ],
+      "coverSize": [
+        112,
+        130
+      ],
+      "symbol": 64,
+      "centers": [
+        [
+          326,
+          270
+        ],
+        [
+          440,
+          270
+        ],
+        [
+          554,
+          270
+        ],
+        [
+          155,
+          370
+        ],
+        [
+          269,
+          370
+        ],
+        [
+          383,
+          370
+        ],
+        [
+          497,
+          370
+        ],
+        [
+          611,
+          370
+        ],
+        [
+          725,
+          370
+        ],
+        [
+          98,
+          470
+        ],
+        [
+          212,
+          470
+        ],
+        [
+          326,
+          470
+        ],
+        [
+          440,
+          470
+        ],
+        [
+          554,
+          470
+        ],
+        [
+          668,
+          470
+        ],
+        [
+          782,
+          470
+        ],
+        [
+          155,
+          570
+        ],
+        [
+          269,
+          570
+        ],
+        [
+          383,
+          570
+        ],
+        [
+          497,
+          570
+        ],
+        [
+          611,
+          570
+        ],
+        [
+          725,
+          570
+        ],
+        [
+          326,
+          670
+        ],
+        [
+          440,
+          670
+        ],
+        [
+          554,
+          670
+        ]
+      ],
+      "artwork": "Diamante/Ticket",
+      "frame": "Diamante/Cell_Frame",
+      "revealed": "Diamante/Cell_Revealed",
+      "cover": "Diamante/ScratchCover",
+      "mask": "Diamante/ScratchMask"
+    }
+  ],
+  "guids": {
+    "Fortunato/Ticket": "c34a20ffcdd354af81786a3786d564eb",
+    "Fortunato/Cell_Frame": "5bfecce1310958eeb7d1774a9cf20b05",
+    "Fortunato/Cell_Revealed": "6675acc75140523cb77e3c02f6229389",
+    "Fortunato/ScratchCover": "26caa8c3e012532c8f5c92f8babeb52c",
+    "Fortunato/ScratchMask": "001ce25377dc55759c44508c7c640c27",
+    "Dorato/Ticket": "47a0f3e2dceb587a8b0ac7ba3bf54265",
+    "Dorato/Cell_Frame": "ae7da2c96e1051eab00ecdfaa7e22e8d",
+    "Dorato/Cell_Revealed": "ea97274634325a08ba82bdd4a432bda4",
+    "Dorato/ScratchCover": "7503311189c7537a8661e4151500d709",
+    "Dorato/ScratchMask": "e6b280e1541d56bb96972b581c94ad38",
+    "Diamante/Ticket": "166c9aba091956f4b7753d767b2c0f0a",
+    "Diamante/Cell_Frame": "75315d9c9b475f668df9b3fe82f42a5d",
+    "Diamante/Cell_Revealed": "e767379657c85af7853760365b128a22",
+    "Diamante/ScratchCover": "5b19d9b38e615b8291d6fe7e7f9fd1b0",
+    "Diamante/ScratchMask": "688697f71ebe5c0b93689dfaf38de932",
+    "Classico/Ticket": "d22bef3a692b5db58927f4aa4a8dc966",
+    "Classico/Cell_Frame": "ba71e74ae4df5019bcb31b9492ae6dc2",
+    "Classico/Cell_Revealed": "517957130d8758f38822fa675f6c036c",
+    "Classico/ScratchCover": "48b9d3dcac225a4c9fd120c07208face",
+    "sym_lucky7": "bd544be813b152b4abe13050cce5a709",
+    "sym_coin": "24ef8df73d9b54c2a7a95668bb908859",
+    "sym_diamond": "ab182c8e288f5d4c97c6c01b0cd39e91",
+    "sym_star": "04b9001cc49e56559da8295ee7588905",
+    "sym_crown": "70a2e481026850348f77e56e34125098",
+    "sym_clover": "fda45b5ac72d5be3817b4161b07c8419",
+    "sym_coinbag": "382daef8eac3504db2025918d44996d7",
+    "Background": "4c20b8ed2efc5ff4ac78b301a8128767",
+    "Logo": "36478a58fbf55aa180d761f01f368c24"
+  }
+}
