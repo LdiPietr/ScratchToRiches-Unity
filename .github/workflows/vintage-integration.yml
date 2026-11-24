@@ -13,7 +13,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: pip install Pillow==11.3.0 numpy==2.2.6
+      - run: pip install Pillow==11.3.0 numpy==2.2.6 pyyaml==6.0.2
       - run: python QA/S02/test_vintage_family.py
+      - name: Validate authored gameplay HUD YAML and references
+        run: python QA/S02/test_gameplay_hud.py
       - run: python QA/verify_demo_regression.py
       - run: python QA/test_pick_economy.py

@@ -4958,9 +4958,9 @@ MonoBehaviour:
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
-  m_fontColor32: {serializedVersion: 2, rgba: 4281152288}
+  m_fontColor32:
     serializedVersion: 2
-    rgba: 4294180828
+    rgba: 4281217824
   m_fontColor: {r: 0.125, g: 0.2, b: 0.18, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
