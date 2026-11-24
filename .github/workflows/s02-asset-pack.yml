@@ -2,7 +2,7 @@ name: S02 Vintage Lottery asset pack
 on:
   push:
     branches: [feature/radial-skill-tree-unity]
-    paths: ["Design/S02/**", ".github/workflows/s02-asset-pack.yml"]
+    paths: ["Design/S02/build_pack.py", ".github/workflows/s02-asset-pack.yml"]
 permissions:
   contents: read
 jobs:

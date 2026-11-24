@@ -1,0 +1,19 @@
+name: Vintage ticket integration
+on:
+  push:
+    branches: [feature/radial-skill-tree-unity]
+    paths: ['Assets/Scenes/ScratchTicketLab.unity','Assets/Scenes/ScratchToRiches.unity','Assets/Scripts/ScratchCell*','Assets/Art/UI/VintageLottery/**','Design/S02/vintage-layout.json','QA/S02/test_vintage_family.py','.github/workflows/vintage-integration.yml']
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install Pillow==11.3.0 numpy==2.2.6
+      - run: python QA/S02/test_vintage_family.py
+      - run: python QA/verify_demo_regression.py
+      - run: python QA/test_pick_economy.py
