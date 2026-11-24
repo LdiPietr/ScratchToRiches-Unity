@@ -1,0 +1,44 @@
+name: S02 visual polish
+on:
+  push:
+    branches: [feature/radial-skill-tree-unity]
+    paths: ["QA/S02/refine_s02.py", ".github/workflows/s02-visual-polish.yml"]
+permissions:
+  contents: write
+jobs:
+  polish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install raster dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y fonts-liberation2
+          pip install Pillow==11.3.0 numpy==2.2.6
+      - name: Export and validate only the three updated PNGs
+        run: |
+          mkdir -p S02-Polish
+          python QA/S02/refine_s02.py | tee S02-Polish/checks.json
+          for path in Branding/Logo_HUD Ticket/Ticket_Classic Ticket/ScratchCover_Classic; do
+            cp --parents "Assets/Art/UI/S02_Classic/$path.png" S02-Polish/
+            cp --parents "Assets/Art/UI/S02_Classic/$path.png.meta" S02-Polish/
+          done
+          git diff --exit-code -- '*.meta'
+          test "$(git diff --name-only | wc -l)" -eq 3
+      - uses: actions/upload-artifact@v4
+        with:
+          name: S02-Polish-Validated
+          path: S02-Polish/
+          if-no-files-found: error
+      - name: Publish checked sprites to the same branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Assets/Art/UI/S02_Classic/Branding/Logo_HUD.png Assets/Art/UI/S02_Classic/Ticket/Ticket_Classic.png Assets/Art/UI/S02_Classic/Ticket/ScratchCover_Classic.png
+          git commit -m "Polish S02 printed artwork without changing dimensions or GUIDs"
+          git push origin HEAD:refs/heads/feature/radial-skill-tree-unity
