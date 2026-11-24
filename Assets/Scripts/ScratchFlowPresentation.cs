@@ -69,7 +69,7 @@ public sealed partial class ScratchFlowPresentation : MonoBehaviour
         if (curtainRect != null) curtainHome = curtainRect.anchoredPosition;
 
         if (ticketArtwork != null && ticketArtworkSprites != null &&
-            ticketArtworkSprites.Length == 3)
+            ticketArtworkSprites.Length >= 3)
             ticketArtwork.sprite = ticketArtworkSprites[0];
         ApplyCellFrames(ScratchGameManager.TicketKind.Standard);
         UpdateTicketTypeLabel(ScratchGameManager.TicketKind.Standard);
@@ -161,7 +161,7 @@ public sealed partial class ScratchFlowPresentation : MonoBehaviour
         int index = Mathf.Clamp((int)kind, 0, 2);
         if (cellFrameSprites == null || cellFrameSprites.Length != 3) return;
         ScratchCellManager manager = GetComponent<ScratchCellManager>();
-        if (manager == null) return;
+        if (manager == null || manager.HasVintageArt) return;
         foreach (ScratchCell cell in manager.ActiveCells)
         {
             Image frame = cell.GetComponent<Image>();

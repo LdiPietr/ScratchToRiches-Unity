@@ -7,7 +7,7 @@ using TMPro;
 /// UI pointer handling and scratch-mask state for one cell.
 /// Scratch settings are owned exclusively by ScratchCellManager on the Canvas.
 /// </summary>
-public sealed partial class ScratchCell : MonoBehaviour, IPointerDownHandler, IDragHandler, IPointerUpHandler
+public sealed partial class ScratchCell : MonoBehaviour, IPointerDownHandler, IDragHandler, IPointerUpHandler, ICanvasRaycastFilter
 {
     [SerializeField] private RawImage scratchImage;
     // Author-time UI Image under the grattable RawImage. Legacy TMP fallback stays optional.
@@ -20,6 +20,9 @@ public sealed partial class ScratchCell : MonoBehaviour, IPointerDownHandler, ID
     private RectTransform scratchRect;
     private Texture2D scratchTexture;
     private bool[] erasedPixels;
+    private bool[] scratchablePixels;
+    private int scratchablePixelCount;
+    [SerializeField] private Image vintageRevealedBackground;
     private int erasedPixelCount;
     private bool pointerDown;
     private int activePointerId;
@@ -137,9 +140,10 @@ public sealed partial class ScratchCell : MonoBehaviour, IPointerDownHandler, ID
             // BEHIND the coating, never above it or hidden symbols would leak.
             indexText.transform.SetSiblingIndex(1);
             indexText.rectTransform.anchoredPosition = Vector2.zero;
-            indexText.rectTransform.sizeDelta = new Vector2(132f, 60f);
+            Vector2 bounds = scratchImage != null ? scratchImage.rectTransform.rect.size : new Vector2(124f,124f);
+            indexText.rectTransform.sizeDelta = new Vector2(bounds.x * .72f, bounds.y * .36f);
             indexText.alignment = TMPro.TextAlignmentOptions.Center;
-            indexText.fontSize = 32f;
+            indexText.fontSize = Mathf.Min(bounds.x, bounds.y) * .25f;
             indexText.color = new Color(1f, 0.71f, 0.12f, 1f);
         }
         indexText.gameObject.SetActive(jolly && !preparingTicket);
@@ -148,7 +152,7 @@ public sealed partial class ScratchCell : MonoBehaviour, IPointerDownHandler, ID
     public float RevealedPercentage =>
         erasedPixels == null || erasedPixels.Length == 0
             ? 0f
-            : completed ? 100f : (100f * erasedPixelCount / erasedPixels.Length);
+            : completed ? 100f : (100f * erasedPixelCount / Mathf.Max(1, scratchablePixelCount));
 
     public void SetManager(ScratchCellManager owner)
     {
@@ -214,6 +218,19 @@ public sealed partial class ScratchCell : MonoBehaviour, IPointerDownHandler, ID
             return;
         }
 
+        scratchablePixels = new bool[count];
+        scratchablePixelCount = 0;
+        for (int i = 0; i < count; i++)
+        {
+            scratchablePixels[i] = pixels[i].a >= 128;
+            if (scratchablePixels[i]) scratchablePixelCount++;
+        }
+        if (scratchablePixelCount == 0)
+        {
+            Debug.LogError("ScratchCell: empty scratchable shape.", this);
+            enabled = false;
+            return;
+        }
         scratchTexture.SetPixels32(pixels);
         scratchTexture.Apply(false);
 

@@ -52,7 +52,7 @@ public sealed partial class ScratchGameManager
         // This prevents the prior or next ticket's symbols from flashing while
         // the coating textures and sprites are being replaced.
         cellManager.BeginTicketVisualPreparation();
-        if (!cellManager.ConfigureGrid(TicketSide(kind)))
+        if (!cellManager.ConfigureGrid(TicketSide(kind), kind))
         {
             cellManager.EndTicketVisualPreparation();
             return false;

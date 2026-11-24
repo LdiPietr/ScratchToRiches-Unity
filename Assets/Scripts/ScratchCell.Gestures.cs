@@ -47,7 +47,7 @@ public sealed partial class ScratchCell
             return false;
         if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
                 scratchRect, eventData.position, eventData.pressEventCamera, out Vector2 local) ||
-            !scratchRect.rect.Contains(local))
+            !scratchRect.rect.Contains(local) || !ContainsScratchPoint(eventData.position, eventData.pressEventCamera))
             return false;
         hasPreviousPixel = false;
         EraseRoutine(eventData);

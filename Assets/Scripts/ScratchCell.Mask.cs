@@ -24,6 +24,15 @@ public sealed partial class ScratchCell
             return;
         }
 
+        int size = scratchTexture.width;
+        int pixelX = Mathf.Clamp(Mathf.FloorToInt(Mathf.InverseLerp(rect.xMin, rect.xMax, point.x) * size), 0, size - 1);
+        int pixelY = Mathf.Clamp(Mathf.FloorToInt(Mathf.InverseLerp(rect.yMin, rect.yMax, point.y) * size), 0, size - 1);
+        if (!IsScratchablePixel(pixelX, pixelY))
+        {
+            hasPreviousPixel = false;
+            return;
+        }
+
         // Claim a cell only once the pointer actually scratches inside its bounds.
         // Already selected cells remain scratchable until the round ends.
         if (gameManager != null && !gameManager.TrySelectCell(this))
@@ -36,9 +45,6 @@ public sealed partial class ScratchCell
             (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift)))
             ActivateTitanForGesture();
 
-        int size = scratchTexture.width;
-        int pixelX = Mathf.Clamp(Mathf.FloorToInt(Mathf.InverseLerp(rect.xMin, rect.xMax, point.x) * size), 0, size - 1);
-        int pixelY = Mathf.Clamp(Mathf.FloorToInt(Mathf.InverseLerp(rect.yMin, rect.yMax, point.y) * size), 0, size - 1);
         Vector2Int current = new Vector2Int(pixelX, pixelY);
 
         // Interpolate stamps: fast mouse/touch dragging must not skip pixels.
@@ -88,28 +94,34 @@ public sealed partial class ScratchCell
             return;
 
         scratchTexture.Apply(false);
-        if (100f * erasedPixelCount / erasedPixels.Length >= manager.ScratchPercentage)
+        if (100f * erasedPixelCount / Mathf.Max(1, scratchablePixelCount) >= manager.ScratchPercentage)
             Complete();
     }
 
     private bool EraseStamp(int centerX, int centerY, int radius)
     {
-        int radiusSquared = radius * radius;
         int resolution = scratchTexture.width;
+        // Keep an approximately circular brush on screen and equal fractional
+        // removal per stamp on all silhouettes; retain the existing skill radius.
+        float aspect = scratchRect.rect.width / Mathf.Max(1f, scratchRect.rect.height);
+        float area = Mathf.Sqrt((float)scratchablePixelCount / (resolution * resolution));
+        float rx = Mathf.Max(1f, radius * area / Mathf.Sqrt(aspect));
+        float ry = Mathf.Max(1f, radius * area * Mathf.Sqrt(aspect));
+        int extentX = Mathf.CeilToInt(rx), extentY = Mathf.CeilToInt(ry);
         Color32 clear = new Color32(0, 0, 0, 0);
         bool changed = false;
 
-        for (int y = Mathf.Max(0, centerY - radius); y <= Mathf.Min(resolution - 1, centerY + radius); y++)
+        for (int y = Mathf.Max(0, centerY - extentY); y <= Mathf.Min(resolution - 1, centerY + extentY); y++)
         {
             int dy = y - centerY;
-            for (int x = Mathf.Max(0, centerX - radius); x <= Mathf.Min(resolution - 1, centerX + radius); x++)
+            for (int x = Mathf.Max(0, centerX - extentX); x <= Mathf.Min(resolution - 1, centerX + extentX); x++)
             {
                 int dx = x - centerX;
-                if (dx * dx + dy * dy > radiusSquared)
+                if (dx * dx / (rx * rx) + dy * dy / (ry * ry) > 1f)
                     continue;
 
                 int index = y * resolution + x;
-                if (erasedPixels[index])
+                if (!scratchablePixels[index] || erasedPixels[index])
                     continue;
 
                 erasedPixels[index] = true;

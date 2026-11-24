@@ -97,6 +97,9 @@ public sealed partial class ScratchAutoplayWindow
 
     private void EmitPointer(float u, float v)
     {
+        // Start a synthetic drag inside every authored silhouette. Corner
+        // samples on circular/hexagonal foils must not consume a pick.
+        if (!pointerHeld) { u = .5f; v = .5f; }
         RectTransform rt = activeCoating.rectTransform;
         Rect rect = rt.rect;
         Vector3 local = new Vector3(Mathf.Lerp(rect.xMin, rect.xMax, u),

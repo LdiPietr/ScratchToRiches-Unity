@@ -1,5 +1,6 @@
 using UnityEngine;
 using System;
+using UnityEngine.UI;
 
 /// <summary>
 /// Global scratch configuration. Attach this to the Canvas containing the
@@ -7,7 +8,7 @@ using System;
 /// </summary>
 [DisallowMultipleComponent]
 [RequireComponent(typeof(Canvas))]
-public sealed class ScratchCellManager : MonoBehaviour
+public sealed partial class ScratchCellManager : MonoBehaviour
 {
     [Header("Settings shared by ALL cells")]
     [SerializeField, Range(1, 128)]
@@ -31,6 +32,8 @@ public sealed class ScratchCellManager : MonoBehaviour
     [SerializeField] private Sprite premiumCover;
 
     private Sprite activeCover;
+    private Sprite activeMask;
+    private Sprite cachedMask;
     private Sprite cachedSource;
     private int cachedResolution = -1;
     private Color32[] cachedPixels;
@@ -38,8 +41,10 @@ public sealed class ScratchCellManager : MonoBehaviour
     /// <summary>Classic uses brushed foil; Lucky and Golden use premium foil.</summary>
     public void PrepareCoverForTicket(ScratchGameManager.TicketKind kind)
     {
-        activeCover = kind == ScratchGameManager.TicketKind.Standard
-            ? brushedCover : premiumCover;
+        ScratchVintageTicketArt art = GetVintageArt(kind);
+        activeCover = art != null ? art.cover :
+            kind == ScratchGameManager.TicketKind.Standard ? brushedCover : premiumCover;
+        activeMask = art != null ? art.mask : null;
     }
 
     /// <summary>
@@ -51,13 +56,14 @@ public sealed class ScratchCellManager : MonoBehaviour
     {
         Sprite sprite = activeCover != null ? activeCover : brushedCover;
         if (cachedPixels != null && cachedResolution == textureResolution &&
-            cachedSource == sprite)
+            cachedSource == sprite && cachedMask == activeMask)
             return cachedPixels;
 
         int resolution = textureResolution;
         cachedPixels = new Color32[resolution * resolution];
         cachedResolution = resolution;
         cachedSource = sprite;
+        cachedMask = activeMask;
         Color32 backing = coatingColor;
         backing.a = 255;
 
@@ -77,6 +83,13 @@ public sealed class ScratchCellManager : MonoBehaviour
             return cachedPixels;
         }
 
+        if (activeMask != null && (activeMask.texture == null || !activeMask.texture.isReadable))
+        {
+            Debug.LogError("Vintage scratch mask must be readable.", this);
+            return cachedPixels; // fail closed, never turn a missing shaped mask into a rectangle
+        }
+        Color32[] maskPixels = activeMask != null ? activeMask.texture.GetPixels32() : null;
+        Rect maskRect = activeMask != null ? activeMask.textureRect : default;
         Rect rect = sprite.textureRect;
         Color32[] source = texture.GetPixels32();
         int texWidth = texture.width;
@@ -89,6 +102,14 @@ public sealed class ScratchCellManager : MonoBehaviour
             {
                 int sx = Mathf.Clamp(Mathf.FloorToInt(rect.xMin + (x + 0.5f) *
                     rect.width / resolution), 0, texWidth - 1);
+                int index = y * resolution + x;
+                if (maskPixels != null)
+                {
+                    int mw = activeMask.texture.width, mh = activeMask.texture.height;
+                    int mx = Mathf.Clamp(Mathf.FloorToInt(maskRect.xMin + (x + 0.5f) * maskRect.width / resolution), 0, mw - 1);
+                    int my = Mathf.Clamp(Mathf.FloorToInt(maskRect.yMin + (y + 0.5f) * maskRect.height / resolution), 0, mh - 1);
+                    if (maskPixels[my * mw + mx].a < 128) { cachedPixels[index] = new Color32(0, 0, 0, 0); continue; }
+                }
                 Color32 pixel = source[sy * texWidth + sx];
                 float a = pixel.a / 255f;
                 cachedPixels[y * resolution + x] = new Color32(
@@ -173,6 +194,7 @@ public sealed class ScratchCellManager : MonoBehaviour
     private void Awake()
     {
         CollectCells();
+        PrepareCoverForTicket(ScratchGameManager.TicketKind.Standard);
     }
 
     /// <summary>
@@ -209,7 +231,7 @@ public sealed class ScratchCellManager : MonoBehaviour
     }
 
     /// <summary>Activates only authored scene cells. No runtime UI creation.</summary>
-    public bool ConfigureGrid(int side)
+    public bool ConfigureGrid(int side, ScratchGameManager.TicketKind kind = ScratchGameManager.TicketKind.Standard)
     {
         if (side < 3 || side > 5) return false;
         CollectCells();
@@ -221,6 +243,14 @@ public sealed class ScratchCellManager : MonoBehaviour
         }
         if (gridRoot == null) gridRoot = cells[0].transform.parent as RectTransform;
         if (gridRoot == null) return false;
+        PrepareCoverForTicket(kind);
+        ScratchVintageTicketArt art = GetVintageArt(kind);
+        if (HasVintageArt && (art == null || !art.IsValid(required)))
+        {
+            Debug.LogError("Vintage ticket geometry or artwork missing for " + kind, this);
+            return false;
+        }
+        if (art != null) ApplyVintageBoard(art);
         const float total = 532f;
         const float gap = 12f;
         float size = (total - (side - 1) * gap) / side;
@@ -234,9 +264,14 @@ public sealed class ScratchCellManager : MonoBehaviour
                 RectTransform rect = cells[i].GetComponent<RectTransform>();
                 rect.SetParent(gridRoot, false);
                 rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0.5f, 0.5f);
-                rect.anchoredPosition = new Vector2((i % side - (side - 1) * 0.5f) * step,
-                    ((side - 1) * 0.5f - i / side) * step);
-                rect.localScale = Vector3.one * (size / 124f);
+                if (art != null)
+                    cells[i].ApplyVintageVisuals(art, i, vintageScale);
+                else
+                {
+                    rect.anchoredPosition = new Vector2((i % side - (side - 1) * 0.5f) * step,
+                        ((side - 1) * 0.5f - i / side) * step);
+                    rect.localScale = Vector3.one * (size / 124f);
+                }
                 activeCells[i] = cells[i];
             }
             if (cells[i].gameObject.activeSelf != show)
