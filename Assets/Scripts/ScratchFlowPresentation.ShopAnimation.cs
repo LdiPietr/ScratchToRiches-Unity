@@ -8,7 +8,7 @@ public sealed partial class ScratchFlowPresentation
 {
     public void OpenShop()
     {
-        if (ShopOpen || (phase != Phase.Idle && phase != Phase.TicketLive && phase != Phase.Choosing))
+        if (!CanOpenShop)
             return;
 #if UNITY_EDITOR
         ScratchManualTelemetry.Emit("SHOP_OPEN", "phase=" + phase);
