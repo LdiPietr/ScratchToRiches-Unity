@@ -12,6 +12,10 @@ original MonoScript GUIDs and serialized references remain unchanged.
   economy manager owns wallet mutation, settlement guard and persistence.
   ScratchMatchEvaluator owns matching; ScratchSymbolManager adapts revealed
   cells to symbol IDs. RNG stays in the original generation path.
+- **Single purchase policy**: ScratchPurchasePolicy returns explicit reasons
+  (edition, implementation, max level, chapter, prerequisites, balance).
+  Both the actual authorization and details panel consume the same result;
+  the hold input still delegates to the actual purchase method.
 - **Dependency injection via parameters**: payout receives a skill-level query,
   matching receives revealed IDs and labels rather than scene objects.
 - **View adapter / presentation**: ScratchSkillMapNodeView owns per-node
@@ -35,6 +39,15 @@ original MonoScript GUIDs and serialized references remain unchanged.
 - Editor/ScratchManualPlaytestRecorderWindow.cs: ScratchManualPlaytestRecorderWindow.cs, ScratchManualPlaytestRecorderWindow.Session.cs, ScratchManualPlaytestRecorderWindow.Capture.cs, ScratchManualPlaytestRecorderWindow.Reports.cs
 
 ## Verification
+
+Run `dotnet run --project QA/DomainChecks/DomainChecks.csproj -c Release` for
+headless tests of the actual C# match/reward/purchase policies. The runner
+links their original source and stable value types, without Unity stubs.
+It enumerates every symbol sequence of up to five picks, compares 50,000
+reward cases with the original payout formula, and checks all 128 purchase
+condition combinations. CI runs these tests in addition to existing Python
+checks. This does not compile the full Unity project or run its scene.
+
 
 The existing static QA reads complete partial classes and retains progression,
 scene and playtest checks. Unity Scene Audit exercises the extracted reward and

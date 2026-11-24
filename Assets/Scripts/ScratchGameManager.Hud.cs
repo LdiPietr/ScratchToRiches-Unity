@@ -26,37 +26,54 @@ public sealed partial class ScratchGameManager
             roundActionButton.interactable = state == RoundState.Ready;
 
         if (matchResultText != null)
-        {
-            ScratchSymbolManager.MatchResult match = CurrentMatch;
-            string win = CombinationName(match.Tier);
-            matchResultText.text = state == RoundState.Finished
-                ? "DEMO COMPLETATA! SEI APPENA DIVENTATO INARRESTABILE."
-                : state == RoundState.Ready ? "PRONTO A FARE IL COLPACCIO?"
-                : ticketActive
-                    ? match.IsMatch ? $"{win} x{match.Multiplier} - {match.Symbol}" : "CERCA I SIMBOLI UGUALI!"
-                : match.IsMatch ? $"{win} x{match.Multiplier} +{ticketPayout} MONETE"
-                : ticketPayout > 0 ? $"PREMIO DI CONSOLAZIONE! +{ticketPayout}"
-                : "PECCATO! RITENTA!";
-        }
+            matchResultText.text = FormatMatchResult();
 
         if (boardSubtitle != null)
-            boardSubtitle.text = state == RoundState.Finished
-                ? "FINE DEMO - L'ALBERO COMPLETO TI ASPETTA NEL GIOCO FINALE!"
-                : state == RoundState.Ready
-                ? "Gratta senza tempo limite, migliora le abilita' e sblocca biglietti!"
-                : ticketActive
-                    ? ticketVoided ? "Questo biglietto di prova non assegna premi."
-                    : demoCapstoneActive && !demoFinished
-                        ? $"FINALE: {Mathf.Min(demoGoldCompleted, FinalGoldMinTickets)}/{FinalGoldMinTickets} DORATI | INCASSI {demoGoldPayout}/{FinalGoldPayoutTarget} | POTERE {(DemoFinalPowerActivated ? "OK" : "DA USARE")}"
-                        : $"{TicketDisplayName(currentTicketKind)} {CurrentGridSide}x{CurrentGridSide} - {MaxScratches} caselle!" +
-                          (Level(ScratchSkillTree.SkillId.C6) > 0
-                              ? targetedPreviewUsed ? " | ISPEZIONE USATA" : " | DESTRO/CTRL+CLIC: ISPEZIONA"
-                              : string.Empty)
-                    : demoCapstoneActive && !demoFinished
-                        ? $"FINALE: {Mathf.Min(demoGoldCompleted, FinalGoldMinTickets)}/{FinalGoldMinTickets} DORATI | INCASSI {demoGoldPayout}/{FinalGoldPayoutTarget} | POTERE {(DemoFinalPowerActivated ? "OK" : "DA USARE")}"
-                        : $"+{ticketPayout} monete! Scegli il prossimo biglietto o apri i potenziamenti.";
+            boardSubtitle.text = FormatBoardSubtitle();
 
         Changed?.Invoke();
+    }
+
+    private string FormatMatchResult()
+    {
+        ScratchSymbolManager.MatchResult match = CurrentMatch;
+        string win = CombinationName(match.Tier);
+        if (state == RoundState.Finished)
+            return "DEMO COMPLETATA! SEI APPENA DIVENTATO INARRESTABILE.";
+        if (state == RoundState.Ready)
+            return "PRONTO A FARE IL COLPACCIO?";
+        if (ticketActive)
+            return match.IsMatch ? $"{win} x{match.Multiplier} - {match.Symbol}" :
+                "CERCA I SIMBOLI UGUALI!";
+        if (match.IsMatch)
+            return $"{win} x{match.Multiplier} +{ticketPayout} MONETE";
+        return ticketPayout > 0 ? $"PREMIO DI CONSOLAZIONE! +{ticketPayout}" :
+            "PECCATO! RITENTA!";
+    }
+
+    private string FormatBoardSubtitle()
+    {
+        if (state == RoundState.Finished)
+            return "FINE DEMO - L'ALBERO COMPLETO TI ASPETTA NEL GIOCO FINALE!";
+        if (state == RoundState.Ready)
+            return "Gratta senza tempo limite, migliora le abilita' e sblocca biglietti!";
+        if (ticketActive && ticketVoided)
+            return "Questo biglietto di prova non assegna premi.";
+        if (demoCapstoneActive && !demoFinished)
+            return FormatFinalChallenge();
+        if (!ticketActive)
+            return $"+{ticketPayout} monete! Scegli il prossimo biglietto o apri i potenziamenti.";
+
+        string ticket = $"{TicketDisplayName(currentTicketKind)} {CurrentGridSide}x{CurrentGridSide} - {MaxScratches} caselle!";
+        if (Level(ScratchSkillTree.SkillId.C6) > 0)
+            ticket += targetedPreviewUsed ? " | ISPEZIONE USATA" :
+                " | DESTRO/CTRL+CLIC: ISPEZIONA";
+        return ticket;
+    }
+
+    private string FormatFinalChallenge()
+    {
+        return $"FINALE: {Mathf.Min(demoGoldCompleted, FinalGoldMinTickets)}/{FinalGoldMinTickets} DORATI | INCASSI {demoGoldPayout}/{FinalGoldPayoutTarget} | POTERE {(DemoFinalPowerActivated ? "OK" : "DA USARE")}";
     }
 
     private void UpdateTimerText()

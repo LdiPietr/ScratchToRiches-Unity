@@ -22,3 +22,7 @@
 # OS files
 .DS_Store
 Thumbs.db
+
+# Standalone domain test build artifacts
+/QA/DomainChecks/bin/
+/QA/DomainChecks/obj/

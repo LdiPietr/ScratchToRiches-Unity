@@ -9,22 +9,27 @@ public sealed partial class ScratchSkillTreeUI
 {
     private string SkillStatus(ScratchSkillCatalogV2.Entry entry)
     {
-        int level = skills.GetLevel(entry.id);
-        if (ScratchSkillTree.DemoEdition && !entry.demoEligible)
-            return "VERSIONE COMPLETA · VISIBILE, NON ACQUISTABILE";
-        if (!ScratchSkillCatalogV2.EffectImplemented(entry.id))
-            return "EFFETTO NON ANCORA IMPLEMENTATO";
-        if (level >= entry.maxLevel) return "POTENZIAMENTO COMPLETATO";
-        if (!ScratchRadialProgression.Available(entry.id, game, skills))
-            return "BLOCCATO · " +
-                ScratchRadialProgression.SkillGoal(entry.id, game, skills);
-        if (!skills.RequirementsMet(entry.id))
-            return "BLOCCATO · " + skills.RequirementText(entry.id);
-        if (economy.Coins < skills.GetPrice(entry.id))
-            return "SERVONO " + skills.GetPrice(entry.id).ToString("N0") +
-                " MONETE · SALDO " + economy.Coins.ToString("N0");
-        return "ACQUISTABILE · COSTO " + skills.GetPrice(entry.id).ToString("N0") +
-            " MONETE · TIENI PREMUTO 0,7 S";
+        switch (skills.GetPurchaseStatus(entry.id))
+        {
+            case ScratchPurchaseStatus.FullGameOnly:
+                return "VERSIONE COMPLETA · VISIBILE, NON ACQUISTABILE";
+            case ScratchPurchaseStatus.NotImplemented:
+                return "EFFETTO NON ANCORA IMPLEMENTATO";
+            case ScratchPurchaseStatus.MaxLevel:
+                return "POTENZIAMENTO COMPLETATO";
+            case ScratchPurchaseStatus.MilestoneLocked:
+                return "BLOCCATO · " + ScratchRadialProgression.SkillGoal(entry.id, game, skills);
+            case ScratchPurchaseStatus.PrerequisiteLocked:
+                return "BLOCCATO · " + skills.RequirementText(entry.id);
+            case ScratchPurchaseStatus.InsufficientCoins:
+                return "SERVONO " + skills.GetPrice(entry.id).ToString("N0") +
+                    " MONETE · SALDO " + economy.Coins.ToString("N0");
+            case ScratchPurchaseStatus.Available:
+                return "ACQUISTABILE · COSTO " + skills.GetPrice(entry.id).ToString("N0") +
+                    " MONETE · TIENI PREMUTO 0,7 S";
+            default:
+                return "ABILITA' NON DISPONIBILE";
+        }
     }
 
     private void DrawDetails()

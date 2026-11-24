@@ -250,6 +250,9 @@ def check_static():
           "Human tickets must not allow early exit that skips chapter milestone credit")
     check("navigation.SetZoom(Mathf.Max(navigation.Zoom, 0.95f)" in mapui,
           "Affordable-node finder must zoom in enough to inspect the node")
+    check("ScratchPurchasePolicy.Evaluate(" in read_script("ScratchSkillTree.cs") and
+          "GetPurchaseStatus(entry.id)" in mapui,
+          "Purchase UI and authorization must share one decision policy")
     check("ScratchRewardPolicy.Calculate(" in read_script("ScratchEconomyManager.cs") and
           "ScratchMatchEvaluator.Evaluate(" in read_script("ScratchSymbolManager.cs"),
           "Runtime domain adapters must delegate to deterministic rules")

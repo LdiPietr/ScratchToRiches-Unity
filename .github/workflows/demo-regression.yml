@@ -32,6 +32,11 @@ jobs:
         run: python QA/verify_demo_regression.py --static
       - name: Verify pick probabilities and ticket expected value
         run: python QA/test_pick_economy.py
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Execute production C# domain regression
+        run: dotnet run --project QA/DomainChecks/DomainChecks.csproj --configuration Release
 
 # Unity Play Mode remains a MANUAL regression: record a full autoplay
 # run, then pass its 4 reports to QA/verify_demo_regression.py.

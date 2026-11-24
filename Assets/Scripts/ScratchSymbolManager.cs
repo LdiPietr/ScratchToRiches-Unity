@@ -9,29 +9,8 @@ using UnityEngine;
 /// </summary>
 [DisallowMultipleComponent]
 [RequireComponent(typeof(ScratchCellManager))]
-public sealed class ScratchSymbolManager : MonoBehaviour
+public sealed partial class ScratchSymbolManager : MonoBehaviour
 {
-    public enum MatchTier { None, Pair, Triple, Poker, Five }
-    public enum TestPattern { Random, Pair, Triple, Poker, Five }
-
-    public readonly struct MatchResult
-    {
-        public readonly MatchTier Tier;
-        public readonly string Symbol;
-        public readonly int MatchingCount;
-        public readonly int Multiplier;
-
-        public MatchResult(MatchTier tier, string symbol, int count)
-        {
-            Tier = tier;
-            Symbol = symbol;
-            MatchingCount = count;
-            Multiplier = (int)tier == 0 ? 1 : (int)tier + 1;
-        }
-
-        public bool IsMatch => Tier != MatchTier.None;
-    }
-
     [Header("Seven winning symbols, in matching artwork order")]
     [SerializeField] private string[] symbolLabels =
     {

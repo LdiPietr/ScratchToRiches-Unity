@@ -107,10 +107,8 @@ public sealed partial class ScratchSkillTree : MonoBehaviour
     public int GetPrice(string stableId)
     {
         ScratchSkillCatalogV2.Entry entry = ScratchSkillCatalogV2.Find(stableId);
-        if (entry == null || GetLevel(stableId) >= entry.maxLevel) return 0;
-        double price = entry.initialPrice * Math.Pow(1.5, GetLevel(stableId));
-        return price >= int.MaxValue ? int.MaxValue :
-            Math.Max(1, (int)Math.Ceiling(price));
+        return entry == null ? 0 : ScratchPurchasePolicy.Price(
+            entry.initialPrice, GetLevel(stableId), entry.maxLevel);
     }
 
     public bool RequirementsMet(SkillId id) => RequirementsMet(StableId(id));
@@ -151,16 +149,20 @@ public sealed partial class ScratchSkillTree : MonoBehaviour
 
     public bool CanPurchase(SkillId id) => CanPurchase(StableId(id));
 
-    public bool CanPurchase(string stableId)
+    public bool CanPurchase(string stableId) =>
+        GetPurchaseStatus(stableId) == ScratchPurchaseStatus.Available;
+
+    /// <summary>Read-only decision shared by purchases and explanatory UI.</summary>
+    public ScratchPurchaseStatus GetPurchaseStatus(string stableId)
     {
         ScratchSkillCatalogV2.Entry entry = ScratchSkillCatalogV2.Find(stableId);
-        return entry != null && (!DemoEdition || entry.demoEligible) &&
-            ScratchSkillCatalogV2.EffectImplemented(stableId) &&
-            GetLevel(stableId) < entry.maxLevel &&
-            RequirementsMet(stableId) &&
-            game != null && ScratchRadialProgression.Available(stableId, game, this) &&
-            economy != null &&
-            economy.Coins >= GetPrice(stableId);
+        if (entry == null) return ScratchPurchaseStatus.Missing;
+        return ScratchPurchasePolicy.Evaluate(!DemoEdition || entry.demoEligible,
+            ScratchSkillCatalogV2.EffectImplemented(stableId), GetLevel(stableId),
+            entry.maxLevel, game != null && economy != null,
+            () => ScratchRadialProgression.Available(stableId, game, this),
+            () => RequirementsMet(stableId),
+            () => economy.Coins >= GetPrice(stableId));
     }
 
     public bool TryPurchase(SkillId id) => TryPurchase(StableId(id));
