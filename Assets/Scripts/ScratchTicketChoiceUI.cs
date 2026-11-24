@@ -19,6 +19,12 @@ public sealed class ScratchTicketChoiceUI : MonoBehaviour
     [SerializeField] private TMP_Text statusLabel;
 
     private UnityAction[] buttonActions;
+    private readonly TMP_Text[] actionLabels = new TMP_Text[4];
+    private readonly Image[] actionBackgrounds = new Image[4];
+    private static readonly string[] UnlockIds = { "", "C03", "C05", "C07" };
+    private static readonly Color Gold = new Color32(234, 194, 92, 255);
+    private static readonly Color Dark = new Color32(32, 59, 51, 255);
+    private static readonly Color Cream = new Color32(249, 239, 216, 255);
     private bool registered;
 
     private void Awake()
@@ -51,6 +57,9 @@ public sealed class ScratchTicketChoiceUI : MonoBehaviour
                 return;
             }
 
+            var card = ticketButtons[i].transform;
+            actionLabels[i] = card.Find("SelectHint")?.GetComponent<TMP_Text>();
+            actionBackgrounds[i] = card.Find("ChoiceActionBackground")?.GetComponent<Image>();
             int index = i;
             buttonActions[i] = () => Choose(index);
             ticketButtons[i].onClick.AddListener(buttonActions[i]);
@@ -98,17 +107,24 @@ public sealed class ScratchTicketChoiceUI : MonoBehaviour
             int cost = ScratchGameManager.TicketPrice(kind);
             int prize = game.TicketPrize(kind);
             bool unlocked = game.IsTicketUnlocked(kind);
+            bool affordable = economy.Coins >= cost;
             if (ticketDetails[i] != null)
-                ticketDetails[i].text = !unlocked
-                    ? "BLOCCATO!\nSBLOCCA NELLE ABILITA'"
-                    : $"{ScratchGameManager.TicketSide(kind)}x{ScratchGameManager.TicketSide(kind)} - {game.MaxScratches} SCELTE (PERK)\n" +
-                      $"COSTO {cost} | PREMIO BASE {prize}";
+                ticketDetails[i].text = $"Costo: {(cost == 0 ? "Gratis" : cost.ToString("N0"))}\n" +
+                    $"Premio base: {prize:N0}\n{ScratchGameManager.TicketSide(kind) * ScratchGameManager.TicketSide(kind)} caselle";
+            if (actionLabels[i] != null)
+            {
+                actionLabels[i].text = !unlocked ? $"BLOCCATO\n<size=17>Sblocca {UnlockIds[i]}</size>"
+                    : !affordable ? "MONETE\nINSUFFICIENTI" : "SELEZIONA";
+                actionLabels[i].color = unlocked && affordable ? Dark : Cream;
+            }
+            if (actionBackgrounds[i] != null)
+                actionBackgrounds[i].color = unlocked && affordable ? Gold : Dark;
             if (ticketButtons[i] != null)
-                ticketButtons[i].interactable = show && unlocked && economy.Coins >= cost;
+                ticketButtons[i].interactable = show && unlocked && affordable;
         }
 
         if (statusLabel != null)
-            statusLabel.text = $"SCEGLI IL PROSSIMO BIGLIETTO   •   {economy.Coins:N0} MONETE DISPONIBILI";
+            statusLabel.text = $"{economy.Coins:N0} MONETE DISPONIBILI  ·  {game.MaxScratches} GRATTATE PER BIGLIETTO";
 
         if (choicePanel.activeSelf != show)
             choicePanel.SetActive(show);

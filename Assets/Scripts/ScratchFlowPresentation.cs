@@ -55,6 +55,8 @@ public sealed partial class ScratchFlowPresentation : MonoBehaviour
     private string previousRight;
 
     public bool CanScratch => phase == Phase.TicketLive;
+    public bool CanOpenShop => game != null && !game.TicketActive &&
+        (phase == Phase.Idle || phase == Phase.Choosing);
     public bool ShopOpen => phase == Phase.CurtainDescending || phase == Phase.CurtainVisible || phase == Phase.CurtainAscending;
     public bool ShopVisible => phase == Phase.CurtainVisible;
     public bool ShopContentVisible => ShopVisible && shopContent != null && shopContent.activeInHierarchy;
@@ -116,7 +118,7 @@ public sealed partial class ScratchFlowPresentation : MonoBehaviour
     private void Update()
     {
         UpdateInformation();
-        if (shopButton != null) shopButton.interactable = phase == Phase.Idle || phase == Phase.TicketLive || phase == Phase.Choosing;
+        if (shopButton != null) shopButton.interactable = CanOpenShop;
     }
 
     private void HandleGameChanged()

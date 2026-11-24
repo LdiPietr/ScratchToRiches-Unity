@@ -169,7 +169,8 @@ public sealed partial class ScratchSkillTree : MonoBehaviour
 
     public bool TryPurchase(string stableId)
     {
-        if (!CanPurchase(stableId))
+        // A live ticket must keep its original scratch limit and economy rules.
+        if (game == null || game.TicketActive || !CanPurchase(stableId))
             return false;
         int paidPrice = GetPrice(stableId);
         if (!economy.TrySpendCoins(paidPrice))
