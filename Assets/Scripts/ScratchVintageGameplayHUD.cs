@@ -5,7 +5,7 @@ using UnityEngine.UI;
 
 /// <summary>Scene-authored Vintage Lottery HUD. Reads gameplay state; never changes progression.</summary>
 [DisallowMultipleComponent]
-public sealed class ScratchVintageGameplayHUD : MonoBehaviour
+public sealed partial class ScratchVintageGameplayHUD : MonoBehaviour
 {
     [SerializeField] private ScratchGameManager game;
     [SerializeField] private ScratchEconomyManager economy;
@@ -21,6 +21,9 @@ public sealed class ScratchVintageGameplayHUD : MonoBehaviour
     [SerializeField] private TMP_Text[] prizeAmounts = new TMP_Text[4];
     [SerializeField] private Image[] prizeCoins = new Image[4];
     [SerializeField] private Image payoutCoin;
+    [SerializeField] private Image[] prizeHighlights = new Image[4];
+    [SerializeField] private Image[] prizeLocks = new Image[4];
+    [SerializeField] private TMP_Text prizeFooter;
     [SerializeField] private GameObject progressTrack;
     [SerializeField] private Button startButton;
     [SerializeField] private Image shadow;
@@ -96,32 +99,6 @@ public sealed class ScratchVintageGameplayHUD : MonoBehaviour
             buyable == 1 ? "1 acquistabile" : buyable + " acquistabili");
         RefreshPossiblePrizes(kind, max);
         RefreshHelp();
-    }
-
-    private void RefreshPossiblePrizes(ScratchGameManager.TicketKind kind, int max)
-    {
-        for (int i = 0; i < 4; i++)
-        {
-            var match = new ScratchSymbolManager.MatchResult(
-                (ScratchSymbolManager.MatchTier)(i + 1), string.Empty, i + 2);
-            long award = ScratchRewardPolicy.Calculate(match, true, game.TicketPrize(kind),
-                economy.BasePrize, ScratchGameManager.TicketPrice(kind),
-                economy.ConsecutiveWinningTickets, skills.GetLevel).RequestedCoins;
-            bool attainable = max >= i + 2;
-            if (prizeNames != null && i < prizeNames.Length && prizeNames[i] != null)
-                prizeNames[i].color = attainable ? Cream : Muted;
-            if (prizeAmounts != null && i < prizeAmounts.Length && prizeAmounts[i] != null)
-            {
-                Set(prizeAmounts[i], award.ToString("N0"));
-                prizeAmounts[i].color = attainable ? Gold : Muted;
-            }
-            if (prizeCoins != null && i < prizeCoins.Length && prizeCoins[i] != null)
-            {
-                prizeCoins[i].color = new Color(1f, 1f, 1f, attainable ? 1f : .45f);
-                if (prizeAmounts != null && i < prizeAmounts.Length)
-                    PositionCoin(prizeCoins[i], prizeAmounts[i], 8f);
-            }
-        }
     }
 
     private void RefreshGoal()
@@ -207,55 +184,6 @@ public sealed class ScratchVintageGameplayHUD : MonoBehaviour
         return char.ToUpperInvariant(value[0]) + value.Substring(1).ToLowerInvariant();
     }
 
-    private void RefreshMatch()
-    {
-        var match = game.CurrentMatch;
-        string name;
-        switch (match.Tier)
-        {
-            case ScratchSymbolManager.MatchTier.Pair: name = "COPPIA"; break;
-            case ScratchSymbolManager.MatchTier.Triple: name = "TRIS"; break;
-            case ScratchSymbolManager.MatchTier.Poker: name = "POKER"; break;
-            case ScratchSymbolManager.MatchTier.Five: name = "CINQUINA"; break;
-            default: name = "NESSUNA"; break;
-        }
-        Set(matchName, name);
-        Set(matchMultiplier, match.IsMatch ? "×" + match.Multiplier + " · " + match.Symbol :
-            game.WaitingForTicketChoice ? "Biglietto completato" : "Cerca simboli uguali");
-        Set(prizeLabel, game.TicketActive ? "Premio provvisorio" : "Ultima vincita");
-        long value = game.TicketPayout;
-        if (game.TicketActive)
-        {
-            value = 0;
-            if (match.IsMatch && !game.TicketVoided)
-            {
-                var estimated = ScratchRewardPolicy.Calculate(match, false, game.TicketPrize(game.CurrentTicketKind),
-                    economy.BasePrize, ScratchGameManager.TicketPrice(game.CurrentTicketKind),
-                    economy.ConsecutiveWinningTickets, skills.GetLevel);
-                value = System.Math.Min(estimated.RequestedCoins, (long)int.MaxValue - economy.Coins);
-            }
-        }
-        Set(payout, value.ToString("N0"));
-        PositionCoin(payoutCoin, payout, 12f);
-    }
-
-    // Both elements share the same parent, top-left anchor and pivot.
-    // Use the rendered glyph bounds (after autosizing), not the full text box.
-    private static void PositionCoin(Image coin, TMP_Text amount, float gap)
-    {
-        if (coin == null || amount == null) return;
-        amount.ForceMeshUpdate(true);
-        if (amount.textInfo.characterCount == 0) return;
-        var coinRect = coin.rectTransform;
-        var amountRect = amount.rectTransform;
-        if (coinRect.parent != amountRect.parent) return;
-        float left = amountRect.anchoredPosition.x + amount.textBounds.min.x;
-        float x = left - coinRect.rect.width - gap;
-        var position = coinRect.anchoredPosition;
-        position.x = x;
-        coinRect.anchoredPosition = position;
-    }
-
     private void RefreshHelp()
     {
         bool ready = game.State == ScratchGameManager.RoundState.Ready;
@@ -276,6 +204,7 @@ public sealed class ScratchVintageGameplayHUD : MonoBehaviour
 
     private void LateUpdate()
     {
+        UpdateWinFeedback();
         if (shopWalletPanel != null && shopWalletPanel.activeSelf != flow.ShopOpen)
             shopWalletPanel.SetActive(flow.ShopOpen);
         if (shadow == null || ticket == null || ticketGroup == null) return;

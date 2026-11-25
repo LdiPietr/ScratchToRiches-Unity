@@ -131,7 +131,7 @@ public sealed class ScratchTicketChoiceUI : MonoBehaviour
         if (!registered || game == null || economy == null || choicePanel == null || ticketButtons == null)
             return;
 
-        bool show = game.WaitingForTicketChoice &&
+        bool show = !game.TicketActive && game.WaitingForTicketChoice &&
             (presentation == null || presentation.CanShowTicketChoices);
         for (int i = 0; i < 4; i++)
         {

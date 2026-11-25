@@ -86,6 +86,32 @@ public static class ScratchV2SceneAudit
                     Check(ids.Contains(entry.id), "map contains " + entry.id, ref errors);
             }
         }
+        if (chooser != null && flow != null)
+        {
+            var choice = new SerializedObject(chooser);
+            var presentation = new SerializedObject(flow);
+            var overlay = choice.FindProperty("choicePanel").objectReferenceValue as GameObject;
+            var button = presentation.FindProperty("shopButton").objectReferenceValue as UnityEngine.UI.Button;
+            Check(overlay != null && button != null && button.transform.IsChildOf(overlay.transform),
+                "upgrade button authored inside ticket selection only", ref errors);
+        }
+        var hud = manager.GetComponent<ScratchVintageGameplayHUD>();
+        Check(hud != null, "authored vintage gameplay HUD", ref errors);
+        if (hud != null)
+        {
+            var serialized = new SerializedObject(hud);
+            foreach (string field in new[] { "prizeNames", "prizeAmounts", "prizeCoins", "prizeLocks", "prizeHighlights" })
+            {
+                var array = serialized.FindProperty(field);
+                Check(array != null && array.arraySize == 4, "four authored " + field, ref errors);
+                if (array == null || array.arraySize != 4) continue;
+                for (int i = 0; i < 4; i++)
+                    Check(array.GetArrayElementAtIndex(i).objectReferenceValue != null,
+                        field + " row " + (i + 1), ref errors);
+            }
+            Check(serialized.FindProperty("prizeFooter")?.objectReferenceValue != null,
+                "authored payout footer", ref errors);
+        }
         if (symbols != null)
         {
             SerializedObject so = new SerializedObject(symbols);
