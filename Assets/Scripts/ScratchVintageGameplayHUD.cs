@@ -17,10 +17,16 @@ public sealed class ScratchVintageGameplayHUD : MonoBehaviour
     [SerializeField] private TMP_Text pairRule, tripleRule, available, helpPrimary, helpSecondary, classicSerial;
     [SerializeField] private RectTransform progress, ticket;
     [SerializeField] private Image[] indicators;
+    [SerializeField] private TMP_Text[] prizeNames = new TMP_Text[4];
+    [SerializeField] private TMP_Text[] prizeAmounts = new TMP_Text[4];
+    [SerializeField] private Image[] prizeCoins = new Image[4];
+    [SerializeField] private GameObject progressTrack;
     [SerializeField] private Button startButton;
     [SerializeField] private Image shadow;
     [SerializeField] private CanvasGroup ticketGroup;
     private static readonly Color Gold = new Color32(234,194,92,255);
+    private static readonly Color Cream = new Color32(249,239,216,255);
+    private static readonly Color Muted = new Color32(149,168,155,255);
     private static readonly Color Dark = new Color32(32,59,51,255);
     private static readonly Color Reserved = new Color32(119,147,132,255);
     private static readonly Regex CountPattern = new Regex(@"\((\d+)/(\d+)\)");
@@ -63,17 +69,16 @@ public sealed class ScratchVintageGameplayHUD : MonoBehaviour
             im.gameObject.SetActive(i < max);
             if (i >= max) continue;
             im.color = i < revealed ? Gold : i < selected ? Reserved : Dark;
-            float step = max == 5 ? 88 : 96;
+            const float gap = 14f;
+            float width = (394f - (max - 1) * gap) / max;
             var rt = im.rectTransform;
-            rt.anchoredPosition = new Vector2(i * step, -192);
-            rt.sizeDelta = new Vector2(max == 5 ? 68 : 76, 24);
+            rt.anchoredPosition = new Vector2(24f + i * (width + gap), -204);
+            rt.sizeDelta = new Vector2(width, 24);
         }
         Set(ticketNumber, game.TicketNumber == 0 ? "BIGLIETTO —" : "BIGLIETTO " + game.TicketNumber.ToString("000"));
         string name = ScratchGameManager.TicketDisplayName(kind);
         Set(ticketType, name.Substring(0, 1) + name.Substring(1).ToLowerInvariant());
-        int price = ScratchGameManager.TicketPrice(kind);
-        Set(cost, price == 0 ? "Gratis" : price.ToString("N0"));
-        Set(basePrize, game.TicketPrize(kind).ToString("N0"));
+        // Cost and base prize remain internal economy parameters, not gameplay HUD labels.
         if (classicSerial != null)
         {
             classicSerial.gameObject.SetActive(kind == ScratchGameManager.TicketKind.Standard);
@@ -87,11 +92,30 @@ public sealed class ScratchVintageGameplayHUD : MonoBehaviour
             if (skills.CanPurchase(entry.id)) buyable++;
         Set(available, game.TicketActive ? "Completa il biglietto" :
             buyable == 1 ? "1 acquistabile" : buyable + " acquistabili");
-        Set(pairRule, max >= 4 ? "Coppia ×2\nPoker ×4" : "Coppia ×2");
-        Set(tripleRule, max >= 5 ? "Tris ×3\nCinquina ×5" : "Tris ×3");
-        if (pairRule != null) pairRule.rectTransform.sizeDelta = new Vector2(230, max >= 4 ? 78 : 46);
-        if (tripleRule != null) tripleRule.rectTransform.sizeDelta = new Vector2(212, max >= 5 ? 78 : 46);
+        RefreshPossiblePrizes(kind, max);
         RefreshHelp();
+    }
+
+    private void RefreshPossiblePrizes(ScratchGameManager.TicketKind kind, int max)
+    {
+        for (int i = 0; i < 4; i++)
+        {
+            var match = new ScratchSymbolManager.MatchResult(
+                (ScratchSymbolManager.MatchTier)(i + 1), string.Empty, i + 2);
+            long award = ScratchRewardPolicy.Calculate(match, true, game.TicketPrize(kind),
+                economy.BasePrize, ScratchGameManager.TicketPrice(kind),
+                economy.ConsecutiveWinningTickets, skills.GetLevel).RequestedCoins;
+            bool attainable = max >= i + 2;
+            if (prizeNames != null && i < prizeNames.Length && prizeNames[i] != null)
+                prizeNames[i].color = attainable ? Cream : Muted;
+            if (prizeAmounts != null && i < prizeAmounts.Length && prizeAmounts[i] != null)
+            {
+                Set(prizeAmounts[i], award.ToString("N0"));
+                prizeAmounts[i].color = attainable ? Gold : Muted;
+            }
+            if (prizeCoins != null && i < prizeCoins.Length && prizeCoins[i] != null)
+                prizeCoins[i].color = new Color(1f, 1f, 1f, attainable ? 1f : .45f);
+        }
     }
 
     private void RefreshGoal()
@@ -117,9 +141,24 @@ public sealed class ScratchVintageGameplayHUD : MonoBehaviour
             if (!game.DemoFinalPowerActivated) fraction = Mathf.Min(fraction, .95f);
         }
         if (game.DemoFinished) { goal = "Demo completata!"; fraction = 1; }
+        // Keep the underlying milestone rules; hide implementation IDs from players.
+        goal = Regex.Replace(goal, @"\s*\([A-Z]\d{2}\)", "");
+        Match skillGoal = Regex.Match(goal, @"^PER ([A-Z]\d{2}):\s*");
+        if (skillGoal.Success)
+        {
+            var entry = ScratchSkillCatalogV2.Find(skillGoal.Groups[1].Value);
+            if (entry != null)
+                goal = entry.title + ": " + goal.Substring(skillGoal.Length);
+        }
+        bool hasProgress = count.Success || goal.StartsWith("Finale:") || game.DemoFinished;
         Set(milestone, goal);
         Set(milestoneCount, counter);
-        if (progress != null) progress.sizeDelta = new Vector2(280 * fraction, 12);
+        if (progressTrack != null) progressTrack.SetActive(hasProgress);
+        if (progress != null)
+        {
+            progress.gameObject.SetActive(hasProgress);
+            progress.sizeDelta = new Vector2(250 * fraction, 12);
+        }
     }
 
     private void RefreshMatch()
