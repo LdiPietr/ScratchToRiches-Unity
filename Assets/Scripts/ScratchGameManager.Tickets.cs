@@ -7,7 +7,7 @@ using UnityEngine.UI;
 // Tickets responsibility of ScratchGameManager.
 public sealed partial class ScratchGameManager
 {
-    /// <summary>Starts the unlimited game session with a free Classic ticket.</summary>
+    /// <summary>Starts the unlimited game session at ticket selection, without generating a ticket.</summary>
     public void StartNewRun()
     {
         if (!Application.isPlaying || cellManager == null || state != RoundState.Ready)
@@ -18,7 +18,7 @@ public sealed partial class ScratchGameManager
         endReason = RoundEndReason.None;
         ticketNumberInRun = 0;
         ticketActive = false;
-        BeginTicket(TicketKind.Standard, false);
+        RefreshHud();
     }
 
     /// <summary>
@@ -29,6 +29,7 @@ public sealed partial class ScratchGameManager
     {
         if (!WaitingForTicketChoice || !CanChooseTicket(kind))
             return false;
+        if (state == RoundState.Ready) StartNewRun();
         return BeginTicket(kind, true);
     }
 
