@@ -147,7 +147,7 @@ public sealed partial class ScratchVintageGameplayHUD : MonoBehaviour
         else if (skillId != null && title.Length > 0)
         {
             if (!skills.RequirementsMet(skillId))
-                goal = title + "\n" + skills.RequirementText(skillId).Replace("Prima ", "Acquista ");
+                goal = title + "\n" + skills.RequirementText(skillId).Replace("Prima ", "Acquista ").Replace(" livello 1", "");
             else if (!ScratchRadialProgression.Available(skillId, game, skills))
                 goal = title + "\n" + SentenceCase(action);
             else if (!skills.CanPurchase(skillId) && economy.Coins < skills.GetPrice(skillId))
@@ -208,8 +208,10 @@ public sealed partial class ScratchVintageGameplayHUD : MonoBehaviour
         {
             long net = (long)game.TicketPayout - ScratchGameManager.TicketPrice(game.CurrentTicketKind);
             string signedNet = net > 0 ? "+" + net.ToString("N0") : net.ToString("N0");
+            string outcome = game.TicketPayout > 0 ? "Incassato <color=#EAC25C>" + game.TicketPayout.ToString("N0") + "</color>" : "Nessuna vincita";
+            string netColor = net > 0 ? "#EAC25C" : net < 0 ? "#D5A29A" : "#B9C9BE";
             Set(resultSummary, game.TicketVoided ? "Biglietto di prova · nessuna vincita" :
-                "Biglietto completato · Bilancio netto: " + signedNet + " monete");
+                outcome + " · Bilancio netto: <color=" + netColor + ">" + signedNet + "</color> monete");
         }
         Set(helpPrimary, live ? (game.RevealedCount == 0 ? "Gratta la prima casella" : "Gratta un'altra casella") : "Scegli il prossimo biglietto");
         string detail = live ? "Tieni premuto e trascina" : "Apri i potenziamenti o scegli un biglietto";

@@ -9,6 +9,7 @@ public sealed partial class ScratchVintageGameplayHUD
     private int feedbackTicket = -1;
     private ScratchSymbolManager.MatchTier feedbackTier;
     private long feedbackValue;
+    private bool finalWinFeedbackPlayed;
     private float feedbackStarted = -10f;
     private Color payoutRestColor = Gold;
     private int tableTicket = -1;
@@ -85,7 +86,7 @@ public sealed partial class ScratchVintageGameplayHUD
             : game.TicketActive && game.RevealedCount < 2 ? "IN ATTESA" : "NESSUNA";
         string detail = voided ? "Biglietto di prova" : refund ? "Paracadute attivo" : match.IsMatch
             ? match.Multiplier + " × " + SentenceCase(match.Symbol)
-            : game.WaitingForTicketChoice ? "Biglietto completato" : "Cerca simboli uguali";
+            : !game.TicketActive && game.TicketNumber > 0 ? "Biglietto completato" : "Cerca simboli uguali";
         bool final = !game.TicketActive && game.TicketNumber > 0;
         if (final && !match.IsMatch && !voided && !refund) name = "NON VINCENTE";
         Set(matchHeader, final ? "RISULTATO BIGLIETTO" : "COMBINAZIONE ATTUALE");
@@ -102,9 +103,12 @@ public sealed partial class ScratchVintageGameplayHUD
             feedbackTicket = game.TicketNumber;
             feedbackTier = default;
             feedbackValue = 0;
+            finalWinFeedbackPlayed = false;
             feedbackStarted = -10f;
         }
-        if (value > feedbackValue || (!voided && (int)match.Tier > (int)feedbackTier))
+        bool finalWin = final && value > 0 && !finalWinFeedbackPlayed;
+        if (finalWin) finalWinFeedbackPlayed = true;
+        if (finalWin || value > feedbackValue || (!voided && (int)match.Tier > (int)feedbackTier))
             feedbackStarted = Time.unscaledTime;
         feedbackTier = voided ? default : match.Tier;
         feedbackValue = value;
