@@ -12,8 +12,6 @@ public sealed partial class ScratchVintageGameplayHUD
     private bool finalWinFeedbackPlayed;
     private float feedbackStarted = -10f;
     private float feedbackDuration = .48f;
-    private float walletFeedbackStarted = -10f;
-    private float walletFeedbackDelay;
     private Color payoutRestColor = Gold;
     private int tableTicket = -1;
     private readonly long[] ticketQuotes = new long[4];
@@ -116,11 +114,6 @@ public sealed partial class ScratchVintageGameplayHUD
             feedbackStarted = Time.unscaledTime;
             feedbackDuration = .34f + .10f * (int)match.Tier;
         }
-        if (finalWin)
-        {
-            walletFeedbackStarted = Time.unscaledTime;
-            walletFeedbackDelay = .40f + .12f * (int)match.Tier;
-        }
         feedbackTier = voided ? default : match.Tier;
         feedbackValue = value;
         PositionCoin(payoutCoin, payout, 12f);
@@ -137,11 +130,6 @@ public sealed partial class ScratchVintageGameplayHUD
             matchName.color = Color.Lerp(Gold, Cream, pulse * .65f);
         if (matchAccent != null && feedbackValue > 0)
             matchAccent.color = Color.Lerp(Gold, Cream, pulse * .7f);
-        if (wallet != null)
-        {
-            float walletT = Mathf.Clamp01((Time.unscaledTime - walletFeedbackStarted - walletFeedbackDelay) / .32f);
-            wallet.color = Color.Lerp(Cream, Gold, Mathf.Sin(walletT * Mathf.PI) * .75f);
-        }
         if (prizeHighlights == null) return;
         for (int i = 0; i < prizeHighlights.Length; i++)
         {
@@ -165,7 +153,7 @@ public sealed partial class ScratchVintageGameplayHUD
         var coinRect = coin.rectTransform;
         var amountRect = amount.rectTransform;
         if (coinRect.parent != amountRect.parent) return;
-        float left = amountRect.anchoredPosition.x + amount.textBounds.min.x;
+        float left = amountRect.anchoredPosition.x + amount.textBounds.min.x * amountRect.localScale.x;
         var position = coinRect.anchoredPosition;
         position.x = left - coinRect.rect.width - gap;
         coinRect.anchoredPosition = position;

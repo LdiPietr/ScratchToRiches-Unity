@@ -52,6 +52,7 @@ public sealed partial class ScratchVintageGameplayHUD : MonoBehaviour
         economy.Changed += Refresh;
         skills.Changed += Refresh;
         subscribed = true;
+        InitializePayoutPresentation();
         Refresh();
     }
 
@@ -77,7 +78,6 @@ public sealed partial class ScratchVintageGameplayHUD : MonoBehaviour
         lastRevealed = revealed;
         int unlocked = ScratchRadialProgression.UnlockedChapter(game, skills);
         Set(chapter, "CAPITOLO " + unlocked.ToString("00"));
-        Set(wallet, economy.Coins.ToString("N0"));
         Set(shopWallet, economy.Coins.ToString("N0"));
         Set(picks, revealed + "<size=64> /" + max + "</size>");
         int left = Mathf.Max(0, max - revealed);
@@ -237,12 +237,13 @@ public sealed partial class ScratchVintageGameplayHUD : MonoBehaviour
     private void LateUpdate()
     {
         UpdateWinFeedback();
+        UpdatePayoutPresentation();
         if (indicators != null && lastRevealed > 0 && lastRevealed <= indicators.Length)
         {
             Image last = indicators[lastRevealed - 1];
             if (last != null)
             {
-                float pulse = Mathf.Sin(Mathf.PI * Mathf.Clamp01((Time.unscaledTime - indicatorPulseAt) / .24f));
+                float pulse = Mathf.Sin(Mathf.PI * Mathf.Clamp01((Time.unscaledTime - indicatorPulseAt) / .32f));
                 last.color = Color.Lerp(Gold, Cream, pulse * .7f);
             }
         }

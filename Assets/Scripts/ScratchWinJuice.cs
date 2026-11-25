@@ -19,7 +19,7 @@ public sealed class ScratchWinJuice : MonoBehaviour
     [SerializeField] private Sprite pokerBadge;
     [SerializeField] private Image[] scratchFlakes = new Image[0];
     private float flakePulse;
-    private Vector2 flakeOrigin;
+    private Vector3 flakeWorldOrigin;
 
     private Color cardColor, resultColor, moneyColor;
     private Vector3 resultScale, moneyScale;
@@ -32,6 +32,9 @@ public sealed class ScratchWinJuice : MonoBehaviour
     private ScratchVintageGameplayHUD vintageHud;
     private int rewardRank, visibleCoinCount;
     private float rewardDuration = .7f;
+    private float rewardStarted, coinFlightDuration;
+    private const float CoinSpacing = .075f;
+    private ScratchFlowPresentation flow;
     private bool waitingForSettlement, subscribed;
 
     private void Start()
@@ -44,6 +47,7 @@ public sealed class ScratchWinJuice : MonoBehaviour
         }
         cells = game.GetComponent<ScratchCellManager>();
         vintageHud = game.GetComponent<ScratchVintageGameplayHUD>();
+        flow = game.GetComponent<ScratchFlowPresentation>();
         cardColor = ticketArtwork.color;
         resultColor = matchLabel.color;
         moneyColor = walletLabel.color;
@@ -102,10 +106,25 @@ public sealed class ScratchWinJuice : MonoBehaviour
             {
                 rewardPulse = 1f;
                 rewardRank = validMatch ? (int)match.Tier : 0;
-                rewardDuration = .58f + .12f * rewardRank;
-                visibleCoinCount = Mathf.Min(winCoins.Length, 2 + rewardRank * 2);
-                for (int i = 0; i < winCoins.Length; i++)
-                    if (winCoins[i] != null) winCoins[i].gameObject.SetActive(i < visibleCoinCount);
+                rewardStarted = Time.unscaledTime;
+                coinFlightDuration = .48f + .035f * rewardRank;
+                visibleCoinCount = 0;
+                int limit = 2 + rewardRank * 2;
+                foreach (Image coin in winCoins)
+                    if (coin != null && visibleCoinCount < limit) visibleCoinCount++;
+                rewardDuration = coinFlightDuration + Mathf.Max(0, visibleCoinCount - 1) * CoinSpacing;
+                // Start after the real settlement, never from a speculative quote.
+                if (vintageHud != null)
+                    vintageHud.BeginPayoutPresentation(game.TicketPayout, visibleCoinCount,
+                        rewardStarted, coinFlightDuration, CoinSpacing);
+                int ordinal = 0;
+                foreach (Image coin in winCoins)
+                    if (coin != null)
+                    {
+                        coin.gameObject.SetActive(ordinal++ < visibleCoinCount);
+                        coin.raycastTarget = false;
+                        coin.color = new Color(1f, 1f, 1f, 0f);
+                    }
             }
         }
         UpdateMatchBadge();
@@ -127,12 +146,15 @@ public sealed class ScratchWinJuice : MonoBehaviour
     public void OnCellRevealed(RectTransform cell)
     {
         if (!enabled || ticketArtwork == null || cell == null) return;
-        Vector3 local = ticketArtwork.rectTransform.InverseTransformPoint(
-            cell.TransformPoint(cell.rect.center));
-        flakeOrigin = new Vector2(local.x, local.y);
+        flakeWorldOrigin = cell.TransformPoint(cell.rect.center);
         flakePulse = 1f;
         foreach (Image flake in scratchFlakes)
-            if (flake != null) flake.gameObject.SetActive(true);
+            if (flake != null)
+            {
+                flake.gameObject.SetActive(true);
+                flake.raycastTarget = false;
+                flake.color = new Color(1f, 1f, 1f, 0f);
+            }
     }
 
     private void EconomyChanged()
@@ -145,7 +167,9 @@ public sealed class ScratchWinJuice : MonoBehaviour
     {
         float dt = Time.unscaledDeltaTime;
         scratchPulse = Mathf.MoveTowards(scratchPulse, 0f, dt / 0.28f);
-        rewardPulse = Mathf.MoveTowards(rewardPulse, 0f, dt / rewardDuration);
+        if (rewardPulse > 0f)
+            rewardPulse = flow != null && !flow.ShowingResult ? 0f :
+                1f - Mathf.Clamp01((Time.unscaledTime - rewardStarted) / rewardDuration);
         if (cells != null && cells.ActiveCells != null)
             foreach (ScratchCell cell in cells.ActiveCells)
                 if (cell != null) cell.TickRevealFeedback(Time.unscaledTime);
@@ -153,7 +177,7 @@ public sealed class ScratchWinJuice : MonoBehaviour
         float a = Mathf.Sin(scratchPulse * Mathf.PI);
         float b = Mathf.Sin(rewardPulse * Mathf.PI);
         float c = Mathf.Sin(walletPulse * Mathf.PI);
-        flakePulse = Mathf.MoveTowards(flakePulse, 0f, dt / 0.36f);
+        flakePulse = Mathf.MoveTowards(flakePulse, 0f, dt / 0.46f);
         float flakeProgress = 1f - flakePulse;
         for (int i = 0; i < scratchFlakes.Length; i++)
         {
@@ -166,48 +190,59 @@ public sealed class ScratchWinJuice : MonoBehaviour
             }
             float angle = (i + 0.25f) * Mathf.PI * 2f / scratchFlakes.Length;
             Vector2 direction = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
-            float radius = 14f + 66f * (1f - (1f - flakeProgress) * (1f - flakeProgress));
-            flake.rectTransform.anchoredPosition = flakeOrigin + direction * radius
-                + Vector2.down * (22f * flakeProgress * flakeProgress);
-            flake.rectTransform.localScale = Vector3.one * (0.6f + 0.36f * flakeProgress);
-            flake.color = new Color(1f, 1f, 1f, Mathf.Clamp01(flakePulse * 2.3f));
+            float radius = 12f + (65f + 10f * (i % 3)) * (1f - (1f - flakeProgress) * (1f - flakeProgress));
+            RectTransform fr = flake.rectTransform;
+            Vector3 origin = fr.parent.InverseTransformPoint(flakeWorldOrigin);
+            fr.localPosition = origin + (Vector3)(direction * radius
+                + Vector2.down * (38f * flakeProgress * flakeProgress));
+            fr.localRotation = Quaternion.Euler(0f, 0f, (i % 2 == 0 ? 1f : -1f) * (i * 19f + flakeProgress * 100f));
+            fr.localScale = Vector3.one * ((i % 3 == 0 ? 1.35f : 1.06f) * Mathf.Lerp(1f, .55f, flakeProgress));
+            Color foil = i % 3 == 0 ? new Color(.58f, .61f, .58f) :
+                i % 3 == 1 ? new Color(.98f, .96f, .86f) : new Color(.82f, .83f, .78f);
+            foil.a = Mathf.Clamp01(flakePulse * 2.8f);
+            flake.color = foil;
         }
         // Existing authored coins travel from the ticket toward the actual HUD
         // balance. No spawned objects, extra payout or changes to economy.
-        float progress = 1f - rewardPulse;
+        float elapsed = Time.unscaledTime - rewardStarted;
+        int coinOrdinal = 0;
         RectTransform target = vintageHud != null ? vintageHud.WalletFeedbackTarget : null;
         if (target == null) target = walletLabel.rectTransform;
         for (int i = 0; i < winCoins.Length; i++)
         {
             Image coin = winCoins[i];
             if (coin == null) continue;
-            if (rewardPulse <= 0f || i >= visibleCoinCount)
+            int ordinal = coinOrdinal++;
+            if (rewardPulse <= 0f || ordinal >= visibleCoinCount)
             {
                 if (coin.gameObject.activeSelf) coin.gameObject.SetActive(false);
                 continue;
             }
             RectTransform rt = coin.rectTransform;
             Transform parent = rt.parent;
-            float delay = i * .025f;
-            float p = Mathf.Clamp01((progress - delay) / Mathf.Max(.01f, 1f - delay));
+            float p = Mathf.Clamp01((elapsed - ordinal * CoinSpacing) / coinFlightDuration);
             Vector3 origin = parent.InverseTransformPoint(ticketArtwork.rectTransform.TransformPoint(
                 ticketArtwork.rectTransform.rect.center));
             Vector3 destination = parent.InverseTransformPoint(target.TransformPoint(target.rect.center));
-            float fan = (i - (visibleCoinCount - 1) * .5f) * 23f;
+            float fan = (ordinal - (visibleCoinCount - 1) * .5f) * 23f;
             Vector3 control = Vector3.Lerp(origin, destination, .42f) +
                 new Vector3(fan, 110f + Mathf.Abs(fan) * .3f, 0f);
             float ease = p * p * (3f - 2f * p);
             rt.localPosition = Vector3.Lerp(Vector3.Lerp(origin, control, ease),
                 Vector3.Lerp(control, destination, ease), ease);
-            rt.localScale = Vector3.one * Mathf.Lerp(.82f, .52f, p);
+            rt.localScale = Vector3.one * Mathf.Lerp(1.20f, .82f, p);
             coin.color = new Color(1f, 1f, 1f, p >= 1f ? 0f :
-                Mathf.Clamp01(p * 14f) * Mathf.Clamp01((1f - p) * 7f));
+                Mathf.Clamp01(p * 18f) * Mathf.Clamp01((1f - p) * 15f));
         }
         ticketArtwork.color = Color.Lerp(cardColor, new Color(1f, 0.87f, 0.61f, cardColor.a), a * 0.06f);
         matchLabel.color = Color.Lerp(resultColor, new Color(1f, .81f, .39f, resultColor.a), b);
         matchLabel.rectTransform.localScale = resultScale * (1f + b * 0.20f);
-        walletLabel.color = Color.Lerp(moneyColor, new Color(1f, 0.83f, 0.38f, moneyColor.a), c);
-        walletLabel.rectTransform.localScale = moneyScale * (1f + c * 0.12f);
+        // Vintage HUD owns its visible wallet's timing and color.
+        if (vintageHud == null || vintageHud.WalletFeedbackTarget != walletLabel.rectTransform)
+        {
+            walletLabel.color = Color.Lerp(moneyColor, new Color(1f, 0.83f, 0.38f, moneyColor.a), c);
+            walletLabel.rectTransform.localScale = moneyScale * (1f + c * 0.12f);
+        }
     }
 
     private void OnDestroy()

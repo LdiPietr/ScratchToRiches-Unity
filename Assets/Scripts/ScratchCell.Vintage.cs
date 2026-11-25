@@ -44,11 +44,11 @@ public sealed partial class ScratchCell
     public void TickRevealFeedback(float now)
     {
         if (!feedbackCaptured || !completed || preparingTicket) return;
-        float reveal = Mathf.Sin(Mathf.PI * Mathf.Clamp01((now - revealStarted) / .22f));
+        float reveal = Mathf.Sin(Mathf.PI * Mathf.Clamp01((now - revealStarted) / .32f));
         float match = Mathf.Sin(Mathf.PI * Mathf.Clamp01((now - matchStarted) /
             (.34f + .08f * feedbackRank)));
         float emphasis = feedbackMatched ? match * (.055f + .012f * feedbackRank) : 0f;
-        float scale = 1f + Mathf.Max(reveal * .07f, emphasis);
+        float scale = 1f + Mathf.Max(reveal * .12f, emphasis);
         if (symbolImage != null) symbolImage.rectTransform.localScale = feedbackSymbolRest * scale;
         if (indexText != null && currentSymbolLabel == "JOLLY")
             indexText.rectTransform.localScale = feedbackJollyRest * scale;
@@ -57,13 +57,13 @@ public sealed partial class ScratchCell
         {
             gold.a = feedbackFrameRest.a;
             feedbackFrame.color = Color.Lerp(feedbackFrameRest, gold,
-                feedbackMatched ? .46f + match * .44f : reveal * .22f);
+                feedbackMatched ? .46f + match * .44f : reveal * .32f);
         }
         if (vintageRevealedBackground != null)
         {
             Color paper = new Color(1f, .88f, .59f, feedbackPaperRest.a);
             vintageRevealedBackground.color = Color.Lerp(feedbackPaperRest, paper,
-                feedbackMatched ? .22f + match * .28f : reveal * .12f);
+                feedbackMatched ? .22f + match * .28f : reveal * .19f);
         }
     }
 
