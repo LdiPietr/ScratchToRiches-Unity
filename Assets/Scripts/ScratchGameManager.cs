@@ -100,7 +100,8 @@ public sealed partial class ScratchGameManager : MonoBehaviour
         earnedGoldCoins >= FinalGoldPayoutTarget && activated;
 
     public TicketKind CurrentTicketKind => currentTicketKind;
-    public bool WaitingForTicketChoice => state == RoundState.Playing && !ticketActive && ticketNumberInRun > 0;
+    public bool WaitingForTicketChoice => !ticketActive &&
+        (state == RoundState.Ready || state == RoundState.Playing);
 
     // Friendly display names: internal enum identifiers stay unchanged.
     public static string TicketDisplayName(TicketKind kind)
