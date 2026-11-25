@@ -48,9 +48,16 @@ public sealed partial class ScratchVintageGameplayHUD
             Image lockImage = Get(prizeLocks, i);
             if (name != null)
             {
-                Set(name, PrizeTitles[i] + (locked ? " <size=21>· " + (i + 2) + " grattate</size>" : ""));
+                Set(name, PrizeTitles[i]);
                 name.color = locked ? LockedInk : obtained ? Gold : Cream;
                 name.fontStyle = obtained && !locked ? FontStyles.Bold : FontStyles.Normal;
+            }
+            TMP_Text requirement = Get(prizeRequirements, i);
+            if (requirement != null)
+            {
+                Set(requirement, (i + 2) + " grattate");
+                requirement.color = LockedInk;
+                requirement.gameObject.SetActive(locked);
             }
             if (amount != null)
             {
@@ -61,7 +68,7 @@ public sealed partial class ScratchVintageGameplayHUD
             if (coin != null)
             {
                 coin.color = new Color(1f, 1f, 1f, locked ? .58f : 1f);
-                PositionCoin(coin, amount, 8f);
+                PositionCoin(coin, amount, 6f);
             }
             if (lockImage != null)
             {
@@ -92,7 +99,9 @@ public sealed partial class ScratchVintageGameplayHUD
         bool refund = !match.IsMatch && value > 0;
         bool final = !game.TicketActive && game.TicketNumber > 0;
         bool validMatch = match.IsMatch && !voided;
-        int realSymbols = RefreshMatchSymbols(match, validMatch, voided, out bool hasJolly);
+        bool paid = value > 0;
+        bool showAmount = paid || final;
+        int realSymbols = RefreshMatchSymbols(match, validMatch, voided, showAmount, out bool hasJolly);
         string name = voided ? "ANNULLATO" : refund ? "RIMBORSO" : validMatch
             ? PrizeTitles[(int)match.Tier - 1].ToUpperInvariant()
             : final ? "NON VINCENTE" : game.RevealedCount < 2 ? "IN ATTESA" : "NESSUNA COPPIA";
@@ -104,15 +113,17 @@ public sealed partial class ScratchVintageGameplayHUD
         Set(matchName, name);
         Set(matchMultiplier, detail);
         RefreshPayoutStatus();
-        bool paid = value > 0;
-        Set(payout, paid ? value.ToString("N0") : final ? "0" : "—");
+        Set(payout, paid ? value.ToString("N0") : final ? "0" : string.Empty);
+        if (payout != null) payout.gameObject.SetActive(showAmount);
+        if (matchDivider != null) matchDivider.SetActive(showAmount);
+        SetMatchVerticalLayout(showAmount);
         payoutRestColor = paid ? Gold : Muted;
         if (payout != null)
         {
             payout.fontSizeMax = paid ? 82 : 44;
             payout.fontSizeMin = paid ? 26 : 32;
         }
-        if (prizeLabel != null) prizeLabel.gameObject.SetActive(paid || final);
+        if (prizeLabel != null) prizeLabel.gameObject.SetActive(showAmount);
         if (matchName != null) matchName.color = validMatch || paid ? Gold : Muted;
         if (matchAccent != null) matchAccent.color = validMatch || paid ? Gold : Reserved;
         if (payoutCoin != null)
@@ -137,13 +148,22 @@ public sealed partial class ScratchVintageGameplayHUD
         }
         feedbackTier = voided ? default : match.Tier;
         feedbackValue = value;
-        if (paid) PositionCoin(payoutCoin, payout, 10f);
+        if (showAmount) CenterPayoutGroup();
         UpdateWinFeedback();
     }
 
-    // Fixed objects in the scene; only visible, selected and completed cells can populate them.
+    // Authored positions; the current state selects one of two vertical arrangements.
+    private void SetMatchVerticalLayout(bool hasAmount)
+    {
+        if (matchName != null)
+            matchName.rectTransform.anchoredPosition = new Vector2(28f, hasAmount ? -75f : -101f);
+        if (matchMultiplier != null)
+            matchMultiplier.rectTransform.anchoredPosition = new Vector2(28f, hasAmount ? -210f : -270f);
+    }
+
+    // Only completed, selected cells populate the authored slots. No previews leak.
     private int RefreshMatchSymbols(ScratchSymbolManager.MatchResult match, bool winning,
-        bool voided, out bool hasJolly)
+        bool voided, bool hasAmount, out bool hasJolly)
     {
         hasJolly = false;
         int count = 0;
@@ -151,33 +171,76 @@ public sealed partial class ScratchVintageGameplayHUD
         for (int i = 0; i < matchSymbols.Length; i++)
             if (matchSymbols[i] != null) matchSymbols[i].gameObject.SetActive(false);
         if (matchJolly != null) matchJolly.gameObject.SetActive(false);
-        if (voided || matchCells == null || matchCells.ActiveCells == null) return 0;
-        foreach (ScratchCell cell in matchCells.ActiveCells)
+        if (!voided && matchCells != null && matchCells.ActiveCells != null)
         {
-            if (cell == null || !cell.IsComplete || !game.IsCellSelected(cell) ||
-                !cell.TryGetVisibleSymbol(out string symbol)) continue;
-            if (winning && symbol != match.Symbol && symbol != "JOLLY") continue;
-            if (symbol == "JOLLY") { hasJolly = true; continue; }
-            Sprite artwork = cell.RevealedArtwork;
-            if (artwork == null || count >= matchSymbols.Length) continue;
-            Image slot = matchSymbols[count++];
-            if (slot == null) continue;
-            slot.sprite = artwork;
-            slot.color = Color.white;
-            slot.gameObject.SetActive(true);
+            foreach (ScratchCell cell in matchCells.ActiveCells)
+            {
+                if (cell == null || !cell.IsComplete || !game.IsCellSelected(cell) ||
+                    !cell.TryGetVisibleSymbol(out string symbol)) continue;
+                if (winning && symbol != match.Symbol && symbol != "JOLLY") continue;
+                if (symbol == "JOLLY") { hasJolly = true; continue; }
+                Sprite artwork = cell.RevealedArtwork;
+                if (artwork == null || count >= matchSymbols.Length) continue;
+                Image slot = matchSymbols[count++];
+                if (slot == null) continue;
+                slot.sprite = artwork;
+                slot.color = Color.white;
+                slot.gameObject.SetActive(true);
+            }
         }
-        int total = Mathf.Min(matchSymbols.Length, count + (hasJolly ? 1 : 0));
-        float start = 221f - (total * 58f + Mathf.Max(0, total - 1) * 8f) * .5f;
-        for (int i = 0; i < count; i++)
-            if (matchSymbols[i] != null)
-                matchSymbols[i].rectTransform.anchoredPosition = new Vector2(start + i * 66f, -186f);
-        if (hasJolly && count < total && matchJolly != null)
+        int discovered = Mathf.Min(matchSymbols.Length, count + (hasJolly ? 1 : 0));
+        int total = !voided && game.TicketActive && !winning
+            ? Mathf.Clamp(game.MaxScratches, discovered, matchSymbols.Length) : discovered;
+        const float slotWidth = 70f, gap = 8f;
+        float start = 221f - (total * slotWidth + Mathf.Max(0, total - 1) * gap) * .5f;
+        float y = hasAmount ? -137f : -178f;
+        for (int i = 0; i < matchSymbols.Length; i++)
         {
-            matchJolly.rectTransform.anchoredPosition = new Vector2(start + count * 66f, -186f);
+            Vector2 position = new Vector2(start + i * (slotWidth + gap), y);
+            if (i < count && matchSymbols[i] != null)
+                matchSymbols[i].rectTransform.anchoredPosition = position;
+            Image frame = Get(matchSlotFrames, i);
+            TMP_Text question = Get(matchSlotQuestions, i);
+            bool empty = i >= discovered && i < total;
+            if (frame != null)
+            {
+                frame.rectTransform.anchoredPosition = position;
+                frame.color = empty ? new Color(.34f, .46f, .40f, .42f) :
+                    winning ? new Color(.92f, .76f, .36f, .11f) : new Color(.34f, .46f, .40f, .18f);
+                frame.gameObject.SetActive(i < total);
+            }
+            if (question != null)
+            {
+                question.rectTransform.anchoredPosition = position;
+                question.color = LockedInk;
+                question.gameObject.SetActive(empty);
+            }
+        }
+        if (hasJolly && count < discovered && matchJolly != null)
+        {
+            matchJolly.rectTransform.anchoredPosition = new Vector2(start + count * (slotWidth + gap), y);
             matchJolly.color = Gold;
             matchJolly.gameObject.SetActive(true);
         }
         return count;
+    }
+
+    // Center the visible glyphs and coin as one optical group, including during the pulse.
+    private void CenterPayoutGroup()
+    {
+        if (payout == null || !payout.gameObject.activeSelf) return;
+        payout.ForceMeshUpdate(true);
+        if (payout.textInfo.characterCount == 0) return;
+        RectTransform rect = payout.rectTransform;
+        float scale = rect.localScale.x;
+        Bounds bounds = payout.textBounds;
+        bool coinVisible = payoutCoin != null && payoutCoin.gameObject.activeSelf;
+        float extra = coinVisible ? payoutCoin.rectTransform.rect.width + 10f : 0f;
+        float groupWidth = bounds.size.x * scale + extra;
+        var pos = rect.anchoredPosition;
+        pos.x = 221f - groupWidth * .5f + extra - bounds.min.x * scale;
+        rect.anchoredPosition = pos;
+        if (coinVisible) PositionCoin(payoutCoin, payout, 10f);
     }
 
     private void UpdateWinFeedback()
@@ -197,7 +260,7 @@ public sealed partial class ScratchVintageGameplayHUD
             if (highlight == null) continue;
             bool obtained = (int)feedbackTier == i + 1;
             Color color = Gold;
-            color.a = obtained ? .28f + pulse * .22f : 0f;
+            color.a = obtained ? .17f + pulse * .18f : 0f;
             highlight.color = color;
         }
     }

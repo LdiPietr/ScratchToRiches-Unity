@@ -22,6 +22,10 @@ public sealed partial class ScratchVintageGameplayHUD : MonoBehaviour
     [SerializeField] private Image[] prizeCoins = new Image[4];
     [SerializeField] private Image payoutCoin;
     [SerializeField] private Image[] matchSymbols = new Image[5];
+    [SerializeField] private Image[] matchSlotFrames = new Image[5];
+    [SerializeField] private TMP_Text[] matchSlotQuestions = new TMP_Text[5];
+    [SerializeField] private GameObject matchDivider;
+    [SerializeField] private TMP_Text[] prizeRequirements = new TMP_Text[4];
     [SerializeField] private TMP_Text matchJolly;
     [SerializeField] private Image[] prizeHighlights = new Image[4];
     [SerializeField] private Image[] prizeLocks = new Image[4];

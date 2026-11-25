@@ -36,6 +36,26 @@ public static class ScratchVintageHudAudit
         }
         if (so.FindProperty("matchJolly")?.objectReferenceValue == null)
         { errors++; Debug.LogError("Missing authored Jolly slot."); }
+        foreach (var spec in new[] { "matchSlotFrames", "matchSlotQuestions", "prizeRequirements" })
+        {
+            var array = so.FindProperty(spec);
+            int expected = spec == "prizeRequirements" ? 4 : 5;
+            if (array == null || array.arraySize != expected)
+            { errors++; Debug.LogError("Invalid authored array: " + spec); continue; }
+            for (int i = 0; i < expected; i++)
+            {
+                var graphic = array.GetArrayElementAtIndex(i).objectReferenceValue as Graphic;
+                if (graphic == null || graphic.raycastTarget)
+                { errors++; Debug.LogError("Invalid authored graphic: " + spec + " " + i); }
+            }
+        }
+        var names = so.FindProperty("prizeNames");
+        for (int i = 0; i < names.arraySize; i++)
+        {
+            var label = names.GetArrayElementAtIndex(i).objectReferenceValue as TMP_Text;
+            if (label == null || label.enableAutoSizing || !Mathf.Approximately(label.fontSize, 28f))
+            { errors++; Debug.LogError("Prize names must have the same fixed font size."); }
+        }
         if (errors == 0) Debug.Log("VINTAGE GAMEPLAY HUD AUDIT PASS");
         else Debug.LogError("VINTAGE GAMEPLAY HUD AUDIT FAILED: " + errors);
     }
