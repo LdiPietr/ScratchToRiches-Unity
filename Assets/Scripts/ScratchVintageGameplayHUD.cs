@@ -258,12 +258,12 @@ public sealed partial class ScratchVintageGameplayHUD : MonoBehaviour
             shopWalletPanel.SetActive(flow.ShopOpen);
         if (shadow == null || ticket == null || ticketGroup == null) return;
         var rt = shadow.rectTransform;
-        rt.sizeDelta = ticket.sizeDelta;
+        rt.sizeDelta = ticket.sizeDelta + new Vector2(48f, 48f);
         rt.localScale = ticket.localScale;
         rt.localRotation = ticket.localRotation;
         rt.anchoredPosition = ticket.anchoredPosition + (Vector2)(ticket.localRotation *
-            new Vector3(12 * ticket.localScale.x, -14 * ticket.localScale.y, 0));
-        shadow.color = new Color(.06f,.11f,.09f,.45f * ticketGroup.alpha);
+            new Vector3(6 * ticket.localScale.x, -9 * ticket.localScale.y, 0));
+        shadow.color = new Color(.025f,.045f,.035f,.42f * ticketGroup.alpha);
     }
 
     private static void Set(TMP_Text label, string value)
