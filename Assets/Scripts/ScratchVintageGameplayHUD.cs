@@ -157,7 +157,7 @@ public sealed class ScratchVintageGameplayHUD : MonoBehaviour
     {
         bool ready = game.State == ScratchGameManager.RoundState.Ready;
         bool live = game.TicketActive;
-        if (startButton != null) startButton.gameObject.SetActive(ready);
+        if (startButton != null) startButton.gameObject.SetActive(false);
         if (helpPrimary != null) helpPrimary.gameObject.SetActive(!ready);
         if (helpSecondary != null) helpSecondary.gameObject.SetActive(!ready);
         Set(helpPrimary, game.DemoFinished ? "Demo completata" : live ? "Gratta un'altra casella" : "Scegli il prossimo biglietto");
