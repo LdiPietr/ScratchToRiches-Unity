@@ -78,13 +78,13 @@ public static class ScratchVintageHudAudit
             int expected = field == "prizeRequirements" ? 4 : 5;
             if (array == null || !array.isArray || array.arraySize != expected)
             { errors.Add(field + ": array non valido"); continue; }
-            var unique = new HashSet<int>();
+            var unique = new HashSet<Graphic>();
             for (int i = 0; i < expected; i++)
             {
                 var graphic = array.GetArrayElementAtIndex(i).objectReferenceValue as Graphic;
                 if (graphic == null) { errors.Add(field + "[" + i + "]: riferimento assente"); continue; }
                 if (graphic.gameObject.scene != scene || !graphic.transform.IsChildOf(hud.transform) ||
-                    !unique.Add(graphic.GetInstanceID()) || graphic.raycastTarget)
+                    !unique.Add(graphic) || graphic.raycastTarget)
                     errors.Add(field + "[" + i + "]: oggetto non valido");
                 string expectedName = field == "matchSlotFrames" ? "MatchSlotFrame_" + (i + 1) :
                     field == "matchSlotQuestions" ? "MatchSlotQuestion_" + (i + 1) :
