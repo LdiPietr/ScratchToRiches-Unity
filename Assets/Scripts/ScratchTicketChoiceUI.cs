@@ -171,12 +171,13 @@ public sealed class ScratchTicketChoiceUI : MonoBehaviour
                 var unlock = ScratchSkillCatalogV2.Find(UnlockIds[i]);
                 bool fullGameOnly = ScratchSkillTree.DemoEdition && unlock != null && !unlock.demoEligible;
                 actionLabels[i].text = !unlocked ? (fullGameOnly
-                    ? "GIOCO COMPLETO\n<size=19>Disponibile nella versione finale</size>"
-                    : "BLOCCATO\n<size=19>Sblocca nei potenziamenti</size>")
+                    ? "SOLO NEL GIOCO COMPLETO"
+                    : "BLOCCATO\n<size=18>Nei potenziamenti</size>")
                     : !affordable ? "MONETE INSUFFICIENTI" : "SCEGLI";
                 actionLabels[i].color = selectable ? Dark : Cream;
-                actionLabels[i].rectTransform.anchoredPosition = new Vector2(unlocked ? 0 : 10, -326);
-                actionLabels[i].fontSize = unlocked && affordable ? 28 : 23;
+                actionLabels[i].rectTransform.anchoredPosition = new Vector2(unlocked ? 0 : 18, -326);
+                actionLabels[i].rectTransform.sizeDelta = new Vector2(unlocked ? 316 : 290, 64);
+                actionLabels[i].fontSize = unlocked && affordable ? 28 : fullGameOnly ? 20 : 23;
             }
             if (actionBackgrounds[i] != null)
             {
