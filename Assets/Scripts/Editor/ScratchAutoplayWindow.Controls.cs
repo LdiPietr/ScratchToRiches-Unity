@@ -87,10 +87,8 @@ public sealed partial class ScratchAutoplayWindow
             using (new EditorGUI.DisabledScope(freshSeedEachRun))
                 seed = EditorGUILayout.IntField("Seed riproducibile", seed);
             maxSessionMinutes = EditorGUILayout.Slider("Timeout massimo (min)", maxSessionMinutes, 5f, 240f);
-            videoHeight = EditorGUILayout.IntPopup("Risoluzione MP4", videoHeight,
-                new[] { "HD 1280x720", "Full HD 1920x1080" }, new[] { 720, 1080 });
-            videoFrameRate = EditorGUILayout.IntPopup("FPS MP4", videoFrameRate,
-                new[] { "30", "60" }, new[] { 30, 60 });
+            EditorGUILayout.LabelField("MP4 per condivisione", "720p / 30 FPS / 1,45 Mbps");
+            EditorGUILayout.HelpBox("Run completa, budget 400 MB. Audio facoltativo. Se necessario, ricompressione con FFmpeg disponibile nel PATH.", MessageType.Info);
             recordGameAudio = EditorGUILayout.ToggleLeft("Includi audio del gioco", recordGameAudio);
             captureFrames = EditorGUILayout.ToggleLeft("Salva anche PNG di diagnostica (opzionale)", captureFrames);
             if (captureFrames)

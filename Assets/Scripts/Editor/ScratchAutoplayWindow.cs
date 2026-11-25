@@ -125,10 +125,14 @@ public sealed partial class ScratchAutoplayWindow : EditorWindow
     private bool backgroundOverride;
     private bool finalSuccess;
     private float resultVisibleSince = -1f;
-    private bool recordGameAudio = true;
+    private bool recordGameAudio = false;
     private bool videoValidationPending;
-    private int videoHeight = 1080;
-    private int videoFrameRate = 60;
+    private int videoHeight = 720;
+    private int videoFrameRate = 30;
+    private const float UploadVideoBitrateMbps = 1.45f;
+    private const long UploadVideoLimit = 400000000L;
+    private float finishedRunSeconds;
+    private ScratchAutoplayVideoBudget videoCompression;
     private double videoValidationDeadline;
     private string videoStatus = "Non richiesto";
     private string videoOutputPath = string.Empty;

@@ -19,6 +19,10 @@ public sealed partial class ScratchAutoplayWindow
         qaFunds = false;
         startFresh = true;
         recordVideo = true;
+        videoHeight = 720;
+        videoFrameRate = 30;
+        finishedRunSeconds = 0f;
+        videoCompression = null;
         resultVisibleSince = -1f;
         if (ScratchManualTelemetry.IsRecording)
         {
@@ -150,7 +154,8 @@ public sealed partial class ScratchAutoplayWindow
         if (recordVideo)
         {
             movieRecorder = new ScratchAutoplayMovieRecorder();
-            if (!movieRecorder.Start(reportDirectory, videoHeight, videoFrameRate, recordGameAudio))
+            if (!movieRecorder.Start(reportDirectory, videoHeight, videoFrameRate, recordGameAudio,
+                    "autoplay", UploadVideoBitrateMbps, false))
             {
                 videoStatus = "ERRORE avvio: " + movieRecorder.LastError;
                 Fail(videoStatus);
@@ -159,7 +164,8 @@ public sealed partial class ScratchAutoplayWindow
             videoOutputPath = movieRecorder.OutputPath;
             videoStatus = "Registrazione H.264 in corso";
             Note("VIDEO_START", "path=" + videoOutputPath + ";fps=" + videoFrameRate +
-                ";resolution=" + videoHeight + "p;audio=" + recordGameAudio);
+                ";resolution=" + videoHeight + "p;audio=" + recordGameAudio +
+                ";targetMbps=" + UploadVideoBitrateMbps.ToString(CultureInfo.InvariantCulture));
         }
 
         SetPattern(PlannedPattern(0, 0));

@@ -59,6 +59,7 @@ public sealed partial class ScratchAutoplayWindow
     {
         if (!running) return;
         running = false;
+        finishedRunSeconds = Time.realtimeSinceStartup - startedAt;
         EndPointer();
         if (pressedHold != null) pressedHold.QaReleaseHold();
         pressedHold = null;
@@ -109,46 +110,59 @@ public sealed partial class ScratchAutoplayWindow
     private void UpdateVideoValidation()
     {
         if (!videoValidationPending || string.IsNullOrEmpty(videoOutputPath)) return;
-
         try
         {
+            if (videoCompression != null)
+            {
+                if (!videoCompression.TryFinish(out bool ok, out string result)) return;
+                videoCompression = null;
+                if (!ok) { CompleteVideoValidation(false, result); return; }
+            }
             if (File.Exists(videoOutputPath))
             {
                 long length = new FileInfo(videoOutputPath).Length;
-                if (length >= 4096)
+                if (length >= 4096 && ScratchAutoplayVideoBudget.TryDuration(videoOutputPath, out double seconds))
                 {
-                    videoStatus = "MP4 creato (" + (length / 1024 / 1024f).ToString("F1",
-                        CultureInfo.InvariantCulture) + " MB)";
-                    Check(true, "video_mp4_file", "MP4 esistente, bytes=" + length);
-                    videoValidationPending = false;
-                    EditorApplication.update -= UpdateVideoValidation;
-                    WriteReport();
-                    Repaint();
+                    if (length > UploadVideoLimit)
+                    {
+                        videoCompression = new ScratchAutoplayVideoBudget(videoOutputPath, seconds, recordGameAudio);
+                        if (!videoCompression.Start(out string error))
+                        {
+                            videoCompression = null;
+                            CompleteVideoValidation(false, error + " | Originale preservato.");
+                        }
+                        else
+                        {
+                            videoStatus = "Ricompressione integrale MP4 in corso";
+                            Repaint();
+                        }
+                        return;
+                    }
+                    CompleteVideoValidation(true, "MP4 completo: " +
+                        (length / 1000000.0).ToString("F1", CultureInfo.InvariantCulture) +
+                        " MB / 400 MB | durata=" + seconds.ToString("F1", CultureInfo.InvariantCulture) + " s");
                     return;
                 }
             }
-
             if (EditorApplication.timeSinceStartup > videoValidationDeadline)
-            {
-                videoValidationPending = false;
-                EditorApplication.update -= UpdateVideoValidation;
-                videoStatus = "ERRORE: MP4 assente o vuoto dopo finalizzazione";
-                lastStatus += " | VIDEO NON CREATO";
-                Check(false, "video_mp4_file", "File non creato: " + videoOutputPath);
-                WriteReport();
-                Debug.LogError("STR AUTO QA: " + videoStatus + " | " + videoOutputPath);
-                Repaint();
-            }
+                CompleteVideoValidation(false, "MP4 assente, vuoto o non finalizzato.");
         }
         catch (Exception ex)
         {
-            videoValidationPending = false;
-            EditorApplication.update -= UpdateVideoValidation;
-            videoStatus = "ERRORE verifica MP4: " + ex.Message;
-            lastStatus += " | VIDEO NON VERIFICATO";
-            Check(false, "video_mp4_file", videoStatus);
-            WriteReport();
+            CompleteVideoValidation(false, "Verifica MP4: " + ex.Message);
         }
+    }
+
+    private void CompleteVideoValidation(bool ok, string detail)
+    {
+        videoValidationPending = false;
+        EditorApplication.update -= UpdateVideoValidation;
+        videoStatus = ok ? detail : "ERRORE: " + detail;
+        Check(ok, "video_mp4_file", detail);
+        Check(ok, "video_upload_400mb", detail);
+        if (!ok) lastStatus += " | VIDEO NON CONFORME";
+        WriteReport();
+        Repaint();
     }
 
     private string MilestoneMinute(string skillId)
@@ -165,13 +179,14 @@ public sealed partial class ScratchAutoplayWindow
         File.WriteAllLines(Path.Combine(reportDirectory, "checks.csv"), checks, Encoding.UTF8);
         if (IsFullDemo)
             File.WriteAllLines(Path.Combine(reportDirectory, "progression.csv"), progression, Encoding.UTF8);
-        float durationMinutes = (Time.realtimeSinceStartup - startedAt) / 60f;
+        float runSeconds = finishedRunSeconds > 0f ? finishedRunSeconds : Time.realtimeSinceStartup - startedAt;
+        float durationMinutes = runSeconds / 60f;
         string summary = "Scratch to Riches V2 - Auto QA\n" +
             "Stato: " + lastStatus + "\n" +
             "Modalita': " + autoplayMode + "\n" +
             "Seed effettivo: " + actualSeed + "\n" +
             "Seed nuovo a ogni avvio: " + freshSeedEachRun + "\n" +
-            "Durata reale (s): " + (Time.realtimeSinceStartup - startedAt).ToString("F2", CultureInfo.InvariantCulture) + "\n" +
+            "Durata reale (s): " + runSeconds.ToString("F2", CultureInfo.InvariantCulture) + "\n" +
             "Biglietti di test: " + tickets +
                 (IsFullDemo ? " (nessun numero fisso)" : "/13") + "\n" +
             "Biglietti farm: " + farmTickets + "\n" +

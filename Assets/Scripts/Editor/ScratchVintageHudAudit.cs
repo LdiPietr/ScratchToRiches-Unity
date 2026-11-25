@@ -35,8 +35,9 @@ public static class ScratchVintageHudAudit
                 { errors++; Debug.LogError("Invalid authored match symbol slot " + i); }
             }
         }
-        if (so.FindProperty("matchJolly")?.objectReferenceValue == null)
-        { errors++; Debug.LogError("Missing authored Jolly slot."); }
+        var jolly = so.FindProperty("matchJolly")?.objectReferenceValue as Image;
+        if (jolly == null || jolly.sprite == null || jolly.sprite.name != "sym_jolly_hud" || !jolly.preserveAspect)
+        { errors++; Debug.LogError("Missing authored Jolly artwork."); }
         foreach (var spec in new[] { "matchSlotFrames", "matchSlotQuestions", "prizeRequirements" })
         {
             var array = so.FindProperty(spec);
@@ -90,6 +91,9 @@ public static class ScratchVintageHudAudit
                     field == "matchSlotQuestions" ? "MatchSlotQuestion_" + (i + 1) :
                     "GameplayPrizeRequirement_" + i;
                 if (graphic.name != expectedName) errors.Add(field + "[" + i + "]: " + graphic.name);
+                if (field == "matchSlotFrames" && (!(graphic is Image frame) ||
+                    frame.sprite == null || frame.type != Image.Type.Sliced || frame.sprite.border.sqrMagnitude <= 0f))
+                    errors.Add(field + "[" + i + "]: cornice grafica non valida");
             }
         }
         foreach (string field in new[] { "prizeLabel", "prizeFooter" })

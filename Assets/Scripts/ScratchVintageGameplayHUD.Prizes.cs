@@ -156,73 +156,9 @@ public sealed partial class ScratchVintageGameplayHUD
     private void SetMatchVerticalLayout(bool hasAmount)
     {
         if (matchName != null)
-            matchName.rectTransform.anchoredPosition = new Vector2(28f, hasAmount ? -75f : -101f);
+            matchName.rectTransform.anchoredPosition = new Vector2(28f, hasAmount ? -75f : -138f);
         if (matchMultiplier != null)
-            matchMultiplier.rectTransform.anchoredPosition = new Vector2(28f, hasAmount ? -210f : -270f);
-    }
-
-    // Only completed, selected cells populate the authored slots. No previews leak.
-    private int RefreshMatchSymbols(ScratchSymbolManager.MatchResult match, bool winning,
-        bool voided, bool hasAmount, out bool hasJolly)
-    {
-        hasJolly = false;
-        int count = 0;
-        if (matchSymbols == null) return 0;
-        for (int i = 0; i < matchSymbols.Length; i++)
-            if (matchSymbols[i] != null) matchSymbols[i].gameObject.SetActive(false);
-        if (matchJolly != null) matchJolly.gameObject.SetActive(false);
-        if (!voided && matchCells != null && matchCells.ActiveCells != null)
-        {
-            foreach (ScratchCell cell in matchCells.ActiveCells)
-            {
-                if (cell == null || !cell.IsComplete || !game.IsCellSelected(cell) ||
-                    !cell.TryGetVisibleSymbol(out string symbol)) continue;
-                if (winning && symbol != match.Symbol && symbol != "JOLLY") continue;
-                if (symbol == "JOLLY") { hasJolly = true; continue; }
-                Sprite artwork = cell.RevealedArtwork;
-                if (artwork == null || count >= matchSymbols.Length) continue;
-                Image slot = matchSymbols[count++];
-                if (slot == null) continue;
-                slot.sprite = artwork;
-                slot.color = Color.white;
-                slot.gameObject.SetActive(true);
-            }
-        }
-        int discovered = Mathf.Min(matchSymbols.Length, count + (hasJolly ? 1 : 0));
-        int total = !voided && game.TicketActive && !winning
-            ? Mathf.Clamp(game.MaxScratches, discovered, matchSymbols.Length) : discovered;
-        const float slotWidth = 70f, gap = 8f;
-        float start = 221f - (total * slotWidth + Mathf.Max(0, total - 1) * gap) * .5f;
-        float y = hasAmount ? -137f : -178f;
-        for (int i = 0; i < matchSymbols.Length; i++)
-        {
-            Vector2 position = new Vector2(start + i * (slotWidth + gap), y);
-            if (i < count && matchSymbols[i] != null)
-                matchSymbols[i].rectTransform.anchoredPosition = position;
-            Image frame = Get(matchSlotFrames, i);
-            TMP_Text question = Get(matchSlotQuestions, i);
-            bool empty = i >= discovered && i < total;
-            if (frame != null)
-            {
-                frame.rectTransform.anchoredPosition = position;
-                frame.color = empty ? new Color(.34f, .46f, .40f, .42f) :
-                    winning ? new Color(.92f, .76f, .36f, .11f) : new Color(.34f, .46f, .40f, .18f);
-                frame.gameObject.SetActive(i < total);
-            }
-            if (question != null)
-            {
-                question.rectTransform.anchoredPosition = position;
-                question.color = LockedInk;
-                question.gameObject.SetActive(empty);
-            }
-        }
-        if (hasJolly && count < discovered && matchJolly != null)
-        {
-            matchJolly.rectTransform.anchoredPosition = new Vector2(start + count * (slotWidth + gap), y);
-            matchJolly.color = Gold;
-            matchJolly.gameObject.SetActive(true);
-        }
-        return count;
+            matchMultiplier.rectTransform.anchoredPosition = new Vector2(28f, hasAmount ? -210f : -294f);
     }
 
     // Center the visible glyphs and coin as one optical group, including during the pulse.
@@ -260,7 +196,7 @@ public sealed partial class ScratchVintageGameplayHUD
             if (highlight == null) continue;
             bool obtained = (int)feedbackTier == i + 1;
             Color color = Gold;
-            color.a = obtained ? .17f + pulse * .18f : 0f;
+            color.a = obtained ? .52f + pulse * .23f : 0f;
             highlight.color = color;
         }
     }
@@ -279,6 +215,8 @@ public sealed partial class ScratchVintageGameplayHUD
         float left = amountRect.anchoredPosition.x + amount.textBounds.min.x * amountRect.localScale.x;
         var position = coinRect.anchoredPosition;
         position.x = left - coinRect.rect.width - gap;
+        position.y = amountRect.anchoredPosition.y + amount.textBounds.center.y * amountRect.localScale.y
+            + coinRect.rect.height * .5f;
         coinRect.anchoredPosition = position;
     }
 }
