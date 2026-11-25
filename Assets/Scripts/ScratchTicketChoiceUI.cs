@@ -49,6 +49,7 @@ public sealed class ScratchTicketChoiceUI : MonoBehaviour
         if (presentation == null) presentation = GetComponent<ScratchFlowPresentation>();
         // Wait for the presentation and card bindings before showing the initial selection.
         if (choicePanel != null) choicePanel.SetActive(false);
+        if (selectionUpgradeGroup != null) selectionUpgradeGroup.gameObject.SetActive(false);
     }
 
     private void Start()
@@ -201,6 +202,9 @@ public sealed class ScratchTicketChoiceUI : MonoBehaviour
     // Reuse the live wallet and upgrade button. No duplicated shop event or UI object.
     private void SyncHeader(bool show)
     {
+        // Upgrades belong exclusively to the ticket selection screen.
+        if (selectionUpgradeGroup != null && selectionUpgradeGroup.gameObject.activeSelf != show)
+            selectionUpgradeGroup.gameObject.SetActive(show);
         if (upgradeHome == null || walletHomePositions == null || headerMoved == show) return;
         headerMoved = show;
         if (show)
