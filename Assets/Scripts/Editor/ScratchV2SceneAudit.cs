@@ -8,14 +8,15 @@ using UnityEngine;
 /// </summary>
 public static class ScratchV2SceneAudit
 {
-    internal static bool AuditScene()
+    [MenuItem("Tools/Scratch to Riches/Audit V2 Scene")]
+    private static void AuditScene()
     {
         int errors = 0;
         ScratchCellManager manager = Object.FindAnyObjectByType<ScratchCellManager>(FindObjectsInactive.Include);
         if (manager == null)
         {
             Debug.LogError("V2 AUDIT: ScratchCellManager not found in the open scene.");
-            return false;
+            return;
         }
 
         ScratchCell[] cells = manager.GetComponentsInChildren<ScratchCell>(true);
@@ -175,10 +176,10 @@ public static class ScratchV2SceneAudit
 
         if (errors == 0) Debug.Log("V2 AUDIT PASS: 90-node catalog, C11 global pick perk, 7/6/5/4 pools and authored UI wired.");
         else Debug.LogError("V2 AUDIT FAILED: " + errors + " error(s). See Console for details.");
-        return errors == 0;
     }
 
 
+    [MenuItem("Tools/Scratch to Riches/Diagnostica acquisto G08 (Play Mode)")]
     private static void DiagnoseG08Purchase()
     {
         if (!EditorApplication.isPlaying)
