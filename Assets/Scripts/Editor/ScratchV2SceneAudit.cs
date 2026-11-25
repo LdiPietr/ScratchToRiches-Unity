@@ -52,6 +52,10 @@ public static class ScratchV2SceneAudit
             SerializedObject so = new SerializedObject(flow);
             Check(so.FindProperty("shopButton").objectReferenceValue != null,
                   "clickable shop button", ref errors);
+            var resultButton = so.FindProperty("nextTicketButton")?.objectReferenceValue as UnityEngine.UI.Button;
+            Check(resultButton != null && !resultButton.gameObject.activeSelf &&
+                so.FindProperty("nextTicketLabel")?.objectReferenceValue != null,
+                "authored result confirmation button initially hidden", ref errors);
             SerializedProperty contentProperty = so.FindProperty("shopContent");
             GameObject shopPanel = contentProperty == null
                 ? null : contentProperty.objectReferenceValue as GameObject;

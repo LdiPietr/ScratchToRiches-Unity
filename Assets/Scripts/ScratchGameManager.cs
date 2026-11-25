@@ -260,6 +260,11 @@ public sealed partial class ScratchGameManager : MonoBehaviour
             roundActionButton.onClick.RemoveListener(OnRoundAction);
     }
 
+    public void ShowDemoEnding()
+    {
+        if (demoFinished && demoEndOverlay != null) demoEndOverlay.SetActive(true);
+    }
+
     public void OnRoundAction()
     {
         if (presentation != null && presentation.ShopOpen) return;

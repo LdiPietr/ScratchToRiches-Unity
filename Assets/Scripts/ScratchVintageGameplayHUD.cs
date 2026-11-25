@@ -24,6 +24,11 @@ public sealed partial class ScratchVintageGameplayHUD : MonoBehaviour
     [SerializeField] private Image[] prizeHighlights = new Image[4];
     [SerializeField] private Image[] prizeLocks = new Image[4];
     [SerializeField] private TMP_Text prizeFooter;
+    [SerializeField] private Image matchAccent;
+    [SerializeField] private TMP_Text matchHeader, refundLabel, refundAmount;
+    [SerializeField] private Image refundCoin;
+    [SerializeField] private GameObject resultHelpGroup;
+    [SerializeField] private TMP_Text resultSummary;
     [SerializeField] private GameObject progressTrack;
     [SerializeField] private Button startButton;
     [SerializeField] private Image shadow;
@@ -65,7 +70,7 @@ public sealed partial class ScratchVintageGameplayHUD : MonoBehaviour
         Set(shopWallet, economy.Coins.ToString("N0"));
         Set(picks, revealed + "<size=64> /" + max + "</size>");
         int left = Mathf.Max(0, max - revealed);
-        Set(remaining, left == 1 ? "1 grattata rimasta" : left + " grattate rimaste");
+        Set(remaining, left == 0 ? "Biglietto completato" : "");
         for (int i = 0; i < indicators.Length; i++)
         {
             Image im = indicators[i];
@@ -142,7 +147,7 @@ public sealed partial class ScratchVintageGameplayHUD : MonoBehaviour
         else if (skillId != null && title.Length > 0)
         {
             if (!skills.RequirementsMet(skillId))
-                goal = title + "\n" + skills.RequirementText(skillId);
+                goal = title + "\n" + skills.RequirementText(skillId).Replace("Prima ", "Acquista ");
             else if (!ScratchRadialProgression.Available(skillId, game, skills))
                 goal = title + "\n" + SentenceCase(action);
             else if (!skills.CanPurchase(skillId) && economy.Coins < skills.GetPrice(skillId))
@@ -168,7 +173,11 @@ public sealed partial class ScratchVintageGameplayHUD : MonoBehaviour
         else
             goal = SentenceCase(raw);
 
-        Set(milestone, goal);
+        int newline = goal.IndexOf('\n');
+        string headline = newline >= 0 ? goal.Substring(0, newline) : goal;
+        string subtitle = newline >= 0 ? goal.Substring(newline + 1) : "";
+        Set(milestone, "<color=#EAC25C>" + headline + "</color>" +
+            (subtitle.Length == 0 ? "" : "\n<size=23>" + subtitle + "</size>"));
         Set(milestoneCount, counter);
         if (progressTrack != null) progressTrack.SetActive(showProgress);
         if (progress != null)
@@ -191,9 +200,19 @@ public sealed partial class ScratchVintageGameplayHUD : MonoBehaviour
         if (startButton != null) startButton.gameObject.SetActive(false);
         if (helpPrimary != null) helpPrimary.gameObject.SetActive(!ready);
         if (helpSecondary != null) helpSecondary.gameObject.SetActive(!ready);
-        Set(helpPrimary, game.DemoFinished ? "Demo completata" : live ? "Gratta un'altra casella" : "Scegli il prossimo biglietto");
-        string detail = live ? "Scelte " + game.SelectedCount + "/" + game.MaxScratches +
-            " · Tieni premuto e trascina" : "Apri i potenziamenti o scegli un biglietto";
+        bool result = !live && game.TicketNumber > 0 && !flow.CanShowTicketChoices;
+        if (helpPrimary != null) helpPrimary.gameObject.SetActive(!ready && !result);
+        if (helpSecondary != null) helpSecondary.gameObject.SetActive(!ready && !result);
+        if (resultHelpGroup != null) resultHelpGroup.SetActive(result);
+        if (!live && game.TicketNumber > 0)
+        {
+            long net = (long)game.TicketPayout - ScratchGameManager.TicketPrice(game.CurrentTicketKind);
+            string signedNet = net > 0 ? "+" + net.ToString("N0") : net.ToString("N0");
+            Set(resultSummary, game.TicketVoided ? "Biglietto di prova · nessuna vincita" :
+                "Biglietto completato · Bilancio netto: " + signedNet + " monete");
+        }
+        Set(helpPrimary, live ? (game.RevealedCount == 0 ? "Gratta la prima casella" : "Gratta un'altra casella") : "Scegli il prossimo biglietto");
+        string detail = live ? "Tieni premuto e trascina" : "Apri i potenziamenti o scegli un biglietto";
         if (live && skills.GetLevel("G08") > 0) detail += " · SHIFT: Titan " + skills.TitanCharges;
         if (live && skills.GetLevel("C06") > 0)
             detail += game.InspectionUsedThisTicket ? " · Ispezione usata" : " · Destro/Ctrl: ispeziona";
@@ -205,6 +224,13 @@ public sealed partial class ScratchVintageGameplayHUD : MonoBehaviour
     private void LateUpdate()
     {
         UpdateWinFeedback();
+        if (resultHelpGroup != null)
+        {
+            bool result = flow.ShowingResult;
+            if (resultHelpGroup.activeSelf != result) resultHelpGroup.SetActive(result);
+            if (result && helpPrimary != null) helpPrimary.gameObject.SetActive(false);
+            if (result && helpSecondary != null) helpSecondary.gameObject.SetActive(false);
+        }
         if (shopWalletPanel != null && shopWalletPanel.activeSelf != flow.ShopOpen)
             shopWalletPanel.SetActive(flow.ShopOpen);
         if (shadow == null || ticket == null || ticketGroup == null) return;

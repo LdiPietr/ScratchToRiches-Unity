@@ -11,6 +11,9 @@ public sealed partial class ScratchVintageGameplayHUD
     private long feedbackValue;
     private float feedbackStarted = -10f;
     private Color payoutRestColor = Gold;
+    private int tableTicket = -1;
+    private readonly long[] ticketQuotes = new long[4];
+    private long ticketRefund;
 
     private long PreviewAward(ScratchSymbolManager.MatchResult match, bool complete,
         ScratchGameManager.TicketKind kind)
@@ -24,11 +27,15 @@ public sealed partial class ScratchVintageGameplayHUD
 
     private void RefreshPossiblePrizes(ScratchGameManager.TicketKind kind, int max)
     {
+        bool quote = game.TicketActive || tableTicket != game.TicketNumber;
+        if (quote) tableTicket = game.TicketNumber;
         for (int i = 0; i < 4; i++)
         {
             var tier = (ScratchSymbolManager.MatchTier)(i + 1);
             var hypothetical = new ScratchSymbolManager.MatchResult(tier, string.Empty, i + 2);
-            long award = PreviewAward(hypothetical, true, kind);
+            if (quote) ticketQuotes[i] = PreviewAward(hypothetical, true, kind);
+            long award = !game.TicketActive && game.CurrentMatch.Tier == tier ? game.TicketPayout : ticketQuotes[i];
+            if (game.TicketVoided) award = 0;
             bool locked = max < i + 2;
             bool obtained = !game.TicketVoided && game.CurrentMatch.Tier == tier;
             TMP_Text name = Get(prizeNames, i);
@@ -38,7 +45,8 @@ public sealed partial class ScratchVintageGameplayHUD
             if (name != null)
             {
                 Set(name, PrizeTitles[i] + (locked ? " <size=17>· " + (i + 2) + " grattate</size>" : ""));
-                name.color = locked ? Muted : obtained ? Gold : Cream;
+                name.color = locked ? Muted : obtained || i >= 2 ? Gold : Cream;
+                name.fontStyle = !locked && (obtained || i == 3) ? FontStyles.Bold : FontStyles.Normal;
             }
             if (amount != null)
             {
@@ -52,10 +60,15 @@ public sealed partial class ScratchVintageGameplayHUD
             }
             if (lockImage != null) lockImage.gameObject.SetActive(locked);
         }
-        long refund = PreviewAward(default, true, kind);
-        Set(prizeFooter, game.TicketVoided ? "Biglietto di prova: nessuna vincita" :
-            refund > 0 ? "Solo la più alta · Rimborso " + refund.ToString("N0") :
-            "Vale solo la combinazione più alta");
+        if (quote) ticketRefund = PreviewAward(default, true, kind);
+        long refund = game.TicketVoided ? 0 : ticketRefund;
+        Set(prizeFooter, game.TicketVoided ? "Biglietto di prova: nessuna vincita" : "Vale solo la combinazione più alta");
+        bool hasRefund = refund > 0;
+        if (refundLabel != null) refundLabel.gameObject.SetActive(hasRefund);
+        if (refundAmount != null) refundAmount.gameObject.SetActive(hasRefund);
+        if (refundCoin != null) refundCoin.gameObject.SetActive(hasRefund);
+        Set(refundAmount, refund.ToString("N0"));
+        PositionCoin(refundCoin, refundAmount, 8f);
     }
 
     private void RefreshMatch()
@@ -73,12 +86,17 @@ public sealed partial class ScratchVintageGameplayHUD
         string detail = voided ? "Biglietto di prova" : refund ? "Paracadute attivo" : match.IsMatch
             ? match.Multiplier + " × " + SentenceCase(match.Symbol)
             : game.WaitingForTicketChoice ? "Biglietto completato" : "Cerca simboli uguali";
+        bool final = !game.TicketActive && game.TicketNumber > 0;
+        if (final && !match.IsMatch && !voided && !refund) name = "NON VINCENTE";
+        Set(matchHeader, final ? "RISULTATO BIGLIETTO" : "COMBINAZIONE ATTUALE");
         Set(matchName, name);
         Set(matchMultiplier, detail);
-        Set(prizeLabel, game.TicketActive ? "Vincita attuale" : "Ultima vincita");
+        Set(prizeLabel, final ? "Vincita incassata" : "Vincita attuale");
         Set(payout, value.ToString("N0"));
-        payoutRestColor = value > 0 ? Gold : Cream;
-        if (matchName != null) matchName.color = match.IsMatch && !voided || refund ? Gold : Cream;
+        payoutRestColor = value > 0 ? Gold : Muted;
+        if (matchName != null) matchName.color = value > 0 ? Gold : Muted;
+        if (matchAccent != null) matchAccent.color = value > 0 ? Gold : Reserved;
+        if (payoutCoin != null) payoutCoin.color = new Color(1f, 1f, 1f, value > 0 ? 1f : .45f);
         if (feedbackTicket != game.TicketNumber)
         {
             feedbackTicket = game.TicketNumber;

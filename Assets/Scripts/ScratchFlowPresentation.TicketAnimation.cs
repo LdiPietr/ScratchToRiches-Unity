@@ -6,9 +6,41 @@ using UnityEngine.UI;
 // TicketAnimation responsibility of ScratchFlowPresentation.
 public sealed partial class ScratchFlowPresentation
 {
+    private const float TicketDisplayScale = .97f;
+
+    private void ShowTicketResult()
+    {
+        phase = Phase.TicketResult;
+        ticketTransform.anchoredPosition = ticketHome;
+        ticketTransform.localRotation = Quaternion.identity;
+        ticketTransform.localScale = Vector3.one * TicketDisplayScale;
+        ticketCanvasGroup.alpha = 1f;
+        ticketCanvasGroup.blocksRaycasts = false;
+        nextTicketLabel.text = game.DemoFinished ? "VEDI FINALE" : "PROSSIMO BIGLIETTO";
+        nextTicketButton.gameObject.SetActive(true);
+        nextTicketButton.interactable = true;
+        ticketChooser.Refresh();
+    }
+
+    public void ContinueAfterResult()
+    {
+        if (!CanAcknowledgeResult) return;
+        nextTicketButton.interactable = false;
+        nextTicketButton.gameObject.SetActive(false);
+        if (game.DemoFinished)
+        {
+            phase = Phase.Idle;
+            game.ShowDemoEnding();
+            return;
+        }
+        StopMotion();
+        motion = StartCoroutine(FlyOutTicket());
+    }
+
     private IEnumerator FlyInTicket()
     {
         phase = Phase.TicketEntering;
+        nextTicketButton.gameObject.SetActive(false);
         ticketChooser.Refresh();
         ticketCanvasGroup.blocksRaycasts = false;
         // Keep the ticket fully opaque from its first visible frame. Fading a
@@ -27,13 +59,13 @@ public sealed partial class ScratchFlowPresentation
             float a = EaseOut(Mathf.Clamp01(t / ticketTravelDuration));
             ticketTransform.anchoredPosition = Vector2.LerpUnclamped(start, ticketHome, a);
             ticketTransform.localRotation = Quaternion.SlerpUnclamped(startRotation, Quaternion.identity, a);
-            ticketTransform.localScale = Vector3.one * Mathf.Lerp(0.84f, 1f, a);
+            ticketTransform.localScale = Vector3.one * Mathf.Lerp(0.84f, TicketDisplayScale, a);
             yield return null;
         }
 
         ticketTransform.anchoredPosition = ticketHome;
         ticketTransform.localRotation = Quaternion.identity;
-        ticketTransform.localScale = Vector3.one;
+        ticketTransform.localScale = Vector3.one * TicketDisplayScale;
         ticketCanvasGroup.alpha = 1f;
         phase = Phase.TicketLive;
         ticketCanvasGroup.blocksRaycasts = true;

@@ -27,6 +27,7 @@ public sealed partial class ScratchGameManager
     /// </summary>
     public bool ChooseNextTicket(TicketKind kind)
     {
+        if (presentation != null && presentation.ShowingResult) return false;
         if (!WaitingForTicketChoice || !CanChooseTicket(kind))
             return false;
         if (state == RoundState.Ready) StartNewRun();
@@ -236,7 +237,7 @@ public sealed partial class ScratchGameManager
                 demoFinished = true;
                 state = RoundState.Finished;
                 PlayerPrefs.SetInt(DemoDoneKey, 1);
-                if (demoEndOverlay != null) demoEndOverlay.SetActive(true);
+                if (presentation == null || !presentation.isActiveAndEnabled) ShowDemoEnding();
             }
             PlayerPrefs.Save();
         }

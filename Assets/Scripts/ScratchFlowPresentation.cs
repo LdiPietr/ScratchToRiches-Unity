@@ -11,7 +11,7 @@ public sealed partial class ScratchFlowPresentation : MonoBehaviour
 {
     private enum Phase
     {
-        Idle, TicketEntering, TicketLive, TicketLeaving,
+        Idle, TicketEntering, TicketLive, TicketResult, TicketLeaving,
         Choosing, CurtainDescending, CurtainVisible, CurtainAscending
     }
 
@@ -31,6 +31,8 @@ public sealed partial class ScratchFlowPresentation : MonoBehaviour
     [SerializeField] private CanvasGroup ticketCanvasGroup;
     [SerializeField] private Button primaryActionButton;
     [SerializeField] private Button shopButton;
+    [SerializeField] private Button nextTicketButton;
+    [SerializeField] private TMP_Text nextTicketLabel;
     [SerializeField, Range(0.1f, 1.2f)] private float ticketTravelDuration = 0.36f;
 
     [Header("Full-screen skill curtain")]
@@ -55,6 +57,8 @@ public sealed partial class ScratchFlowPresentation : MonoBehaviour
     private string previousRight;
 
     public bool CanScratch => phase == Phase.TicketLive;
+    public bool ShowingResult => phase == Phase.TicketResult;
+    public bool CanAcknowledgeResult => ShowingResult && !game.TicketActive;
     public bool CanOpenShop => game != null && !game.TicketActive && game.WaitingForTicketChoice &&
         phase == Phase.Choosing;
     public bool ShopOpen => phase == Phase.CurtainDescending || phase == Phase.CurtainVisible || phase == Phase.CurtainAscending;
@@ -83,13 +87,14 @@ public sealed partial class ScratchFlowPresentation : MonoBehaviour
             ticketCanvasGroup.blocksRaycasts = false;
         }
         if (continueButton != null) continueButton.interactable = false;
+        if (nextTicketButton != null) nextTicketButton.gameObject.SetActive(false);
     }
 
     private void Start()
     {
         if (game == null || economy == null || ticketChooser == null ||
             ticketTransform == null || ticketCanvasGroup == null ||
-            curtainObject == null || shopContent == null || curtainRect == null || continueButton == null || shopButton == null ||
+            curtainObject == null || shopContent == null || curtainRect == null || continueButton == null || shopButton == null || nextTicketButton == null || nextTicketLabel == null ||
             !shopContent.transform.IsChildOf(curtainRect))
         {
             Debug.LogError("ScratchFlowPresentation: missing scene references.", this);
@@ -101,6 +106,7 @@ public sealed partial class ScratchFlowPresentation : MonoBehaviour
         economy.Changed += UpdateInformation;
         continueButton.onClick.AddListener(ContinueAfterUpgrades);
         shopButton.onClick.AddListener(OpenShop);
+        nextTicketButton.onClick.AddListener(ContinueAfterResult);
         subscribed = true;
         UpdateInformation();
         HandleGameChanged();
@@ -113,6 +119,7 @@ public sealed partial class ScratchFlowPresentation : MonoBehaviour
         economy.Changed -= UpdateInformation;
         continueButton.onClick.RemoveListener(ContinueAfterUpgrades);
         shopButton.onClick.RemoveListener(OpenShop);
+        nextTicketButton.onClick.RemoveListener(ContinueAfterResult);
     }
 
     private void Update()
@@ -126,11 +133,18 @@ public sealed partial class ScratchFlowPresentation : MonoBehaviour
         UpdateInformation();
 
         if (ShopOpen) return;
+        if (!game.TicketActive && (phase == Phase.TicketLive || phase == Phase.TicketEntering) && game.State != ScratchGameManager.RoundState.Ready)
+        {
+            StopMotion();
+            ShowTicketResult();
+            return;
+        }
 
         if (game.State == ScratchGameManager.RoundState.Ready)
         {
             StopMotion();
             seenTicketNumber = 0;
+            nextTicketButton.gameObject.SetActive(false);
             phase = Phase.Choosing;
             ticketCanvasGroup.alpha = 0f;
             ticketCanvasGroup.blocksRaycasts = false;
@@ -163,12 +177,7 @@ public sealed partial class ScratchFlowPresentation : MonoBehaviour
             StopMotion();
             motion = StartCoroutine(FlyInTicket());
         }
-        else if (!game.TicketActive &&
-            (phase == Phase.TicketLive || phase == Phase.TicketEntering))
-        {
-            StopMotion();
-            motion = StartCoroutine(FlyOutTicket());
-        }
+
     }
 
     private void UpdateTicketTypeLabel(ScratchGameManager.TicketKind kind)
