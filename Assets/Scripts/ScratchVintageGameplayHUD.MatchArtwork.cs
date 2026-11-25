@@ -1,73 +1,112 @@
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 public sealed partial class ScratchVintageGameplayHUD
 {
-    // Only completed, selected cells populate the authored slots. No previews leak.
+    private readonly List<ScratchCell> displayedCells = new List<ScratchCell>(5);
+    private readonly bool[] slotWinning = new bool[5];
+    private readonly float[] slotRevealAt = new float[5];
+    private int artworkTicket = -1, jollySlot = -1;
+    private static readonly Color EmptyFrame = new Color(.57f, .69f, .62f, .92f);
+    private static readonly Color NeutralFrame = new Color(.47f, .58f, .52f, .78f);
+    private static readonly Color WinningFrame = new Color(.92f, .76f, .36f, 1f);
+
+    // Stable reveal order; no previews or inspection data may populate the HUD.
     private int RefreshMatchSymbols(ScratchSymbolManager.MatchResult match, bool winning,
-        bool voided, bool hasAmount, out bool hasJolly)
+        bool voided, out bool hasJolly)
     {
         hasJolly = false;
-        int count = 0;
+        int matching = 0;
         if (matchSymbols == null) return 0;
-        for (int i = 0; i < matchSymbols.Length; i++)
-            if (matchSymbols[i] != null) matchSymbols[i].gameObject.SetActive(false);
-        if (matchJolly != null) matchJolly.gameObject.SetActive(false);
+        if (artworkTicket != game.TicketNumber || game.RevealedCount == 0)
+        {
+            artworkTicket = game.TicketNumber;
+            displayedCells.Clear();
+            for (int i = 0; i < slotRevealAt.Length; i++) slotRevealAt[i] = -10f;
+        }
         if (!voided && matchCells != null && matchCells.ActiveCells != null)
         {
             foreach (ScratchCell cell in matchCells.ActiveCells)
             {
                 if (cell == null || !cell.IsComplete || !game.IsCellSelected(cell) ||
-                    !cell.TryGetVisibleSymbol(out string symbol)) continue;
-                if (winning && symbol != match.Symbol && symbol != "JOLLY") continue;
-                if (symbol == "JOLLY") { hasJolly = true; continue; }
-                Sprite artwork = cell.RevealedArtwork;
-                if (artwork == null || count >= matchSymbols.Length) continue;
-                Image slot = matchSymbols[count++];
-                if (slot == null) continue;
-                slot.sprite = artwork;
-                slot.color = Color.white;
-                slot.gameObject.SetActive(true);
+                    !cell.TryGetVisibleSymbol(out _) || displayedCells.Contains(cell) ||
+                    displayedCells.Count >= matchSymbols.Length) continue;
+                slotRevealAt[displayedCells.Count] = Time.unscaledTime;
+                displayedCells.Add(cell);
             }
         }
-        int discovered = Mathf.Min(matchSymbols.Length, count + (hasJolly ? 1 : 0));
-        int total = !voided && game.TicketActive && !winning
-            ? Mathf.Clamp(game.MaxScratches, discovered, matchSymbols.Length) : discovered;
+        // A completed ticket keeps its original width even if the player
+        // purchases an extra pick before choosing the next ticket.
+        int total = voided ? 0 : game.TicketActive
+            ? Mathf.Clamp(game.MaxScratches, 0, matchSymbols.Length)
+            : game.TicketNumber > 0 ? displayedCells.Count : 0;
+        int discovered = voided ? 0 : Mathf.Min(total, displayedCells.Count);
         const float slotWidth = 70f, gap = 8f;
         float start = 221f - (total * slotWidth + Mathf.Max(0, total - 1) * gap) * .5f;
-        float y = hasAmount ? -137f : -208f;
+        jollySlot = -1;
+        if (matchJolly != null) matchJolly.gameObject.SetActive(false);
         for (int i = 0; i < matchSymbols.Length; i++)
         {
-            Vector2 position = new Vector2(start + i * (slotWidth + gap), y);
-            if (i < count && matchSymbols[i] != null)
-                FitMatchArtwork(matchSymbols[i], position);
+            Vector2 position = new Vector2(start + i * (slotWidth + gap), -137f);
+            Image symbolImage = matchSymbols[i];
+            if (symbolImage != null) symbolImage.gameObject.SetActive(false);
+            slotWinning[i] = false;
+            bool revealed = i < discovered;
+            if (revealed && displayedCells[i].TryGetVisibleSymbol(out string symbol))
+            {
+                bool jolly = symbol == "JOLLY";
+                slotWinning[i] = winning && (symbol == match.Symbol || jolly);
+                if (slotWinning[i] && !jolly) matching++;
+                Image artwork = jolly ? matchJolly : symbolImage;
+                if (jolly) { jollySlot = i; hasJolly = true; }
+                else if (artwork != null) artwork.sprite = displayedCells[i].RevealedArtwork;
+                if (artwork != null && artwork.sprite != null)
+                {
+                    FitMatchArtwork(artwork, position);
+                    artwork.color = new Color(1f, 1f, 1f, winning && !slotWinning[i] ? .78f : 1f);
+                    artwork.gameObject.SetActive(true);
+                }
+            }
             Image frame = Get(matchSlotFrames, i);
             TMP_Text question = Get(matchSlotQuestions, i);
-            bool empty = i >= discovered && i < total;
             if (frame != null)
             {
                 frame.rectTransform.anchoredPosition = position;
-                frame.color = empty ? new Color(.47f, .58f, .52f, .85f) :
-                    winning ? new Color(.92f, .76f, .36f, .83f) : new Color(.47f, .58f, .52f, .65f);
+                frame.color = slotWinning[i] ? WinningFrame : revealed ? NeutralFrame : EmptyFrame;
                 frame.gameObject.SetActive(i < total);
             }
             if (question != null)
             {
                 question.rectTransform.anchoredPosition = position;
-                question.color = LockedInk;
-                question.gameObject.SetActive(empty);
+                question.color = Cream;
+                question.gameObject.SetActive(i < total && !revealed && game.TicketActive);
             }
         }
-        if (hasJolly && count < discovered && matchJolly != null)
-        {
-            FitMatchArtwork(matchJolly, new Vector2(start + count * (slotWidth + gap), y));
-            matchJolly.color = Color.white;
-            matchJolly.gameObject.SetActive(true);
-        }
-        return count;
+        return matching;
     }
 
+    // Animate only authored artwork; optical centering is retained during pop.
+    private void TickMatchSlotFeedback()
+    {
+        if (matchSymbols == null) return;
+        float now = Time.unscaledTime;
+        float winPulse = Mathf.Sin(Mathf.PI * Mathf.Clamp01((now - feedbackStarted) / feedbackDuration));
+        for (int i = 0; i < matchSymbols.Length; i++)
+        {
+            Image frame = Get(matchSlotFrames, i);
+            if (frame == null || !frame.gameObject.activeSelf) continue;
+            float reveal = Mathf.Sin(Mathf.PI * Mathf.Clamp01((now - slotRevealAt[i]) / .15f));
+            Image artwork = i == jollySlot ? matchJolly : matchSymbols[i];
+            bool visible = artwork != null && artwork.gameObject.activeSelf;
+            Color rest = slotWinning[i] ? WinningFrame : visible ? NeutralFrame : EmptyFrame;
+            frame.color = Color.Lerp(rest, Cream, slotWinning[i] ? winPulse * .55f : reveal * .25f);
+            if (visible)
+                FitMatchArtwork(artwork, frame.rectTransform.anchoredPosition,
+                    1f + Mathf.Max(reveal * .085f, slotWinning[i] ? winPulse * .045f : 0f));
+        }
+    }
 
     // Source PNG alpha bounds (alpha >= 40/255), measured offline at 512 x 512.
     // Rectangles are normalized; retain aspect and center actual visible artwork.
@@ -88,13 +127,13 @@ public sealed partial class ScratchVintageGameplayHUD
         }
     }
 
-    private static void FitMatchArtwork(Image image, Vector2 slotTopLeft)
+    private static void FitMatchArtwork(Image image, Vector2 slotTopLeft, float emphasis = 1f)
     {
         if (image == null || image.sprite == null) return;
         const float frameSize = 70f, visibleSize = 54f;
         Rect alpha = MatchArtworkBounds(image.sprite);
         Vector2 source = image.sprite.rect.size;
-        float factor = visibleSize / Mathf.Max(source.x * alpha.width, source.y * alpha.height);
+        float factor = visibleSize * emphasis / Mathf.Max(source.x * alpha.width, source.y * alpha.height);
         Vector2 size = source * factor;
         RectTransform rt = image.rectTransform;
         rt.sizeDelta = size;

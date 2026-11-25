@@ -64,6 +64,9 @@ public sealed partial class ScratchAutoplayWindow
         if (activeCell.IsComplete)
         {
             EndPointer();
+            bool hudOk = ScratchVintageHudAudit.ValidateMatchProgress(game, out string hudDetail);
+            Check(hudOk, "hud_match_progress", hudDetail);
+            if (!hudOk) { Fail(hudDetail); return; }
             Note("CELL_COMPLETE", "cell=" + activeCell.name +
                 ";seconds=" + (now - cellStartedAt).ToString("F2", CultureInfo.InvariantCulture) +
                 ";percent=" + activeCell.RevealedPercentage.ToString("F1", CultureInfo.InvariantCulture));
@@ -149,6 +152,9 @@ public sealed partial class ScratchAutoplayWindow
     private void ValidateTicket()
     {
         EndPointer();
+        bool hudOk = ScratchVintageHudAudit.ValidateMatchProgress(game, out string hudDetail);
+        Check(hudOk, "hud_match_result", hudDetail);
+        if (!hudOk) { Fail(hudDetail); return; }
         var pat = activePattern;
         ScratchSymbolManager.MatchTier expect = (ScratchSymbolManager.MatchTier)(int)pat;
         Check(game.RevealedCount == game.MaxScratches, "fully_scratched",

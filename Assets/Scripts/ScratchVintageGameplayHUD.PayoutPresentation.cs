@@ -95,11 +95,12 @@ public sealed partial class ScratchVintageGameplayHUD
             wallet.color = Color.Lerp(Cream, Gold, hit * .85f);
             wallet.rectTransform.localScale = walletScale * (1f + hit * .055f);
         }
+        TickMatchPrize();
         if (payout != null)
         {
             float t = Mathf.Clamp01((now - feedbackStarted) / feedbackDuration);
             float pulse = Mathf.Sin(t * Mathf.PI);
-            // No count-up from zero: the actual prize remains readable throughout.
+            // Brief emphasis; final payout is never interpolated.
             payout.rectTransform.localScale = payoutScale * (1f + pulse * .065f);
             bool pulsing = pulse > .001f;
             if (pulsing || payoutWasPulsing) CenterPayoutGroup();

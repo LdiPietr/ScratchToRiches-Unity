@@ -16,8 +16,10 @@ public sealed partial class ScratchVintageGameplayHUD
     private int tableTicket = -1;
     private readonly long[] ticketQuotes = new long[4];
     private ScratchCellManager matchCells;
-    private static readonly Color LockedInk = new Color32(166, 184, 172, 255);
+    private static readonly Color LockedInk = new Color32(181, 198, 185, 255);
     private long ticketRefund;
+    private long shownMatchPrize, matchPrizeFrom, matchPrizeTo;
+    private float matchPrizeStarted = -10f;
 
     private long PreviewAward(ScratchSymbolManager.MatchResult match, bool complete,
         ScratchGameManager.TicketKind kind)
@@ -68,7 +70,7 @@ public sealed partial class ScratchVintageGameplayHUD
             if (coin != null)
             {
                 coin.color = new Color(1f, 1f, 1f, locked ? .58f : 1f);
-                PositionCoin(coin, amount, 6f);
+                PositionCoin(coin, amount, 8f);
             }
             if (lockImage != null)
             {
@@ -84,6 +86,8 @@ public sealed partial class ScratchVintageGameplayHUD
         if (refundAmount != null) refundAmount.gameObject.SetActive(hasRefund);
         if (refundCoin != null) refundCoin.gameObject.SetActive(hasRefund);
         Set(refundLabel, "Rimborso senza coppia");
+        if (refundLabel != null) refundLabel.color = Cream;
+        if (refundAmount != null) refundAmount.color = Cream;
         Set(refundAmount, refund.ToString("N0"));
         PositionCoin(refundCoin, refundAmount, 8f);
     }
@@ -100,23 +104,21 @@ public sealed partial class ScratchVintageGameplayHUD
         bool final = !game.TicketActive && game.TicketNumber > 0;
         bool validMatch = match.IsMatch && !voided;
         bool paid = value > 0;
-        bool showAmount = paid || final;
-        int realSymbols = RefreshMatchSymbols(match, validMatch, voided, showAmount, out bool hasJolly);
+        bool showAmount = game.TicketActive || final;
+        int realSymbols = RefreshMatchSymbols(match, validMatch, voided, out bool hasJolly);
         string name = voided ? "ANNULLATO" : refund ? "RIMBORSO" : validMatch
             ? PrizeTitles[(int)match.Tier - 1].ToUpperInvariant()
             : final ? "NON VINCENTE" : game.RevealedCount < 2 ? "IN ATTESA" : "NESSUNA COPPIA";
         string detail = voided ? "Biglietto di prova" : refund ? "Paracadute attivo" : validMatch
-            ? realSymbols + " × " + SentenceCase(match.Symbol) + (hasJolly ? " + Jolly" : "")
+            ? (realSymbols > 1 ? realSymbols + " × " : "") + SentenceCase(match.Symbol) + (hasJolly ? " + Jolly" : "")
             : final ? "Nessuna combinazione" : game.RevealedCount < 2
                 ? "Gratta almeno due caselle" : "Prosegui la grattatura";
         Set(matchHeader, final ? "RISULTATO BIGLIETTO" : "COMBINAZIONE ATTUALE");
         Set(matchName, name);
         Set(matchMultiplier, detail);
         RefreshPayoutStatus();
-        Set(payout, paid ? value.ToString("N0") : final ? "0" : string.Empty);
         if (payout != null) payout.gameObject.SetActive(showAmount);
         if (matchDivider != null) matchDivider.SetActive(showAmount);
-        SetMatchVerticalLayout(showAmount);
         payoutRestColor = paid ? Gold : Muted;
         if (payout != null)
         {
@@ -138,27 +140,46 @@ public sealed partial class ScratchVintageGameplayHUD
             feedbackValue = 0;
             finalWinFeedbackPlayed = false;
             feedbackStarted = -10f;
+            shownMatchPrize = matchPrizeFrom = matchPrizeTo = 0;
+            matchPrizeStarted = -10f;
         }
         bool finalWin = final && value > 0 && !finalWinFeedbackPlayed;
         if (finalWin) finalWinFeedbackPlayed = true;
         if (finalWin || value > feedbackValue || (!voided && (int)match.Tier > (int)feedbackTier))
         {
             feedbackStarted = Time.unscaledTime;
-            feedbackDuration = .34f + .10f * (int)match.Tier;
+            feedbackDuration = .15f + .10f * (int)match.Tier;
         }
         feedbackTier = voided ? default : match.Tier;
         feedbackValue = value;
+        if (final || !paid || value < matchPrizeTo)
+        {
+            shownMatchPrize = matchPrizeFrom = matchPrizeTo = value;
+            matchPrizeStarted = -10f;
+        }
+        else if (value > matchPrizeTo)
+        {
+            matchPrizeFrom = shownMatchPrize;
+            matchPrizeTo = value;
+            matchPrizeStarted = Time.unscaledTime;
+        }
+        Set(payout, paid || final ? shownMatchPrize.ToString("N0") : "—");
         if (showAmount) CenterPayoutGroup();
         UpdateWinFeedback();
     }
 
-    // Authored positions; the current state selects one of two vertical arrangements.
-    private void SetMatchVerticalLayout(bool hasAmount)
+    // Interpolate only the provisional display; final and wallet stay exact.
+    private void TickMatchPrize()
     {
-        if (matchName != null)
-            matchName.rectTransform.anchoredPosition = new Vector2(28f, hasAmount ? -75f : -138f);
-        if (matchMultiplier != null)
-            matchMultiplier.rectTransform.anchoredPosition = new Vector2(28f, hasAmount ? -210f : -294f);
+        if (payout == null || !payout.gameObject.activeSelf || shownMatchPrize == matchPrizeTo) return;
+        float t = Mathf.Clamp01((Time.unscaledTime - matchPrizeStarted) / .25f);
+        double eased = 1.0 - (1.0 - t) * (1.0 - t);
+        long next = matchPrizeFrom + (long)((matchPrizeTo - matchPrizeFrom) * eased);
+        if (t >= 1f) next = matchPrizeTo;
+        if (next == shownMatchPrize) return;
+        shownMatchPrize = next;
+        Set(payout, next.ToString("N0"));
+        CenterPayoutGroup();
     }
 
     // Center the visible glyphs and coin as one optical group, including during the pulse.
@@ -189,6 +210,7 @@ public sealed partial class ScratchVintageGameplayHUD
             matchName.color = Color.Lerp(Gold, Cream, pulse * .65f);
         if (matchAccent != null && feedbackValue > 0)
             matchAccent.color = Color.Lerp(Gold, Cream, pulse * .7f);
+        TickMatchSlotFeedback();
         if (prizeHighlights == null) return;
         for (int i = 0; i < prizeHighlights.Length; i++)
         {
@@ -196,7 +218,7 @@ public sealed partial class ScratchVintageGameplayHUD
             if (highlight == null) continue;
             bool obtained = (int)feedbackTier == i + 1;
             Color color = Gold;
-            color.a = obtained ? .52f + pulse * .23f : 0f;
+            color.a = obtained ? .64f + pulse * .26f : 0f;
             highlight.color = color;
         }
     }

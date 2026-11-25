@@ -151,9 +151,50 @@ public static class ScratchVintageHudAudit
             }
         }
         var divider = so.FindProperty("matchDivider").objectReferenceValue as GameObject;
-        if (divider.activeSelf) errors.Add("MatchDivider visibile durante l'attesa");
+        if (!divider.activeSelf) errors.Add("MatchDivider non visibile: layout instabile");
         detail += " | ticket=" + game.TicketNumber + " | max=" + game.MaxScratches +
             " | " + (errors.Count == 0 ? "VISIBILITY PASS" : string.Join("; ", errors));
         return errors.Count == 0;
     }
+    public static bool ValidateMatchProgress(ScratchGameManager game, out string detail)
+    {
+        var hud = game.GetComponent<ScratchVintageGameplayHUD>();
+        if (!ValidateRightPanels(hud, out detail)) return false;
+        var so = new SerializedObject(hud);
+        var errors = new List<string>();
+        var frames = so.FindProperty("matchSlotFrames");
+        var questions = so.FindProperty("matchSlotQuestions");
+        var symbols = so.FindProperty("matchSymbols");
+        var jolly = so.FindProperty("matchJolly").objectReferenceValue as Image;
+        int max = game.MaxScratches;
+        int revealed = game.TicketVoided ? 0 : game.RevealedCount;
+        int visibleSymbols = jolly != null && jolly.gameObject.activeSelf ? 1 : 0;
+        int winningFrames = 0;
+        float x = 221f - (max * 70f + Mathf.Max(0, max - 1) * 8f) * .5f;
+        for (int i = 0; i < frames.arraySize; i++)
+        {
+            var frame = frames.GetArrayElementAtIndex(i).objectReferenceValue as Image;
+            var question = questions.GetArrayElementAtIndex(i).objectReferenceValue as TMP_Text;
+            var symbol = symbols.GetArrayElementAtIndex(i).objectReferenceValue as Image;
+            bool expected = !game.TicketVoided && i < max;
+            if (frame.gameObject.activeSelf != expected)
+                errors.Add("frame " + i + ": visibilita'");
+            if (expected && Vector2.Distance(frame.rectTransform.anchoredPosition,
+                    new Vector2(x + i * 78f, -137f)) > .1f)
+                errors.Add("frame " + i + ": posizione variata");
+            if (question.gameObject.activeSelf != (expected && i >= revealed && game.TicketActive))
+                errors.Add("question " + i + ": visibilita'");
+            if (symbol != null && symbol.gameObject.activeSelf) visibleSymbols++;
+            if (expected && frame.color.r > .85f && frame.color.g > .7f && frame.color.b < .8f)
+                winningFrames++;
+        }
+        if (visibleSymbols != revealed) errors.Add("simboli visibili=" + visibleSymbols + ", attesi=" + revealed);
+        int expectedWinning = !game.TicketVoided && game.CurrentMatch.IsMatch ? game.CurrentMatch.Multiplier : 0;
+        if (winningFrames != expectedWinning)
+            errors.Add("cornici vincenti=" + winningFrames + ", attese=" + expectedWinning);
+        detail += " | " + revealed + "/" + max + " | " +
+            (errors.Count == 0 ? "MATCH PROGRESS PASS" : string.Join("; ", errors));
+        return errors.Count == 0;
+    }
+
 }
