@@ -15,7 +15,19 @@ public sealed partial class ScratchAutoplayWindow
 {
     private void WaitChoice(float now)
     {
+        if (flow.CanAcknowledgeResult)
+        {
+            if (resultVisibleSince < 0f) resultVisibleSince = now;
+            if (now - resultVisibleSince >= 2.5f)
+            {
+                flow.ContinueAfterResult();
+                resultVisibleSince = -1f;
+                Note("RESULT_CONTINUED", "Risultato visibile per almeno 2.5 secondi");
+            }
+            return;
+        }
         if (!game.WaitingForTicketChoice || !flow.CanShowTicketChoices) return;
+        resultVisibleSince = -1f;
         if (farming)
         {
             int needed = FarmingTargetCoins();

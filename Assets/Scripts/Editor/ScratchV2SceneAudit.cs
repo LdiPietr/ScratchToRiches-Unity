@@ -8,8 +8,7 @@ using UnityEngine;
 /// </summary>
 public static class ScratchV2SceneAudit
 {
-    [MenuItem("Tools/Scratch to Riches/Audit V2 Scene")]
-    private static void AuditScene()
+    internal static void AuditScene()
     {
         int errors = 0;
         ScratchCellManager manager = Object.FindAnyObjectByType<ScratchCellManager>(FindObjectsInactive.Include);

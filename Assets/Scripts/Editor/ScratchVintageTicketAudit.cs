@@ -5,7 +5,6 @@ using UnityEngine.SceneManagement;
 
 public static class ScratchVintageTicketAudit
 {
-    [MenuItem("Tools/Scratch to Riches/Audit Vintage Tickets")]
     public static void Audit()
     {
         var manager = Object.FindAnyObjectByType<ScratchCellManager>(FindObjectsInactive.Include);

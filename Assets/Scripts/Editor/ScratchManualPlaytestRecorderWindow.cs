@@ -59,8 +59,7 @@ public sealed partial class ScratchManualPlaytestRecorderWindow : EditorWindow
     private int manualTitanUses;
     private int scratchedJokers;
 
-    [MenuItem("Tools/Scratch to Riches/Registra partita manuale")]
-    private static void Open()
+    internal static void Open()
     {
         var window = GetWindow<ScratchManualPlaytestRecorderWindow>("STR Playtest");
         window.minSize = new Vector2(450f, 330f);

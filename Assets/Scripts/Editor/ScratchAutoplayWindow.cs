@@ -19,7 +19,7 @@ public sealed partial class ScratchAutoplayWindow : EditorWindow
 {
     private enum Phase
     {
-        Idle, WaitLive, Scratch, WaitChoice, OpenShop, WaitShop,
+        Idle, InitialChoice, WaitLive, Scratch, WaitChoice, FinalHold, OpenShop, WaitShop,
         StartPurchase, WaitPurchase, CloseShop, WaitShopClosed, WaitFarmShopClosed
     }
 
@@ -120,11 +120,15 @@ public sealed partial class ScratchAutoplayWindow : EditorWindow
     private int naturalTicketsPlayed;
     private int forcedTicketsPlayed;
     private bool captureFrames;
-    private bool recordVideo;
-    private bool recordGameAudio;
+    private bool recordVideo = true;
+    private bool previousRunInBackground;
+    private bool backgroundOverride;
+    private bool finalSuccess;
+    private float resultVisibleSince = -1f;
+    private bool recordGameAudio = true;
     private bool videoValidationPending;
-    private int videoHeight = 720;
-    private int videoFrameRate = 30;
+    private int videoHeight = 1080;
+    private int videoFrameRate = 60;
     private double videoValidationDeadline;
     private string videoStatus = "Non richiesto";
     private string videoOutputPath = string.Empty;

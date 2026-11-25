@@ -5,7 +5,6 @@ using TMPro;
 
 public static class ScratchVintageHudAudit
 {
-    [MenuItem("Tools/Scratch to Riches/Audit Vintage Gameplay HUD")]
     public static void Audit()
     {
         var hud = Object.FindAnyObjectByType<ScratchVintageGameplayHUD>(FindObjectsInactive.Include);

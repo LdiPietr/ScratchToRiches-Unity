@@ -98,6 +98,11 @@ public sealed partial class ScratchAutoplayWindow
         {
             Debug.LogError("STR AUTO QA: salvataggio report/MP4 fallito: " + ex);
         }
+        if (backgroundOverride)
+        {
+            Application.runInBackground = previousRunInBackground;
+            backgroundOverride = false;
+        }
         Repaint();
     }
 

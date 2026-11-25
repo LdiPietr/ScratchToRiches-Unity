@@ -6,7 +6,6 @@ using UnityEngine.SceneManagement;
 
 public static class ScratchS02VisualAudit
 {
-    [MenuItem("Tools/Scratch to Riches/Audit S02 Vintage Lottery")]
     public static void Audit()
     {
         if (SceneManager.GetActiveScene().name != "S02_VintageLottery")

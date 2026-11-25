@@ -13,13 +13,12 @@ using Debug = UnityEngine.Debug;
 // Controls responsibility of ScratchAutoplayWindow.
 public sealed partial class ScratchAutoplayWindow
 {
-    [MenuItem("Tools/Scratch to Riches/Autoplay QA (test automatico)")]
+    [MenuItem("Tools/Scratch to Riches/Gameplay & Visual QA")]
     private static void ShowWindow()
     {
-        GetWindow<ScratchAutoplayWindow>("STR Autoplay QA").minSize = new Vector2(390, 460);
+        GetWindow<ScratchAutoplayWindow>("Gameplay & Visual QA").minSize = new Vector2(390, 460);
     }
 
-    [MenuItem("Tools/Scratch to Riches/Reset progressi V2 (fuori Play)")]
     private static void ResetProgressMenu()
     {
         if (EditorApplication.isPlaying || EditorApplication.isPlayingOrWillChangePlaymode)
@@ -79,68 +78,39 @@ public sealed partial class ScratchAutoplayWindow
 
     private void OnGUI()
     {
-        EditorGUILayout.LabelField("SCRATCH TO RICHES - AUTOPLAY DEMO V2", EditorStyles.boldLabel);
-        EditorGUILayout.HelpBox(IsFullDemo
-            ? "TEST DEMO COMPLETA: parte da zero, acquista tutte le 24 abilita' della demo " +
-              "(incluse le dipendenze), gratta biglietti reali fino al finale G08/F04 " +
-              "e misura la durata effettiva contro l'obiettivo di 20-25 minuti."
-            : "TEST LEGACY: verifica separatamente le tre categorie di biglietti con acquisti e grattate UI.",
-            MessageType.Info);
-
-        using (new EditorGUI.DisabledScope(running))
+        EditorGUILayout.LabelField("GAMEPLAY & VISUAL QA", EditorStyles.boldLabel);
+        EditorGUILayout.HelpBox("Demo naturale da zero, senza credito o vincite forzate. MP4 obbligatorio; Unity continua anche in background. Il test attende la schermata risultati prima di proseguire.", MessageType.Info);
+        using (new EditorGUI.DisabledScope(running || videoValidationPending))
         {
-            autoplayMode = (AutoplayMode)EditorGUILayout.EnumPopup("Tipo di test", autoplayMode);
-            if (IsFullDemo) { qaFunds = false; startFresh = true; }
-            using (new EditorGUI.DisabledScope(IsFullDemo))
-            {
-                qaFunds = EditorGUILayout.ToggleLeft("Credito QA per gli sblocchi (100.000 monete)", qaFunds);
-                startFresh = EditorGUILayout.ToggleLeft("Azzera progressi prima del test (solo Play Mode)", startFresh);
-            }
             humanSpeed = EditorGUILayout.Slider("Velocita' gesti (1 = umano)", humanSpeed, 0.5f, 4f);
             freshSeedEachRun = EditorGUILayout.ToggleLeft("Nuova partita casuale a ogni avvio", freshSeedEachRun);
             using (new EditorGUI.DisabledScope(freshSeedEachRun))
                 seed = EditorGUILayout.IntField("Seed riproducibile", seed);
             maxSessionMinutes = EditorGUILayout.Slider("Timeout massimo (min)", maxSessionMinutes, 5f, 240f);
-            recordVideo = EditorGUILayout.ToggleLeft("REGISTRA VIDEO MP4 H.264 (Unity Recorder)", recordVideo);
-            if (recordVideo)
-            {
-                videoHeight = EditorGUILayout.IntPopup("Risoluzione MP4", videoHeight,
-                    new[] { "HD 1280x720", "Full HD 1920x1080" }, new[] { 720, 1080 });
-                videoFrameRate = EditorGUILayout.IntPopup("FPS MP4", videoFrameRate,
-                    new[] { "30 (consigliato)", "60" }, new[] { 30, 60 });
-                recordGameAudio = EditorGUILayout.ToggleLeft("Includi audio del gioco", recordGameAudio);
-            }
+            videoHeight = EditorGUILayout.IntPopup("Risoluzione MP4", videoHeight,
+                new[] { "HD 1280x720", "Full HD 1920x1080" }, new[] { 720, 1080 });
+            videoFrameRate = EditorGUILayout.IntPopup("FPS MP4", videoFrameRate,
+                new[] { "30", "60" }, new[] { 30, 60 });
+            recordGameAudio = EditorGUILayout.ToggleLeft("Includi audio del gioco", recordGameAudio);
             captureFrames = EditorGUILayout.ToggleLeft("Salva anche PNG di diagnostica (opzionale)", captureFrames);
             if (captureFrames)
                 framesPerSecond = EditorGUILayout.IntSlider("FPS PNG", framesPerSecond, 1, 5);
+            if (GUILayout.Button("CONTROLLI PRELIMINARI (Console)"))
+            {
+                ScratchV2SceneAudit.AuditScene();
+                ScratchS02VisualAudit.Audit();
+                ScratchVintageHudAudit.Audit();
+                ScratchVintageTicketAudit.Audit();
+                ScratchAutoplayPreviewStrategy.RunDecisionTests();
+                TestFullDemoPlan();
+                TestTicketBudget();
+            }
+            if (GUILayout.Button("Registrazione manuale (opzionale)"))
+                ScratchManualPlaytestRecorderWindow.Open();
         }
 
-        if (autoplayMode == AutoplayMode.SimulazioneReale)
-            EditorGUILayout.HelpBox("SIMULAZIONE REALE: tutti i biglietti hanno simboli casuali. " +
-                "Il bot sceglie usando SOLO grattate e anteprime disponibili; nessun tris, poker o premio viene forzato. " +
-                "Gli sblocchi seguono ancora un piano di test prestabilito.", MessageType.Info);
-        else if (autoplayMode == AutoplayMode.QACombinazioniForzate)
-            EditorGUILayout.HelpBox("QA COMBINAZIONI FORZATE: alcune partite impongono coppia, tris, poker e cinquina " +
-                "e selezionano le stesse posizioni per verificare i pagamenti. La ripetizione e' INTENZIONALE e non " +
-                "misura la fortuna naturale del gioco.", MessageType.Warning);
-        else
-            EditorGUILayout.HelpBox("NESSUN CHEAT: progressi e portafoglio azzerati; 24 skill demo; " +
-                "simboli casuali; scelte solo da grattate e anteprime visibili; " +
-                "finale con tre veri Dorati e almeno un JOLLY grattato. " +
-                "Il test misura la durata, non la forza artificialmente.", MessageType.Info);
-
-        if (qaFunds)
-            EditorGUILayout.HelpBox("Credito QA: sblocchi rapidi. Non misura l'economia naturale e le monete restano nel wallet fino al reset.", MessageType.Warning);
-        else
-            EditorGUILayout.HelpBox("Senza credito QA il tester grattera' altri biglietti per finanziare ogni acquisto. Potrebbero servire molte ore: aumenta il timeout massimo.", MessageType.Info);
-        if (recordVideo)
-            EditorGUILayout.HelpBox("Il MP4 viene creato direttamente con Unity Recorder 5.1.8. Nessun FFmpeg richiesto. " +
-                "Registra la Game View dall'inizio fino al completamento o all'errore; il file viene finalizzato alla chiusura del test.", MessageType.None);
-        if (captureFrames)
-            EditorGUILayout.HelpBox("I PNG sono soltanto materiale diagnostico aggiuntivo e possono occupare molto spazio.", MessageType.None);
-
         GUILayout.Space(8);
-        using (new EditorGUI.DisabledScope(!EditorApplication.isPlaying || running))
+        using (new EditorGUI.DisabledScope(!EditorApplication.isPlaying || running || videoValidationPending))
         {
             if (GUILayout.Button("START - TEST COMPLETO", GUILayout.Height(34)))
                 StartTest();

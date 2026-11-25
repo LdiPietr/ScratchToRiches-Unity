@@ -44,7 +44,8 @@ public sealed partial class ScratchAutoplayWindow
                 Check(game.State == ScratchGameManager.RoundState.Finished, "authored_demo_end",
                     "La scena ha completato il milestone finale.");
                 ProgressEvent("DEMO_FINISHED", "-", 0, 0, "End scene reached naturally");
-                Finish(assertionsFailed == 0 && ownedAll, "Fine demo raggiunta naturalmente.");
+                finalSuccess = assertionsFailed == 0 && ownedAll;
+                ChangePhase(Phase.FinalHold, 10f);
                 return;
             }
             if (IsFullDemo && tickets + farmTickets >= 600)

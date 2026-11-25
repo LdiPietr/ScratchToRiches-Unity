@@ -15,6 +15,11 @@ public sealed partial class ScratchAutoplayWindow
 {
     private void StartTest()
     {
+        autoplayMode = AutoplayMode.ProgressioneDemoCompleta;
+        qaFunds = false;
+        startFresh = true;
+        recordVideo = true;
+        resultVisibleSince = -1f;
         if (ScratchManualTelemetry.IsRecording)
         {
             EditorUtility.DisplayDialog("Autoplay", "Ferma prima la registrazione manuale.", "OK");
@@ -120,6 +125,9 @@ public sealed partial class ScratchAutoplayWindow
         checks.Add("timestamp;result;check;details");
         progression.Add("elapsed_s;event;ticket;kind;wallet;earned;skill_id;level;price;details");
         ProgressEvent("START", "-", 0, 0, "Fresh natural run");
+        previousRunInBackground = Application.runInBackground;
+        backgroundOverride = true;
+        Application.runInBackground = true;
         running = true;
         Note("START", "mode=" + autoplayMode + ";seed=" + actualSeed +
             ";freshSeed=" + freshSeedEachRun + ";humanSpeed=" + humanSpeed +
@@ -155,13 +163,8 @@ public sealed partial class ScratchAutoplayWindow
             return;
         }
         Check(true, "initial_ticket_selection", "Nessun biglietto generato prima della scelta.");
-        if (!game.ChooseNextTicket(ScratchGameManager.TicketKind.Standard))
-        {
-            Fail("Impossibile selezionare il Classico iniziale.");
-            return;
-        }
-        ChangePhase(Phase.WaitLive, 0f);
-        lastStatus = "Test avviato sul Classico.";
+        ChangePhase(Phase.InitialChoice, 3f);
+        lastStatus = "Registrazione della selezione iniziale.";
         Repaint();
     }
 
@@ -183,7 +186,7 @@ public sealed partial class ScratchAutoplayWindow
         // The demo is designed for 20-25 minutes. Eight real minutes with no
         // successful purchase indicates a progression deadlock / bad economy,
         // not meaningful gameplay. Stop and report rather than farm forever.
-        if (IsFullDemo && purchaseIndex < FullDemoPlan.Length &&
+        if (phase != Phase.FinalHold && IsFullDemo && purchaseIndex < FullDemoPlan.Length &&
             now - lastUpgradeAt > 8f * 60f)
         {
             Fail("Progressione bloccata: nessun upgrade acquistato da oltre 8 minuti. " +
@@ -219,6 +222,17 @@ public sealed partial class ScratchAutoplayWindow
         {
         switch (phase)
         {
+            case Phase.InitialChoice:
+                if (!game.ChooseNextTicket(ScratchGameManager.TicketKind.Standard))
+                {
+                    Fail("Impossibile selezionare il Classico iniziale.");
+                    break;
+                }
+                ChangePhase(Phase.WaitLive, 0f);
+                break;
+            case Phase.FinalHold:
+                Finish(finalSuccess, "Fine demo raggiunta naturalmente.");
+                break;
             case Phase.WaitLive: WaitLive(now); break;
             case Phase.Scratch: ScratchTick(now); break;
             case Phase.WaitChoice: WaitChoice(now); break;
