@@ -79,7 +79,7 @@ public sealed partial class ScratchFlowPresentation : MonoBehaviour
         if (curtainObject != null) curtainObject.SetActive(false);
         if (ticketCanvasGroup != null)
         {
-            ticketCanvasGroup.alpha = 1f;
+            ticketCanvasGroup.alpha = 0f;
             ticketCanvasGroup.blocksRaycasts = false;
         }
         if (continueButton != null) continueButton.interactable = false;
@@ -127,8 +127,28 @@ public sealed partial class ScratchFlowPresentation : MonoBehaviour
 
         if (ShopOpen) return;
 
+        if (game.State == ScratchGameManager.RoundState.Ready)
+        {
+            StopMotion();
+            seenTicketNumber = 0;
+            phase = Phase.Choosing;
+            ticketCanvasGroup.alpha = 0f;
+            ticketCanvasGroup.blocksRaycasts = false;
+            ticketChooser.Refresh();
+            return;
+        }
+
         if (game.State != ScratchGameManager.RoundState.Playing)
             return;
+
+        if (game.WaitingForTicketChoice && phase == Phase.Idle)
+        {
+            phase = Phase.Choosing;
+            ticketCanvasGroup.alpha = 0f;
+            ticketCanvasGroup.blocksRaycasts = false;
+            ticketChooser.Refresh();
+            return;
+        }
 
         if (game.TicketActive && seenTicketNumber != game.TicketNumber)
         {
