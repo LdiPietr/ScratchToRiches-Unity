@@ -47,7 +47,7 @@ public sealed class ScratchTicketChoiceUI : MonoBehaviour
         if (game == null) game = GetComponent<ScratchGameManager>();
         if (economy == null) economy = GetComponent<ScratchEconomyManager>();
         if (presentation == null) presentation = GetComponent<ScratchFlowPresentation>();
-        // The overlay must never cover the starting board.
+        // Wait for the presentation and card bindings before showing the initial selection.
         if (choicePanel != null) choicePanel.SetActive(false);
     }
 
@@ -136,7 +136,7 @@ public sealed class ScratchTicketChoiceUI : MonoBehaviour
 
     public void Refresh()
     {
-        if (game == null || economy == null || choicePanel == null || ticketButtons == null)
+        if (!registered || game == null || economy == null || choicePanel == null || ticketButtons == null)
             return;
 
         bool show = game.WaitingForTicketChoice &&
