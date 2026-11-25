@@ -92,7 +92,7 @@ public sealed partial class ScratchVintageGameplayHUD
     {
         if (matchSymbols == null) return;
         float now = Time.unscaledTime;
-        float winPulse = Mathf.Sin(Mathf.PI * Mathf.Clamp01((now - feedbackStarted) / feedbackDuration));
+
         for (int i = 0; i < matchSymbols.Length; i++)
         {
             Image frame = Get(matchSlotFrames, i);
@@ -101,10 +101,12 @@ public sealed partial class ScratchVintageGameplayHUD
             Image artwork = i == jollySlot ? matchJolly : matchSymbols[i];
             bool visible = artwork != null && artwork.gameObject.activeSelf;
             Color rest = slotWinning[i] ? WinningFrame : visible ? NeutralFrame : EmptyFrame;
-            frame.color = Color.Lerp(rest, Cream, slotWinning[i] ? winPulse * .55f : reveal * .25f);
+            int rank = (int)feedbackTier;
+            float winPulse = MatchWinPulse(rank >= 3 ? i * .025f : 0f);
+            frame.color = Color.Lerp(rest, Cream, slotWinning[i] ? winPulse * (.40f + .06f * rank) : reveal * .25f);
             if (visible)
                 FitMatchArtwork(artwork, frame.rectTransform.anchoredPosition,
-                    1f + Mathf.Max(reveal * .085f, slotWinning[i] ? winPulse * .045f : 0f));
+                    1f + Mathf.Max(reveal * .085f, slotWinning[i] ? winPulse * (.035f + .013f * (int)feedbackTier) : 0f));
         }
     }
 
@@ -127,10 +129,23 @@ public sealed partial class ScratchVintageGameplayHUD
         }
     }
 
+    // Per-symbol optical sizes compensate for silhouette weight, not PNG size.
+    private static float MatchOpticalSize(Sprite sprite)
+    {
+        switch (sprite.name)
+        {
+            case "sym_lucky7": return 52f;
+            case "sym_crown": return 56f;
+            case "sym_jolly_hud": return 58f;
+            default: return 54f;
+        }
+    }
+
     private static void FitMatchArtwork(Image image, Vector2 slotTopLeft, float emphasis = 1f)
     {
         if (image == null || image.sprite == null) return;
-        const float frameSize = 70f, visibleSize = 54f;
+        const float frameSize = 70f;
+        float visibleSize = MatchOpticalSize(image.sprite);
         Rect alpha = MatchArtworkBounds(image.sprite);
         Vector2 source = image.sprite.rect.size;
         float factor = visibleSize * emphasis / Mathf.Max(source.x * alpha.width, source.y * alpha.height);

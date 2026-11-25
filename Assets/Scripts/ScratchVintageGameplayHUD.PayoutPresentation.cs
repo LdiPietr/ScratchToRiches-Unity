@@ -98,10 +98,9 @@ public sealed partial class ScratchVintageGameplayHUD
         TickMatchPrize();
         if (payout != null)
         {
-            float t = Mathf.Clamp01((now - feedbackStarted) / feedbackDuration);
-            float pulse = Mathf.Sin(t * Mathf.PI);
+            float pulse = MatchWinPulse();
             // Brief emphasis; final payout is never interpolated.
-            payout.rectTransform.localScale = payoutScale * (1f + pulse * .065f);
+            payout.rectTransform.localScale = payoutScale * (1f + pulse * (.045f + .012f * (int)feedbackTier));
             bool pulsing = pulse > .001f;
             if (pulsing || payoutWasPulsing) CenterPayoutGroup();
             payoutWasPulsing = pulsing;

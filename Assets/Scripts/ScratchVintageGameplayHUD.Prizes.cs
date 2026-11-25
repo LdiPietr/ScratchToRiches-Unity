@@ -122,16 +122,16 @@ public sealed partial class ScratchVintageGameplayHUD
         payoutRestColor = paid ? Gold : Muted;
         if (payout != null)
         {
-            payout.fontSizeMax = paid ? 82 : 44;
-            payout.fontSizeMin = paid ? 26 : 32;
+            payout.fontSizeMax = paid ? 82 : 64;
+            payout.fontSizeMin = paid ? 26 : 44;
         }
         if (prizeLabel != null) prizeLabel.gameObject.SetActive(showAmount);
         if (matchName != null) matchName.color = validMatch || paid ? Gold : Muted;
         if (matchAccent != null) matchAccent.color = validMatch || paid ? Gold : Reserved;
         if (payoutCoin != null)
         {
-            payoutCoin.gameObject.SetActive(paid);
-            payoutCoin.color = Color.white;
+            payoutCoin.gameObject.SetActive(showAmount && !voided);
+            payoutCoin.color = paid ? Color.white : new Color(.72f, .78f, .73f, .60f);
         }
         if (feedbackTicket != game.TicketNumber)
         {
@@ -148,7 +148,8 @@ public sealed partial class ScratchVintageGameplayHUD
         if (finalWin || value > feedbackValue || (!voided && (int)match.Tier > (int)feedbackTier))
         {
             feedbackStarted = Time.unscaledTime;
-            feedbackDuration = .15f + .10f * (int)match.Tier;
+            feedbackDuration = match.Tier == ScratchSymbolManager.MatchTier.Five ? .75f :
+                match.Tier == ScratchSymbolManager.MatchTier.Poker ? .55f : .15f + .10f * (int)match.Tier;
         }
         feedbackTier = voided ? default : match.Tier;
         feedbackValue = value;
@@ -163,7 +164,7 @@ public sealed partial class ScratchVintageGameplayHUD
             matchPrizeTo = value;
             matchPrizeStarted = Time.unscaledTime;
         }
-        Set(payout, paid || final ? shownMatchPrize.ToString("N0") : "—");
+        Set(payout, shownMatchPrize.ToString("N0"));
         if (showAmount) CenterPayoutGroup();
         UpdateWinFeedback();
     }
@@ -200,10 +201,19 @@ public sealed partial class ScratchVintageGameplayHUD
         if (coinVisible) PositionCoin(payoutCoin, payout, 10f);
     }
 
+    // Rare combinations get a restrained second accent, not a looping flash.
+    private float MatchWinPulse(float delay = 0f)
+    {
+        float t = Mathf.Clamp01((Time.unscaledTime - feedbackStarted - delay) / feedbackDuration);
+        float primary = Mathf.Max(0f, Mathf.Sin(t * Mathf.PI));
+        if ((int)feedbackTier < 3) return primary;
+        float accent = Mathf.Sin(Mathf.PI * Mathf.Clamp01((t - .48f) / .52f)) * .72f;
+        return Mathf.Max(primary * (1f - .35f * Mathf.Clamp01((t - .40f) / .20f)), accent);
+    }
+
     private void UpdateWinFeedback()
     {
-        float t = Mathf.Clamp01((Time.unscaledTime - feedbackStarted) / feedbackDuration);
-        float pulse = Mathf.Sin(t * Mathf.PI);
+        float pulse = MatchWinPulse();
         if (payout != null)
             payout.color = Color.Lerp(payoutRestColor, Cream, pulse * .85f);
         if (matchName != null && feedbackValue > 0)
@@ -218,7 +228,7 @@ public sealed partial class ScratchVintageGameplayHUD
             if (highlight == null) continue;
             bool obtained = (int)feedbackTier == i + 1;
             Color color = Gold;
-            color.a = obtained ? .64f + pulse * .26f : 0f;
+            color.a = obtained ? .64f + pulse * (.20f + .035f * (int)feedbackTier) : 0f;
             highlight.color = color;
         }
     }

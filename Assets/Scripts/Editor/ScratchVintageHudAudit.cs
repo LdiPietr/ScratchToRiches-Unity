@@ -120,6 +120,21 @@ public static class ScratchVintageHudAudit
             if (label == null || label.horizontalAlignment != HorizontalAlignmentOptions.Center)
                 errors.Add(field + ": allineamento centrale assente");
         }
+        // The lower card occupies y=-440..-742 in the authored right column.
+        var footer = so.FindProperty("prizeFooter")?.objectReferenceValue as TMP_Text;
+        var refund = so.FindProperty("refundLabel")?.objectReferenceValue as TMP_Text;
+        var amounts = so.FindProperty("prizeAmounts");
+        if (footer != null && refund != null && amounts != null && amounts.arraySize == 4)
+        {
+            var f = footer.rectTransform;
+            var r = refund.rectTransform;
+            var last = amounts.GetArrayElementAtIndex(3).objectReferenceValue as TMP_Text;
+            if (f.anchoredPosition.y - f.sizeDelta.y < -730f ||
+                r.anchoredPosition.y - r.sizeDelta.y < f.anchoredPosition.y + 4f ||
+                (last != null && last.rectTransform.anchoredPosition.y -
+                    last.rectTransform.sizeDelta.y < r.anchoredPosition.y + 4f))
+                errors.Add("Vincite possibili: margini verticali non validi");
+        }
         var divider = so.FindProperty("matchDivider")?.objectReferenceValue as GameObject;
         if (divider == null || divider.name != "MatchDivider" || divider.scene != scene)
             errors.Add("matchDivider: riferimento assente o errato");
@@ -152,6 +167,9 @@ public static class ScratchVintageHudAudit
         }
         var divider = so.FindProperty("matchDivider").objectReferenceValue as GameObject;
         if (!divider.activeSelf) errors.Add("MatchDivider non visibile: layout instabile");
+        var payout = so.FindProperty("payout")?.objectReferenceValue as TMP_Text;
+        if (payout == null || !payout.gameObject.activeSelf || payout.text != "0")
+            errors.Add("Vincita iniziale: atteso zero visibile");
         detail += " | ticket=" + game.TicketNumber + " | max=" + game.MaxScratches +
             " | " + (errors.Count == 0 ? "VISIBILITY PASS" : string.Join("; ", errors));
         return errors.Count == 0;
