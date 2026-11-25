@@ -91,9 +91,27 @@ public static class ScratchVintageHudAudit
                     field == "matchSlotQuestions" ? "MatchSlotQuestion_" + (i + 1) :
                     "GameplayPrizeRequirement_" + i;
                 if (graphic.name != expectedName) errors.Add(field + "[" + i + "]: " + graphic.name);
-                if (field == "matchSlotFrames" && (!(graphic is Image frame) ||
-                    frame.sprite == null || frame.type != Image.Type.Sliced || frame.sprite.border.sqrMagnitude <= 0f))
-                    errors.Add(field + "[" + i + "]: cornice grafica non valida");
+                if (field == "matchSlotFrames")
+                {
+                    // Fixed square slots use the complete square artwork, not a 9-slice.
+                    // The importer border is irrelevant to a Simple image.
+                    const string framePath = "Assets/Art/UI/S02_Classic/Panels/MatchSlotFrame.png";
+                    string slot = field + "[" + i + "]";
+                    if (!(graphic is Image frame))
+                        errors.Add(slot + ": componente Image assente");
+                    else
+                    {
+                        if (frame.sprite == null)
+                            errors.Add(slot + ": sprite assente (" + framePath + ")");
+                        else if (AssetDatabase.GetAssetPath(frame.sprite) != framePath)
+                            errors.Add(slot + ": sprite errato (" + AssetDatabase.GetAssetPath(frame.sprite) + ")");
+                        if (frame.type != Image.Type.Simple || !frame.preserveAspect)
+                            errors.Add(slot + ": atteso Simple con Preserve Aspect; type=" + frame.type +
+                                "; preserveAspect=" + frame.preserveAspect);
+                        if (frame.rectTransform.sizeDelta != new Vector2(70f, 70f))
+                            errors.Add(slot + ": dimensioni errate " + frame.rectTransform.sizeDelta);
+                    }
+                }
             }
         }
         foreach (string field in new[] { "prizeLabel", "prizeFooter" })
