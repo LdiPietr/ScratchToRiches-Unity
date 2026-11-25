@@ -20,6 +20,7 @@ public sealed class ScratchVintageGameplayHUD : MonoBehaviour
     [SerializeField] private TMP_Text[] prizeNames = new TMP_Text[4];
     [SerializeField] private TMP_Text[] prizeAmounts = new TMP_Text[4];
     [SerializeField] private Image[] prizeCoins = new Image[4];
+    [SerializeField] private Image payoutCoin;
     [SerializeField] private GameObject progressTrack;
     [SerializeField] private Button startButton;
     [SerializeField] private Image shadow;
@@ -69,11 +70,10 @@ public sealed class ScratchVintageGameplayHUD : MonoBehaviour
             im.gameObject.SetActive(i < max);
             if (i >= max) continue;
             im.color = i < revealed ? Gold : i < selected ? Reserved : Dark;
-            const float gap = 14f;
-            float width = (394f - (max - 1) * gap) / max;
+            float step = max == 5 ? 88 : 96;
             var rt = im.rectTransform;
-            rt.anchoredPosition = new Vector2(24f + i * (width + gap), -204);
-            rt.sizeDelta = new Vector2(width, 24);
+            rt.anchoredPosition = new Vector2(i * step, -192);
+            rt.sizeDelta = new Vector2(max == 5 ? 68 : 76, 24);
         }
         Set(ticketNumber, game.TicketNumber == 0 ? "BIGLIETTO —" : "BIGLIETTO " + game.TicketNumber.ToString("000"));
         string name = ScratchGameManager.TicketDisplayName(kind);
@@ -114,7 +114,11 @@ public sealed class ScratchVintageGameplayHUD : MonoBehaviour
                 prizeAmounts[i].color = attainable ? Gold : Muted;
             }
             if (prizeCoins != null && i < prizeCoins.Length && prizeCoins[i] != null)
+            {
                 prizeCoins[i].color = new Color(1f, 1f, 1f, attainable ? 1f : .45f);
+                if (prizeAmounts != null && i < prizeAmounts.Length)
+                    PositionCoin(prizeCoins[i], prizeAmounts[i], 8f);
+            }
         }
     }
 
@@ -157,7 +161,7 @@ public sealed class ScratchVintageGameplayHUD : MonoBehaviour
         if (progress != null)
         {
             progress.gameObject.SetActive(hasProgress);
-            progress.sizeDelta = new Vector2(250 * fraction, 12);
+            progress.sizeDelta = new Vector2(280 * fraction, 12);
         }
     }
 
@@ -190,6 +194,24 @@ public sealed class ScratchVintageGameplayHUD : MonoBehaviour
             }
         }
         Set(payout, value.ToString("N0"));
+        PositionCoin(payoutCoin, payout, 12f);
+    }
+
+    // Both elements share the same parent, top-left anchor and pivot.
+    // Use the rendered glyph bounds (after autosizing), not the full text box.
+    private static void PositionCoin(Image coin, TMP_Text amount, float gap)
+    {
+        if (coin == null || amount == null) return;
+        amount.ForceMeshUpdate(true);
+        if (amount.textInfo.characterCount == 0) return;
+        var coinRect = coin.rectTransform;
+        var amountRect = amount.rectTransform;
+        if (coinRect.parent != amountRect.parent) return;
+        float left = amountRect.anchoredPosition.x + amount.textBounds.min.x;
+        float x = left - coinRect.rect.width - gap;
+        var position = coinRect.anchoredPosition;
+        position.x = x;
+        coinRect.anchoredPosition = position;
     }
 
     private void RefreshHelp()
