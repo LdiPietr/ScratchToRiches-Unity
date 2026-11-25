@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
@@ -56,7 +57,81 @@ public static class ScratchVintageHudAudit
             if (label == null || label.enableAutoSizing || !Mathf.Approximately(label.fontSize, 28f))
             { errors++; Debug.LogError("Prize names must have the same fixed font size."); }
         }
+        if (!ValidateRightPanels(hud, out string detail))
+        { errors++; Debug.LogError(detail, hud); }
         if (errors == 0) Debug.Log("VINTAGE GAMEPLAY HUD AUDIT PASS");
         else Debug.LogError("VINTAGE GAMEPLAY HUD AUDIT FAILED: " + errors);
+    }
+
+    // This checks the actual loaded objects, not just the scene file on disk.
+    public static bool ValidateRightPanels(ScratchVintageGameplayHUD hud, out string detail)
+    {
+        if (hud == null) { detail = "HUD assente nella scena caricata."; return false; }
+        var so = new SerializedObject(hud);
+        var errors = new List<string>();
+        var scene = hud.gameObject.scene;
+        if (scene.path != "Assets/Scenes/ScratchToRiches.unity")
+            errors.Add("Scena errata: " + scene.path);
+        foreach (string field in new[] { "matchSlotFrames", "matchSlotQuestions", "prizeRequirements" })
+        {
+            var array = so.FindProperty(field);
+            int expected = field == "prizeRequirements" ? 4 : 5;
+            if (array == null || !array.isArray || array.arraySize != expected)
+            { errors.Add(field + ": array non valido"); continue; }
+            var unique = new HashSet<int>();
+            for (int i = 0; i < expected; i++)
+            {
+                var graphic = array.GetArrayElementAtIndex(i).objectReferenceValue as Graphic;
+                if (graphic == null) { errors.Add(field + "[" + i + "]: riferimento assente"); continue; }
+                if (graphic.gameObject.scene != scene || !graphic.transform.IsChildOf(hud.transform) ||
+                    !unique.Add(graphic.GetInstanceID()) || graphic.raycastTarget)
+                    errors.Add(field + "[" + i + "]: oggetto non valido");
+                string expectedName = field == "matchSlotFrames" ? "MatchSlotFrame_" + (i + 1) :
+                    field == "matchSlotQuestions" ? "MatchSlotQuestion_" + (i + 1) :
+                    "GameplayPrizeRequirement_" + i;
+                if (graphic.name != expectedName) errors.Add(field + "[" + i + "]: " + graphic.name);
+            }
+        }
+        foreach (string field in new[] { "prizeLabel", "prizeFooter" })
+        {
+            var label = so.FindProperty(field)?.objectReferenceValue as TMP_Text;
+            if (label == null || label.horizontalAlignment != HorizontalAlignmentOptions.Center)
+                errors.Add(field + ": allineamento centrale assente");
+        }
+        var divider = so.FindProperty("matchDivider")?.objectReferenceValue as GameObject;
+        if (divider == null || divider.name != "MatchDivider" || divider.scene != scene)
+            errors.Add("matchDivider: riferimento assente o errato");
+        detail = "HUD punto 2 | scena=" + scene.path + " | dirty=" + scene.isDirty +
+            " | " + (errors.Count == 0 ? "PASS" : string.Join("; ", errors));
+        return errors.Count == 0;
+    }
+
+    public static bool ValidateFreshTicket(ScratchGameManager game, out string detail)
+    {
+        var hud = game.GetComponent<ScratchVintageGameplayHUD>();
+        if (!ValidateRightPanels(hud, out detail)) return false;
+        var so = new SerializedObject(hud);
+        var errors = new List<string>();
+        foreach (string field in new[] { "matchSlotFrames", "matchSlotQuestions", "prizeRequirements" })
+        {
+            var array = so.FindProperty(field);
+            for (int i = 0; i < array.arraySize; i++)
+            {
+                var graphic = array.GetArrayElementAtIndex(i).objectReferenceValue as Graphic;
+                bool expected = field == "prizeRequirements" ? game.MaxScratches < i + 2 : i < game.MaxScratches;
+                if (graphic.gameObject.activeInHierarchy != expected ||
+                    (expected && (!graphic.enabled || graphic.color.a <= .01f)))
+                    errors.Add(field + "[" + i + "]: visibilita' " + graphic.gameObject.activeInHierarchy +
+                        ", attesa " + expected);
+                if (expected && graphic is TMP_Text label &&
+                    label.text != (field == "prizeRequirements" ? (i + 2) + " grattate" : "?"))
+                    errors.Add(field + "[" + i + "]: testo " + label.text);
+            }
+        }
+        var divider = so.FindProperty("matchDivider").objectReferenceValue as GameObject;
+        if (divider.activeSelf) errors.Add("MatchDivider visibile durante l'attesa");
+        detail += " | ticket=" + game.TicketNumber + " | max=" + game.MaxScratches +
+            " | " + (errors.Count == 0 ? "VISIBILITY PASS" : string.Join("; ", errors));
+        return errors.Count == 0;
     }
 }

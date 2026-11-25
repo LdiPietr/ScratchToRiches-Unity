@@ -16,6 +16,12 @@ public sealed partial class ScratchAutoplayWindow
     private void WaitLive(float now)
     {
         if (!game.TicketActive || !flow.CanScratch) return;
+        if (game.RevealedCount == 0)
+        {
+            bool ok = ScratchVintageHudAudit.ValidateFreshTicket(game, out string hudDetail);
+            Check(ok, "hud_fresh_ticket", hudDetail);
+            if (!ok) { Fail(hudDetail); return; }
+        }
         ScratchGameManager.TicketKind expected = farming
             ? game.CurrentTicketKind
             : (ScratchGameManager.TicketKind)stage;

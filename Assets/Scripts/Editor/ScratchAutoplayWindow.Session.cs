@@ -55,6 +55,14 @@ public sealed partial class ScratchAutoplayWindow
             return;
         }
 
+        if (!ScratchVintageHudAudit.ValidateRightPanels(game.GetComponent<ScratchVintageGameplayHUD>(),
+                out string hudPreflight))
+        {
+            Debug.LogError(hudPreflight, game);
+            EditorUtility.DisplayDialog("Gameplay & Visual QA", hudPreflight, "OK");
+            return;
+        }
+        Debug.Log(hudPreflight, game);
         if (IsFullDemo)
         {
             qaFunds = false;
@@ -125,6 +133,7 @@ public sealed partial class ScratchAutoplayWindow
         checks.Add("timestamp;result;check;details");
         progression.Add("elapsed_s;event;ticket;kind;wallet;earned;skill_id;level;price;details");
         ProgressEvent("START", "-", 0, 0, "Fresh natural run");
+        Check(true, "hud_loaded_scene", hudPreflight);
         previousRunInBackground = Application.runInBackground;
         backgroundOverride = true;
         Application.runInBackground = true;
