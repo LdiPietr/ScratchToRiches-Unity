@@ -93,7 +93,7 @@ public sealed partial class ScratchVintageGameplayHUD
         Set(matchHeader, final ? "RISULTATO BIGLIETTO" : "COMBINAZIONE ATTUALE");
         Set(matchName, name);
         Set(matchMultiplier, detail);
-        Set(prizeLabel, final ? "Vincita incassata" : "Vincita attuale");
+        RefreshPayoutStatus();
         Set(payout, value.ToString("N0"));
         payoutRestColor = value > 0 ? Gold : Muted;
         if (matchName != null) matchName.color = value > 0 ? Gold : Muted;

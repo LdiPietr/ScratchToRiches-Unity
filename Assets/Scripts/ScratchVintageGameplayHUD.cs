@@ -215,15 +215,7 @@ public sealed partial class ScratchVintageGameplayHUD : MonoBehaviour
         if (helpPrimary != null) helpPrimary.gameObject.SetActive(!ready && !result);
         if (helpSecondary != null) helpSecondary.gameObject.SetActive(!ready && !result);
         if (resultHelpGroup != null) resultHelpGroup.SetActive(result);
-        if (!live && game.TicketNumber > 0)
-        {
-            long net = (long)game.TicketPayout - ScratchGameManager.TicketPrice(game.CurrentTicketKind);
-            string signedNet = net > 0 ? "+" + net.ToString("N0") : net.ToString("N0");
-            string outcome = game.TicketPayout > 0 ? "Incassato <color=#EAC25C>" + game.TicketPayout.ToString("N0") + "</color>" : "Nessuna vincita";
-            string netColor = net > 0 ? "#EAC25C" : net < 0 ? "#D5A29A" : "#B9C9BE";
-            Set(resultSummary, game.TicketVoided ? "Biglietto di prova · nessuna vincita" :
-                outcome + " · Bilancio netto: <color=" + netColor + ">" + signedNet + "</color> monete");
-        }
+        RefreshPayoutStatus();
         Set(helpPrimary, live ? (game.RevealedCount == 0 ? "Gratta la prima casella" : "Gratta un'altra casella") : "Scegli il prossimo biglietto");
         string detail = live ? "Tieni premuto e trascina" : "Apri i potenziamenti o scegli un biglietto";
         if (live && skills.GetLevel("G08") > 0) detail += " · SHIFT: Titan " + skills.TitanCharges;

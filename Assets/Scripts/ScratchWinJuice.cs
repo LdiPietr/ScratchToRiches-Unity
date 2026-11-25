@@ -11,6 +11,7 @@ public sealed class ScratchWinJuice : MonoBehaviour
     [SerializeField] private Image ticketArtwork;
     [SerializeField] private TMP_Text matchLabel;
     [SerializeField] private TMP_Text walletLabel;
+    [SerializeField] private Image walletCoin;
     [SerializeField] private Image[] winCoins = new Image[0];
     [SerializeField] private Image combinationBackdrop;
     [SerializeField] private Sprite neutralBadge;
@@ -206,7 +207,9 @@ public sealed class ScratchWinJuice : MonoBehaviour
         // balance. No spawned objects, extra payout or changes to economy.
         float elapsed = Time.unscaledTime - rewardStarted;
         int coinOrdinal = 0;
-        RectTransform target = vintageHud != null ? vintageHud.WalletFeedbackTarget : null;
+        // The scene-authored coin is the exact arrival point, not the balance text.
+        RectTransform target = walletCoin != null ? walletCoin.rectTransform :
+            vintageHud != null ? vintageHud.WalletFeedbackTarget : null;
         if (target == null) target = walletLabel.rectTransform;
         for (int i = 0; i < winCoins.Length; i++)
         {

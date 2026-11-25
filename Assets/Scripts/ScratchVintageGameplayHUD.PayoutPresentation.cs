@@ -36,11 +36,32 @@ public sealed partial class ScratchVintageGameplayHUD
         payoutInFlight = true;
         shownWallet = walletFrom;
         Set(wallet, shownWallet.ToString("N0"));
+        RefreshPayoutStatus();
+    }
+
+    // Both result labels use the same presentation state as the animated wallet.
+    private void RefreshPayoutStatus()
+    {
+        bool final = !game.TicketActive && game.TicketNumber > 0;
+        bool pending = final && payoutInFlight && walletTicket == game.TicketNumber;
+        Set(prizeLabel, !final ? "Vincita attuale" :
+            game.TicketPayout <= 0 ? "Vincita finale" :
+            pending ? "Incasso in corso" : "Vincita incassata");
+        if (!final) return;
+        long net = (long)game.TicketPayout - ScratchGameManager.TicketPrice(game.CurrentTicketKind);
+        string signedNet = net > 0 ? "+" + net.ToString("N0") : net.ToString("N0");
+        string outcome = game.TicketPayout > 0
+            ? (pending ? "Incasso in corso: " : "Incassato ") + "<color=#EAC25C>" + game.TicketPayout.ToString("N0") + "</color>"
+            : "Nessuna vincita";
+        string netColor = net > 0 ? "#EAC25C" : net < 0 ? "#D5A29A" : "#B9C9BE";
+        Set(resultSummary, game.TicketVoided ? "Biglietto di prova · nessuna vincita" :
+            outcome + " · Bilancio netto: <color=" + netColor + ">" + signedNet + "</color> monete");
     }
 
     private void UpdatePayoutPresentation()
     {
         float now = Time.unscaledTime;
+        bool wasInFlight = payoutInFlight;
         if (payoutInFlight)
         {
             // A new ticket, spend, reset or leaving the result must never show a stale balance.
@@ -66,6 +87,7 @@ public sealed partial class ScratchVintageGameplayHUD
             }
         }
         if (!payoutInFlight) shownWallet = economy.Coins;
+        if (wasInFlight != payoutInFlight) RefreshPayoutStatus();
         if (wallet != null)
         {
             Set(wallet, shownWallet.ToString("N0"));
