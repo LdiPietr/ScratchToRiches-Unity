@@ -295,8 +295,7 @@ internal static class ScratchAutoplayPreviewStrategy
     }
 
     /// <summary>Pure, fast Editor validation; no Unity scene or player save required.</summary>
-    [MenuItem("Tools/Scratch to Riches/Test strategia anteprime")]
-    private static void RunDecisionTests()
+    internal static void RunDecisionTests()
     {
         double[] payout = { 0, 0, 2, 3, 4, 5 };
         int failed = 0;

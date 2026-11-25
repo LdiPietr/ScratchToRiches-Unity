@@ -122,11 +122,11 @@ public sealed class ScratchAutoplayWindow : EditorWindow
     private int naturalTicketsPlayed;
     private int forcedTicketsPlayed;
     private bool captureFrames;
-    private bool recordVideo;
-    private bool recordGameAudio;
+    private bool recordVideo = true;
+    private bool recordGameAudio = true;
     private bool videoValidationPending;
-    private int videoHeight = 720;
-    private int videoFrameRate = 30;
+    private int videoHeight = 1080;
+    private int videoFrameRate = 60;
     private double videoValidationDeadline;
     private string videoStatus = "Non richiesto";
     private string videoOutputPath = string.Empty;
@@ -176,13 +176,12 @@ public sealed class ScratchAutoplayWindow : EditorWindow
     private readonly List<string> ledger = new List<string>();
     private readonly List<string> checks = new List<string>();
 
-    [MenuItem("Tools/Scratch to Riches/Autoplay e registrazione V2")]
+    [MenuItem("Tools/Scratch to Riches/Gameplay & Visual QA")]
     private static void ShowWindow()
     {
-        GetWindow<ScratchAutoplayWindow>("STR Autoplay QA").minSize = new Vector2(390, 460);
+        GetWindow<ScratchAutoplayWindow>("Gameplay & Visual QA").minSize = new Vector2(390, 460);
     }
 
-    [MenuItem("Tools/Scratch to Riches/Reset progressi V2 (fuori Play)")]
     private static void ResetProgressMenu()
     {
         if (EditorApplication.isPlaying || EditorApplication.isPlayingOrWillChangePlaymode)
@@ -238,7 +237,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
 
     private void OnGUI()
     {
-        EditorGUILayout.LabelField("SCRATCH TO RICHES - AUTOPLAY DEMO V2", EditorStyles.boldLabel);
+        EditorGUILayout.LabelField("SCRATCH TO RICHES - GAMEPLAY & VISUAL QA", EditorStyles.boldLabel);
         EditorGUILayout.HelpBox(IsFullDemo
             ? "TEST DEMO COMPLETA: parte da zero, acquista tutte le 25 abilita' della demo " +
               "(incluse le dipendenze), gratta biglietti reali fino al finale G08/F04 " +
@@ -248,19 +247,17 @@ public sealed class ScratchAutoplayWindow : EditorWindow
 
         using (new EditorGUI.DisabledScope(running))
         {
-            autoplayMode = (AutoplayMode)EditorGUILayout.EnumPopup("Tipo di test", autoplayMode);
-            if (IsFullDemo) { qaFunds = false; startFresh = true; }
-            using (new EditorGUI.DisabledScope(IsFullDemo))
-            {
-                qaFunds = EditorGUILayout.ToggleLeft("Credito QA per gli sblocchi (100.000 monete)", qaFunds);
-                startFresh = EditorGUILayout.ToggleLeft("Azzera progressi prima del test (solo Play Mode)", startFresh);
-            }
+            autoplayMode = AutoplayMode.ProgressioneDemoCompleta;
+            qaFunds = false;
+            startFresh = true;
+            recordVideo = true;
+            EditorGUILayout.LabelField("Demo completa naturale - MP4 obbligatorio");
             humanSpeed = EditorGUILayout.Slider("Velocita' gesti (1 = umano)", humanSpeed, 0.5f, 4f);
             freshSeedEachRun = EditorGUILayout.ToggleLeft("Nuova partita casuale a ogni avvio", freshSeedEachRun);
             using (new EditorGUI.DisabledScope(freshSeedEachRun))
                 seed = EditorGUILayout.IntField("Seed riproducibile", seed);
             maxSessionMinutes = EditorGUILayout.Slider("Timeout massimo (min)", maxSessionMinutes, 5f, 240f);
-            recordVideo = EditorGUILayout.ToggleLeft("REGISTRA VIDEO MP4 H.264 (Unity Recorder)", recordVideo);
+            EditorGUILayout.LabelField("Registrazione MP4 H.264 attiva");
             if (recordVideo)
             {
                 videoHeight = EditorGUILayout.IntPopup("Risoluzione MP4", videoHeight,
@@ -299,7 +296,17 @@ public sealed class ScratchAutoplayWindow : EditorWindow
             EditorGUILayout.HelpBox("I PNG sono soltanto materiale diagnostico aggiuntivo e possono occupare molto spazio.", MessageType.None);
 
         GUILayout.Space(8);
-        using (new EditorGUI.DisabledScope(!EditorApplication.isPlaying || running))
+        using (new EditorGUI.DisabledScope(running))
+        {
+            if (GUILayout.Button("CONTROLLI PRELIMINARI"))
+            {
+                ScratchV2SceneAudit.AuditScene();
+                ScratchAutoplayPreviewStrategy.RunDecisionTests();
+                TestFullDemoPlan();
+                TestTicketBudget();
+            }
+        }
+        using (new EditorGUI.DisabledScope(!EditorApplication.isPlaying || running || videoValidationPending))
         {
             if (GUILayout.Button("START - TEST COMPLETO", GUILayout.Height(34)))
                 StartTest();
@@ -345,6 +352,15 @@ public sealed class ScratchAutoplayWindow : EditorWindow
 
     private void StartTest()
     {
+        autoplayMode = AutoplayMode.ProgressioneDemoCompleta;
+        recordVideo = true;
+        qaFunds = false;
+        startFresh = true;
+        if (!ScratchV2SceneAudit.AuditScene())
+        {
+            EditorUtility.DisplayDialog("Gameplay & Visual QA", "Audit scena fallito. Consulta la Console.", "OK");
+            return;
+        }
         game = UnityEngine.Object.FindAnyObjectByType<ScratchGameManager>();
         // A previous completed demo may load in Finished state. Full-demo
         // replay is allowed because the confirmed reset below also clears
@@ -369,7 +385,7 @@ public sealed class ScratchAutoplayWindow : EditorWindow
             flow == null || treeUI == null || parentCanvas == null || holdButtons.Length != 8 ||
             EventSystem.current == null)
         {
-            EditorUtility.DisplayDialog("Autoplay", "Scene references incomplete. Run the V2 Scene Audit first.", "OK");
+            EditorUtility.DisplayDialog("Autoplay", "Riferimenti scena incompleti. Esegui i controlli preliminari dalla finestra QA.", "OK");
             return;
         }
 
@@ -1071,7 +1087,6 @@ public sealed class ScratchAutoplayWindow : EditorWindow
     }
 
     /// <summary>Validate 29 purchases, 25 demo effects and prerequisite edges.</summary>
-    [MenuItem("Tools/Scratch to Riches/Verifica piano autoplay demo")]
     private static void TestFullDemoPlan()
     {
         if (ValidateFullDemoPlan(out string error))
@@ -1396,7 +1411,6 @@ public sealed class ScratchAutoplayWindow : EditorWindow
     /// Regression test for the wallet=141 / C3=140 / Fortunato=10 failure.
     /// Pure calculations: works outside Play Mode and does not alter saves.
     /// </summary>
-    [MenuItem("Tools/Scratch to Riches/Test riserva biglietti autoplay")]
     private static void TestTicketBudget()
     {
         int failures = 0;
