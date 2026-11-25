@@ -25,6 +25,10 @@ public sealed class ScratchTicketChoiceUI : MonoBehaviour
     private Vector3 upgradeHomeScale;
     private int upgradeHomeSibling;
     private Vector2[] walletHomePositions;
+    private Vector2[] walletHomeSizes;
+    private readonly TMP_Text[,] prizeLabels = new TMP_Text[4, 4];
+    private static readonly Color Muted = new Color32(149, 168, 155, 255);
+    private static readonly Color Gold = new Color32(234, 194, 92, 255);
     private bool headerMoved;
     private ScratchSkillTree skills;
     private readonly TMP_Text[,] prizeValues = new TMP_Text[4, 4];
@@ -66,8 +70,13 @@ public sealed class ScratchTicketChoiceUI : MonoBehaviour
             upgradeHomeScale = selectionUpgradeGroup.localScale;
             upgradeHomeSibling = selectionUpgradeGroup.GetSiblingIndex();
             walletHomePositions = new Vector2[walletParts.Length];
+            walletHomeSizes = new Vector2[walletParts.Length];
             for (int j = 0; j < walletParts.Length; j++)
-                if (walletParts[j] != null) walletHomePositions[j] = walletParts[j].anchoredPosition;
+            {
+                if (walletParts[j] == null) continue;
+                walletHomePositions[j] = walletParts[j].anchoredPosition;
+                walletHomeSizes[j] = walletParts[j].sizeDelta;
+            }
         }
         buttonActions = new UnityAction[4];
         for (int i = 0; i < 4; i++)
@@ -84,7 +93,10 @@ public sealed class ScratchTicketChoiceUI : MonoBehaviour
             actionBackgrounds[i] = card.Find("ChoiceActionBackground")?.GetComponent<Image>();
             locks[i] = card.Find("ChoiceLock")?.gameObject;
             for (int j = 0; j < 4; j++)
+            {
                 prizeValues[i, j] = card.Find("PrizeValue_" + j)?.GetComponent<TMP_Text>();
+                prizeLabels[i, j] = card.Find("PrizeLabel_" + j)?.GetComponent<TMP_Text>();
+            }
             int index = i;
             buttonActions[i] = () => Choose(index);
             ticketButtons[i].onClick.AddListener(buttonActions[i]);
@@ -147,16 +159,24 @@ public sealed class ScratchTicketChoiceUI : MonoBehaviour
                     (ScratchSymbolManager.MatchTier)(j + 1), "", j + 2);
                 long award = ScratchRewardPolicy.Calculate(match, true, prize, economy.BasePrize,
                     cost, economy.ConsecutiveWinningTickets, Level).RequestedCoins;
+                bool attainable = game.MaxScratches >= j + 2;
                 value.text = award.ToString("N0");
+                value.color = attainable ? Gold : Muted;
+                if (prizeLabels[i, j] != null)
+                    prizeLabels[i, j].color = attainable ? Cream : Muted;
             }
             bool selectable = unlocked && affordable;
             if (actionLabels[i] != null)
             {
-                actionLabels[i].text = !unlocked ? $"BLOCCATO\n<size=20>Sblocca {UnlockIds[i]}</size>"
+                var unlock = ScratchSkillCatalogV2.Find(UnlockIds[i]);
+                bool fullGameOnly = ScratchSkillTree.DemoEdition && unlock != null && !unlock.demoEligible;
+                actionLabels[i].text = !unlocked ? (fullGameOnly
+                    ? "GIOCO COMPLETO\n<size=19>Disponibile nella versione finale</size>"
+                    : "BLOCCATO\n<size=19>Sblocca nei potenziamenti</size>")
                     : !affordable ? "MONETE INSUFFICIENTI" : "SCEGLI";
                 actionLabels[i].color = selectable ? Dark : Cream;
                 actionLabels[i].rectTransform.anchoredPosition = new Vector2(unlocked ? 0 : 10, -326);
-                actionLabels[i].fontSize = unlocked && !affordable ? 22 : 28;
+                actionLabels[i].fontSize = unlocked && affordable ? 28 : 23;
             }
             if (actionBackgrounds[i] != null)
             {
@@ -185,7 +205,7 @@ public sealed class ScratchTicketChoiceUI : MonoBehaviour
         if (show)
         {
             selectionUpgradeGroup.SetParent(selectionHeader, false);
-            selectionUpgradeGroup.anchoredPosition = new Vector2(1378, -13);
+            selectionUpgradeGroup.anchoredPosition = new Vector2(1400, -13);
             selectionUpgradeGroup.localScale = Vector3.one * .72f;
         }
         else
@@ -196,7 +216,10 @@ public sealed class ScratchTicketChoiceUI : MonoBehaviour
             selectionUpgradeGroup.localScale = upgradeHomeScale;
         }
         for (int i = 0; i < walletParts.Length; i++)
-            if (walletParts[i] != null)
-                walletParts[i].anchoredPosition = walletHomePositions[i] + (show ? Vector2.left * 285 : Vector2.zero);
+        {
+            if (walletParts[i] == null) continue;
+            walletParts[i].anchoredPosition = walletHomePositions[i] + (show ? Vector2.left * 460 : Vector2.zero);
+            walletParts[i].sizeDelta = show && i == 2 ? new Vector2(310, walletHomeSizes[i].y) : walletHomeSizes[i];
+        }
     }
 }
