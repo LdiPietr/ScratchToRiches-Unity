@@ -29,7 +29,7 @@ public sealed partial class ScratchAutoplayWindow
         if (game == null || (game.State != ScratchGameManager.RoundState.Ready &&
                              !completedSavedDemo))
         {
-            EditorUtility.DisplayDialog("Autoplay", "Avvia la scena in Play Mode e lascia il gioco prima di SI PARTE! (stato Ready).", "OK");
+            EditorUtility.DisplayDialog("Autoplay", "Avvia la scena in Play Mode e lascia il gioco nella selezione iniziale, senza scegliere un biglietto.", "OK");
             return;
         }
         skills = game.GetComponent<ScratchSkillTree>();
@@ -149,6 +149,17 @@ public sealed partial class ScratchAutoplayWindow
         game.StartNewRun();
         walletBeforeTicket = economy.Coins;
         ticketCost = 0;
+        if (!game.WaitingForTicketChoice || !flow.CanShowTicketChoices || game.TicketActive || game.TicketNumber != 0)
+        {
+            Fail("Selezione iniziale non disponibile o biglietto creato automaticamente.");
+            return;
+        }
+        Check(true, "initial_ticket_selection", "Nessun biglietto generato prima della scelta.");
+        if (!game.ChooseNextTicket(ScratchGameManager.TicketKind.Standard))
+        {
+            Fail("Impossibile selezionare il Classico iniziale.");
+            return;
+        }
         ChangePhase(Phase.WaitLive, 0f);
         lastStatus = "Test avviato sul Classico.";
         Repaint();
