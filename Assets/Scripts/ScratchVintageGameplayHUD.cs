@@ -40,6 +40,9 @@ public sealed partial class ScratchVintageGameplayHUD : MonoBehaviour
     private static readonly Color Reserved = new Color32(119,147,132,255);
     private static readonly Regex CountPattern = new Regex(@"\((\d+)/(\d+)\)");
     private bool subscribed;
+    private int indicatorTicket = -1, lastRevealed;
+    private float indicatorPulseAt = -10f;
+    public RectTransform WalletFeedbackTarget => wallet != null ? wallet.rectTransform : null;
 
     private void Start()
     {
@@ -64,6 +67,14 @@ public sealed partial class ScratchVintageGameplayHUD : MonoBehaviour
     {
         var kind = game.CurrentTicketKind;
         int max = game.MaxScratches, revealed = game.RevealedCount, selected = game.SelectedCount;
+        if (indicatorTicket != game.TicketNumber)
+        {
+            indicatorTicket = game.TicketNumber;
+            lastRevealed = 0;
+            indicatorPulseAt = -10f;
+        }
+        if (revealed > lastRevealed) indicatorPulseAt = Time.unscaledTime;
+        lastRevealed = revealed;
         int unlocked = ScratchRadialProgression.UnlockedChapter(game, skills);
         Set(chapter, "CAPITOLO " + unlocked.ToString("00"));
         Set(wallet, economy.Coins.ToString("N0"));
@@ -226,6 +237,15 @@ public sealed partial class ScratchVintageGameplayHUD : MonoBehaviour
     private void LateUpdate()
     {
         UpdateWinFeedback();
+        if (indicators != null && lastRevealed > 0 && lastRevealed <= indicators.Length)
+        {
+            Image last = indicators[lastRevealed - 1];
+            if (last != null)
+            {
+                float pulse = Mathf.Sin(Mathf.PI * Mathf.Clamp01((Time.unscaledTime - indicatorPulseAt) / .24f));
+                last.color = Color.Lerp(Gold, Cream, pulse * .7f);
+            }
+        }
         if (resultHelpGroup != null)
         {
             bool result = flow.ShowingResult;

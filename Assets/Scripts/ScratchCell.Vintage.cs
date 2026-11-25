@@ -3,6 +3,84 @@ using UnityEngine.UI;
 
 public sealed partial class ScratchCell
 {
+    private Image feedbackFrame;
+    private Color feedbackFrameRest, feedbackPaperRest;
+    private Vector3 feedbackSymbolRest, feedbackJollyRest;
+    private bool feedbackCaptured, feedbackMatched;
+    private float revealStarted = -10f, matchStarted = -10f;
+    private int feedbackRank;
+
+    // Only already-authored frame, paper and revealed symbol participate.
+    public void PlayRevealFeedback()
+    {
+        if (!completed) return;
+        CaptureFeedbackRest();
+        revealStarted = Time.unscaledTime;
+    }
+
+    public void SetMatchFeedback(bool matched, int rank, bool replay)
+    {
+        if (!completed || preparingTicket) return;
+        if (matched)
+        {
+            CaptureFeedbackRest();
+            if (!feedbackMatched || replay) matchStarted = Time.unscaledTime;
+        }
+        feedbackMatched = matched;
+        feedbackRank = matched ? Mathf.Clamp(rank, 1, 4) : 0;
+    }
+
+    private void CaptureFeedbackRest()
+    {
+        if (feedbackCaptured) return;
+        feedbackFrame = GetComponent<Image>();
+        if (feedbackFrame != null) feedbackFrameRest = feedbackFrame.color;
+        if (vintageRevealedBackground != null) feedbackPaperRest = vintageRevealedBackground.color;
+        if (symbolImage != null) feedbackSymbolRest = symbolImage.rectTransform.localScale;
+        if (indexText != null) feedbackJollyRest = indexText.rectTransform.localScale;
+        feedbackCaptured = true;
+    }
+
+    public void TickRevealFeedback(float now)
+    {
+        if (!feedbackCaptured || !completed || preparingTicket) return;
+        float reveal = Mathf.Sin(Mathf.PI * Mathf.Clamp01((now - revealStarted) / .22f));
+        float match = Mathf.Sin(Mathf.PI * Mathf.Clamp01((now - matchStarted) /
+            (.34f + .08f * feedbackRank)));
+        float emphasis = feedbackMatched ? match * (.055f + .012f * feedbackRank) : 0f;
+        float scale = 1f + Mathf.Max(reveal * .07f, emphasis);
+        if (symbolImage != null) symbolImage.rectTransform.localScale = feedbackSymbolRest * scale;
+        if (indexText != null && currentSymbolLabel == "JOLLY")
+            indexText.rectTransform.localScale = feedbackJollyRest * scale;
+        Color gold = new Color(1f, .78f, .34f, 1f);
+        if (feedbackFrame != null)
+        {
+            gold.a = feedbackFrameRest.a;
+            feedbackFrame.color = Color.Lerp(feedbackFrameRest, gold,
+                feedbackMatched ? .46f + match * .44f : reveal * .22f);
+        }
+        if (vintageRevealedBackground != null)
+        {
+            Color paper = new Color(1f, .88f, .59f, feedbackPaperRest.a);
+            vintageRevealedBackground.color = Color.Lerp(feedbackPaperRest, paper,
+                feedbackMatched ? .22f + match * .28f : reveal * .12f);
+        }
+    }
+
+    private void ResetRevealFeedback()
+    {
+        if (feedbackCaptured)
+        {
+            if (feedbackFrame != null) feedbackFrame.color = feedbackFrameRest;
+            if (vintageRevealedBackground != null) vintageRevealedBackground.color = feedbackPaperRest;
+            if (symbolImage != null) symbolImage.rectTransform.localScale = feedbackSymbolRest;
+            if (indexText != null) indexText.rectTransform.localScale = feedbackJollyRest;
+        }
+        feedbackCaptured = feedbackMatched = false;
+        feedbackRank = 0;
+        revealStarted = matchStarted = -10f;
+    }
+
     public void ApplyVintageVisuals(ScratchVintageTicketArt art, int index, float scale)
     {
         var rect = (RectTransform)transform;

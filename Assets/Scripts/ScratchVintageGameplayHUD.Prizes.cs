@@ -11,6 +11,9 @@ public sealed partial class ScratchVintageGameplayHUD
     private long feedbackValue;
     private bool finalWinFeedbackPlayed;
     private float feedbackStarted = -10f;
+    private float feedbackDuration = .48f;
+    private float walletFeedbackStarted = -10f;
+    private float walletFeedbackDelay;
     private Color payoutRestColor = Gold;
     private int tableTicket = -1;
     private readonly long[] ticketQuotes = new long[4];
@@ -109,7 +112,15 @@ public sealed partial class ScratchVintageGameplayHUD
         bool finalWin = final && value > 0 && !finalWinFeedbackPlayed;
         if (finalWin) finalWinFeedbackPlayed = true;
         if (finalWin || value > feedbackValue || (!voided && (int)match.Tier > (int)feedbackTier))
+        {
             feedbackStarted = Time.unscaledTime;
+            feedbackDuration = .34f + .10f * (int)match.Tier;
+        }
+        if (finalWin)
+        {
+            walletFeedbackStarted = Time.unscaledTime;
+            walletFeedbackDelay = .40f + .12f * (int)match.Tier;
+        }
         feedbackTier = voided ? default : match.Tier;
         feedbackValue = value;
         PositionCoin(payoutCoin, payout, 12f);
@@ -118,10 +129,19 @@ public sealed partial class ScratchVintageGameplayHUD
 
     private void UpdateWinFeedback()
     {
-        float t = Mathf.Clamp01((Time.unscaledTime - feedbackStarted) / .48f);
+        float t = Mathf.Clamp01((Time.unscaledTime - feedbackStarted) / feedbackDuration);
         float pulse = Mathf.Sin(t * Mathf.PI);
         if (payout != null)
             payout.color = Color.Lerp(payoutRestColor, Cream, pulse * .85f);
+        if (matchName != null && feedbackValue > 0)
+            matchName.color = Color.Lerp(Gold, Cream, pulse * .65f);
+        if (matchAccent != null && feedbackValue > 0)
+            matchAccent.color = Color.Lerp(Gold, Cream, pulse * .7f);
+        if (wallet != null)
+        {
+            float walletT = Mathf.Clamp01((Time.unscaledTime - walletFeedbackStarted - walletFeedbackDelay) / .32f);
+            wallet.color = Color.Lerp(Cream, Gold, Mathf.Sin(walletT * Mathf.PI) * .75f);
+        }
         if (prizeHighlights == null) return;
         for (int i = 0; i < prizeHighlights.Length; i++)
         {
@@ -129,7 +149,7 @@ public sealed partial class ScratchVintageGameplayHUD
             if (highlight == null) continue;
             bool obtained = (int)feedbackTier == i + 1;
             Color color = Gold;
-            color.a = obtained ? .13f + pulse * .22f : 0f;
+            color.a = obtained ? .23f + pulse * .25f : 0f;
             highlight.color = color;
         }
     }

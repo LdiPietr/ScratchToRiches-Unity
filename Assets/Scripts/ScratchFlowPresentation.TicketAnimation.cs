@@ -84,7 +84,6 @@ public sealed partial class ScratchFlowPresentation
         Vector2 start = ticketTransform.anchoredPosition;
         Quaternion startRotation = ticketTransform.localRotation;
         Vector3 startScale = ticketTransform.localScale;
-        float startAlpha = ticketCanvasGroup.alpha;
         float t = 0f;
 
         while (t < ticketTravelDuration)
@@ -96,7 +95,9 @@ public sealed partial class ScratchFlowPresentation
             ticketTransform.localRotation = Quaternion.SlerpUnclamped(startRotation,
                 Quaternion.Euler(0f, 0f, 3f), a);
             ticketTransform.localScale = Vector3.LerpUnclamped(startScale, Vector3.one * 0.78f, a);
-            ticketCanvasGroup.alpha = Mathf.Lerp(startAlpha, 0f, a);
+            // Keep the layered printed ticket opaque until it leaves; fading
+            // individual CanvasGroup children exposes covered symbols.
+            ticketCanvasGroup.alpha = 1f;
             yield return null;
         }
 

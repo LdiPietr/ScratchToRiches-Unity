@@ -55,6 +55,7 @@ public sealed partial class ScratchCell : MonoBehaviour, IPointerDownHandler, ID
     /// </summary>
     public void BeginTicketVisualPreparation()
     {
+        ResetRevealFeedback();
         preparingTicket = true;
         previewActive = false;
         completed = false;
@@ -173,6 +174,7 @@ public sealed partial class ScratchCell : MonoBehaviour, IPointerDownHandler, ID
     /// </summary>
     public void ResetScratch()
     {
+        ResetRevealFeedback();
         if (manager == null)
             manager = GetComponentInParent<ScratchCellManager>();
 

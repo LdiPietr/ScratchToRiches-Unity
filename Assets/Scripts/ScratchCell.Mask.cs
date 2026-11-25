@@ -147,6 +147,7 @@ public sealed partial class ScratchCell
         scratchTexture.SetPixels32(pixels);
         scratchTexture.Apply(false);
 
+        PlayRevealFeedback();
         if (gameManager != null)
         {
             // Optional physical-print feedback on the real scratched cell.

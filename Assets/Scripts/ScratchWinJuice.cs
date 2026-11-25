@@ -25,6 +25,13 @@ public sealed class ScratchWinJuice : MonoBehaviour
     private Vector3 resultScale, moneyScale;
     private float scratchPulse, rewardPulse, walletPulse;
     private int revealed, previousMoney;
+    private int feedbackTicket = -1;
+    private ScratchSymbolManager.MatchTier feedbackTier;
+    private string feedbackSymbol = string.Empty;
+    private ScratchCellManager cells;
+    private ScratchVintageGameplayHUD vintageHud;
+    private int rewardRank, visibleCoinCount;
+    private float rewardDuration = .7f;
     private bool waitingForSettlement, subscribed;
 
     private void Start()
@@ -35,6 +42,8 @@ public sealed class ScratchWinJuice : MonoBehaviour
             enabled = false;
             return;
         }
+        cells = game.GetComponent<ScratchCellManager>();
+        vintageHud = game.GetComponent<ScratchVintageGameplayHUD>();
         cardColor = ticketArtwork.color;
         resultColor = matchLabel.color;
         moneyColor = walletLabel.color;
@@ -55,6 +64,30 @@ public sealed class ScratchWinJuice : MonoBehaviour
 
     private void GameChanged()
     {
+        if (feedbackTicket != game.TicketNumber)
+        {
+            feedbackTicket = game.TicketNumber;
+            feedbackTier = default;
+            feedbackSymbol = string.Empty;
+            rewardPulse = 0f;
+        }
+        var match = game.CurrentMatch;
+        bool validMatch = !game.TicketVoided && match.IsMatch;
+        bool stronger = validMatch && (int)match.Tier > (int)feedbackTier;
+        bool changedSymbol = validMatch && match.Symbol != feedbackSymbol;
+        bool settlement = !game.TicketActive && waitingForSettlement;
+        if (cells != null && cells.ActiveCells != null)
+        {
+            foreach (ScratchCell cell in cells.ActiveCells)
+            {
+                if (cell == null || !cell.IsComplete) continue;
+                bool winner = validMatch && cell.TryGetVisibleSymbol(out string symbol) &&
+                    (symbol == match.Symbol || symbol == "JOLLY");
+                cell.SetMatchFeedback(winner, (int)match.Tier, stronger || changedSymbol || settlement);
+            }
+        }
+        feedbackTier = validMatch ? match.Tier : default;
+        feedbackSymbol = validMatch ? match.Symbol : string.Empty;
         if (game.TicketActive)
         {
             waitingForSettlement = true;
@@ -68,8 +101,11 @@ public sealed class ScratchWinJuice : MonoBehaviour
             if (game.TicketPayout > 0)
             {
                 rewardPulse = 1f;
-                foreach (Image coin in winCoins)
-                    if (coin != null) coin.gameObject.SetActive(true);
+                rewardRank = validMatch ? (int)match.Tier : 0;
+                rewardDuration = .58f + .12f * rewardRank;
+                visibleCoinCount = Mathf.Min(winCoins.Length, 2 + rewardRank * 2);
+                for (int i = 0; i < winCoins.Length; i++)
+                    if (winCoins[i] != null) winCoins[i].gameObject.SetActive(i < visibleCoinCount);
             }
         }
         UpdateMatchBadge();
@@ -109,7 +145,10 @@ public sealed class ScratchWinJuice : MonoBehaviour
     {
         float dt = Time.unscaledDeltaTime;
         scratchPulse = Mathf.MoveTowards(scratchPulse, 0f, dt / 0.28f);
-        rewardPulse = Mathf.MoveTowards(rewardPulse, 0f, dt / 0.70f);
+        rewardPulse = Mathf.MoveTowards(rewardPulse, 0f, dt / rewardDuration);
+        if (cells != null && cells.ActiveCells != null)
+            foreach (ScratchCell cell in cells.ActiveCells)
+                if (cell != null) cell.TickRevealFeedback(Time.unscaledTime);
         walletPulse = Mathf.MoveTowards(walletPulse, 0f, dt / 0.50f);
         float a = Mathf.Sin(scratchPulse * Mathf.PI);
         float b = Mathf.Sin(rewardPulse * Mathf.PI);
@@ -133,27 +172,39 @@ public sealed class ScratchWinJuice : MonoBehaviour
             flake.rectTransform.localScale = Vector3.one * (0.6f + 0.36f * flakeProgress);
             flake.color = new Color(1f, 1f, 1f, Mathf.Clamp01(flakePulse * 2.3f));
         }
-        // Ten scene-authored coin sprites fly outward and fade at payout.
+        // Existing authored coins travel from the ticket toward the actual HUD
+        // balance. No spawned objects, extra payout or changes to economy.
         float progress = 1f - rewardPulse;
+        RectTransform target = vintageHud != null ? vintageHud.WalletFeedbackTarget : null;
+        if (target == null) target = walletLabel.rectTransform;
         for (int i = 0; i < winCoins.Length; i++)
         {
             Image coin = winCoins[i];
             if (coin == null) continue;
-            if (rewardPulse <= 0f)
+            if (rewardPulse <= 0f || i >= visibleCoinCount)
             {
                 if (coin.gameObject.activeSelf) coin.gameObject.SetActive(false);
                 continue;
             }
-            if (!coin.gameObject.activeSelf) coin.gameObject.SetActive(true);
-            float angle = (i + 0.5f) * Mathf.PI * 2f / winCoins.Length;
-            float travel = 55f + 280f * (1f - (1f - progress) * (1f - progress));
-            coin.rectTransform.anchoredPosition =
-                new Vector2(Mathf.Cos(angle) * travel, Mathf.Sin(angle) * travel + progress * 25f);
-            coin.rectTransform.localScale = Vector3.one * (0.72f + 0.42f * progress);
-            coin.color = new Color(1f, 1f, 1f, Mathf.Clamp01(rewardPulse * 5f));
+            RectTransform rt = coin.rectTransform;
+            Transform parent = rt.parent;
+            float delay = i * .025f;
+            float p = Mathf.Clamp01((progress - delay) / Mathf.Max(.01f, 1f - delay));
+            Vector3 origin = parent.InverseTransformPoint(ticketArtwork.rectTransform.TransformPoint(
+                ticketArtwork.rectTransform.rect.center));
+            Vector3 destination = parent.InverseTransformPoint(target.TransformPoint(target.rect.center));
+            float fan = (i - (visibleCoinCount - 1) * .5f) * 23f;
+            Vector3 control = Vector3.Lerp(origin, destination, .42f) +
+                new Vector3(fan, 110f + Mathf.Abs(fan) * .3f, 0f);
+            float ease = p * p * (3f - 2f * p);
+            rt.localPosition = Vector3.Lerp(Vector3.Lerp(origin, control, ease),
+                Vector3.Lerp(control, destination, ease), ease);
+            rt.localScale = Vector3.one * Mathf.Lerp(.82f, .52f, p);
+            coin.color = new Color(1f, 1f, 1f, p >= 1f ? 0f :
+                Mathf.Clamp01(p * 14f) * Mathf.Clamp01((1f - p) * 7f));
         }
-        ticketArtwork.color = Color.Lerp(cardColor, new Color(1f, 0.87f, 0.61f, cardColor.a), a * 0.25f);
-        matchLabel.color = Color.Lerp(resultColor, new Color(0.27f, 0.50f, 0.23f, resultColor.a), b);
+        ticketArtwork.color = Color.Lerp(cardColor, new Color(1f, 0.87f, 0.61f, cardColor.a), a * 0.06f);
+        matchLabel.color = Color.Lerp(resultColor, new Color(1f, .81f, .39f, resultColor.a), b);
         matchLabel.rectTransform.localScale = resultScale * (1f + b * 0.20f);
         walletLabel.color = Color.Lerp(moneyColor, new Color(1f, 0.83f, 0.38f, moneyColor.a), c);
         walletLabel.rectTransform.localScale = moneyScale * (1f + c * 0.12f);
