@@ -55,8 +55,8 @@ public sealed partial class ScratchFlowPresentation : MonoBehaviour
     private string previousRight;
 
     public bool CanScratch => phase == Phase.TicketLive;
-    public bool CanOpenShop => game != null && !game.TicketActive &&
-        (phase == Phase.Idle || phase == Phase.Choosing);
+    public bool CanOpenShop => game != null && game.WaitingForTicketChoice &&
+        phase == Phase.Choosing;
     public bool ShopOpen => phase == Phase.CurtainDescending || phase == Phase.CurtainVisible || phase == Phase.CurtainAscending;
     public bool ShopVisible => phase == Phase.CurtainVisible;
     public bool ShopContentVisible => ShopVisible && shopContent != null && shopContent.activeInHierarchy;
