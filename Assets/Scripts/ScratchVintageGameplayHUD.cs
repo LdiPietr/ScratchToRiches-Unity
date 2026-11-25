@@ -126,30 +126,85 @@ public sealed class ScratchVintageGameplayHUD : MonoBehaviour
 
     private void RefreshGoal()
     {
-        string goal = ScratchRadialProgression.NextGoal(game, skills);
-        Match count = CountPattern.Match(goal);
-        float fraction = 0f;
+        string raw = ScratchRadialProgression.NextGoal(game, skills);
+        string goal = raw;
         string counter = "";
-        if (count.Success && int.TryParse(count.Groups[1].Value, out int current) &&
+        float fraction = 0f;
+        bool showProgress = false;
+        Match skillGoal = Regex.Match(raw, @"^PER ([A-Z]\d{2}):\s*");
+        string skillId = skillGoal.Success ? skillGoal.Groups[1].Value :
+            raw == "ACQUISTA FORTUNATO (C03)" ? "C03" :
+            raw == "SBLOCCA DIAMANTE" ? "C07" : null;
+        string action = skillGoal.Success ? raw.Substring(skillGoal.Length) : raw;
+        string title = skillId == null ? "" : ScratchSkillCatalogV2.Find(skillId)?.title ?? "";
+
+        Match count = CountPattern.Match(action);
+        if (game.DemoFinished)
+        {
+            goal = "Demo completata!";
+        }
+        else if (raw.StartsWith("FINALE:"))
+        {
+            goal = game.DemoFinalGoldTickets + "/" + game.DemoFinalGoldMinTickets + " Dorati · " +
+                game.DemoFinalGoldPayout.ToString("N0") + "/" + game.DemoFinalGoldPayoutTarget.ToString("N0") +
+                " monete\nPotere finale: " + (game.DemoFinalPowerActivated ? "attivato" : "da attivare");
+            fraction = Mathf.Min(Mathf.Clamp01((float)game.DemoFinalGoldTickets / Mathf.Max(1, game.DemoFinalGoldMinTickets)),
+                Mathf.Clamp01((float)game.DemoFinalGoldPayout / Mathf.Max(1, game.DemoFinalGoldPayoutTarget)));
+            if (!game.DemoFinalPowerActivated) fraction = Mathf.Min(fraction, .95f);
+            showProgress = true;
+        }
+        else if (count.Success && int.TryParse(count.Groups[1].Value, out int current) &&
             int.TryParse(count.Groups[2].Value, out int target) && target > 0)
         {
+            string task = action.Remove(count.Index, count.Length).Trim();
+            goal = SentenceCase(task) + (title.Length == 0 ? "" : "\nPer: " + title);
+            counter = Mathf.Clamp(current, 0, target) + "/" + target;
             fraction = Mathf.Clamp01((float)current / target);
-            counter = Mathf.Min(current, target) + "/" + target;
-            goal = goal.Remove(count.Index, count.Length).Trim();
+            showProgress = true;
         }
-        if (goal.StartsWith("FINALE:") && !game.DemoFinished)
+        else if (skillId != null && title.Length > 0)
         {
-            goal = "Finale: " + game.DemoFinalGoldTickets + "/" + game.DemoFinalGoldMinTickets +
-                " Dorati · " + game.DemoFinalGoldPayout + "/" + game.DemoFinalGoldPayoutTarget +
-                " monete · potere " + (game.DemoFinalPowerActivated ? "OK" : "da usare");
-            fraction = Mathf.Min(Mathf.Clamp01((float)game.DemoFinalGoldTickets/game.DemoFinalGoldMinTickets),
-                Mathf.Clamp01((float)game.DemoFinalGoldPayout/game.DemoFinalGoldPayoutTarget));
-            if (!game.DemoFinalPowerActivated) fraction = Mathf.Min(fraction, .95f);
+            if (!skills.RequirementsMet(skillId))
+                goal = title + "\n" + skills.RequirementText(skillId);
+            else if (!ScratchRadialProgression.Available(skillId, game, skills))
+                goal = title + "\n" + SentenceCase(action);
+            else if (!skills.CanPurchase(skillId) && economy.Coins < skills.GetPrice(skillId))
+            {
+                int price = skills.GetPrice(skillId);
+                goal = title + "\nRaccogli monete";
+                counter = Mathf.Clamp(economy.Coins, 0, price) + "/" + price;
+                fraction = Mathf.Clamp01((float)economy.Coins / Mathf.Max(1, price));
+                showProgress = true;
+            }
+            else
+                goal = title + "\n" + (skills.CanPurchase(skillId) ? "Nei potenziamenti" : "Non disponibile");
         }
-        if (game.DemoFinished) { goal = "Demo completata!"; fraction = 1; }
+        else if (raw == "COMPLETA 6 DIAMANTI" || raw == "COMPLETA 25 DIAMANTI" || raw == "COMPLETA 70 DIAMANTI")
+        {
+            int targetDiamonds = raw == "COMPLETA 6 DIAMANTI" ? 6 : raw == "COMPLETA 25 DIAMANTI" ? 25 : 70;
+            int completed = game.CompletedByTier(ScratchGameManager.TicketKind.Diamond);
+            goal = SentenceCase(raw);
+            counter = Mathf.Clamp(completed, 0, targetDiamonds) + "/" + targetDiamonds;
+            fraction = Mathf.Clamp01((float)completed / targetDiamonds);
+            showProgress = true;
+        }
+        else
+            goal = SentenceCase(raw);
+
         Set(milestone, goal);
         Set(milestoneCount, counter);
-        if (progress != null) progress.sizeDelta = new Vector2(280 * fraction, 12);
+        if (progressTrack != null) progressTrack.SetActive(showProgress);
+        if (progress != null)
+        {
+            progress.gameObject.SetActive(showProgress);
+            progress.sizeDelta = new Vector2(280 * fraction, 12);
+        }
+    }
+
+    private static string SentenceCase(string value)
+    {
+        if (string.IsNullOrEmpty(value)) return "";
+        return char.ToUpperInvariant(value[0]) + value.Substring(1).ToLowerInvariant();
     }
 
     private void RefreshMatch()
