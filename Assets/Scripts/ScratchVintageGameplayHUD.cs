@@ -78,7 +78,9 @@ public sealed class ScratchVintageGameplayHUD : MonoBehaviour
         Set(ticketNumber, game.TicketNumber == 0 ? "BIGLIETTO —" : "BIGLIETTO " + game.TicketNumber.ToString("000"));
         string name = ScratchGameManager.TicketDisplayName(kind);
         Set(ticketType, name.Substring(0, 1) + name.Substring(1).ToLowerInvariant());
-        // Cost and base prize remain internal economy parameters, not gameplay HUD labels.
+        int price = ScratchGameManager.TicketPrice(kind);
+        Set(cost, price == 0 ? "Gratis" : price.ToString("N0"));
+        // Base prize remains an internal economy parameter.
         if (classicSerial != null)
         {
             classicSerial.gameObject.SetActive(kind == ScratchGameManager.TicketKind.Standard);
@@ -145,24 +147,9 @@ public sealed class ScratchVintageGameplayHUD : MonoBehaviour
             if (!game.DemoFinalPowerActivated) fraction = Mathf.Min(fraction, .95f);
         }
         if (game.DemoFinished) { goal = "Demo completata!"; fraction = 1; }
-        // Keep the underlying milestone rules; hide implementation IDs from players.
-        goal = Regex.Replace(goal, @"\s*\([A-Z]\d{2}\)", "");
-        Match skillGoal = Regex.Match(goal, @"^PER ([A-Z]\d{2}):\s*");
-        if (skillGoal.Success)
-        {
-            var entry = ScratchSkillCatalogV2.Find(skillGoal.Groups[1].Value);
-            if (entry != null)
-                goal = entry.title + ": " + goal.Substring(skillGoal.Length);
-        }
-        bool hasProgress = count.Success || goal.StartsWith("Finale:") || game.DemoFinished;
         Set(milestone, goal);
         Set(milestoneCount, counter);
-        if (progressTrack != null) progressTrack.SetActive(hasProgress);
-        if (progress != null)
-        {
-            progress.gameObject.SetActive(hasProgress);
-            progress.sizeDelta = new Vector2(280 * fraction, 12);
-        }
+        if (progress != null) progress.sizeDelta = new Vector2(280 * fraction, 12);
     }
 
     private void RefreshMatch()

@@ -20,10 +20,6 @@ public sealed class ScratchTicketChoiceUI : MonoBehaviour
     [SerializeField] private Sprite chooseSprite, lockedSprite;
     [SerializeField] private RectTransform selectionHeader, selectionUpgradeGroup;
     [SerializeField] private RectTransform[] walletParts;
-    private Transform upgradeHome;
-    private Vector2 upgradeHomePosition;
-    private Vector3 upgradeHomeScale;
-    private int upgradeHomeSibling;
     private Vector2[] walletHomePositions;
     private Vector2[] walletHomeSizes;
     private readonly TMP_Text[,] prizeLabels = new TMP_Text[4, 4];
@@ -49,7 +45,6 @@ public sealed class ScratchTicketChoiceUI : MonoBehaviour
         if (presentation == null) presentation = GetComponent<ScratchFlowPresentation>();
         // Wait for the presentation and card bindings before showing the initial selection.
         if (choicePanel != null) choicePanel.SetActive(false);
-        if (selectionUpgradeGroup != null) selectionUpgradeGroup.gameObject.SetActive(false);
     }
 
     private void Start()
@@ -66,10 +61,6 @@ public sealed class ScratchTicketChoiceUI : MonoBehaviour
         skills = GetComponent<ScratchSkillTree>();
         if (selectionHeader != null && selectionUpgradeGroup != null && walletParts != null)
         {
-            upgradeHome = selectionUpgradeGroup.parent;
-            upgradeHomePosition = selectionUpgradeGroup.anchoredPosition;
-            upgradeHomeScale = selectionUpgradeGroup.localScale;
-            upgradeHomeSibling = selectionUpgradeGroup.GetSiblingIndex();
             walletHomePositions = new Vector2[walletParts.Length];
             walletHomeSizes = new Vector2[walletParts.Length];
             for (int j = 0; j < walletParts.Length; j++)
@@ -199,27 +190,12 @@ public sealed class ScratchTicketChoiceUI : MonoBehaviour
     }
     private int Level(ScratchSkillTree.SkillId id) => skills != null ? skills.GetLevel(id) : 0;
 
-    // Reuse the live wallet and upgrade button. No duplicated shop event or UI object.
+    // Move the live wallet for ticket selection; the upgrade button belongs to the selection overlay.
     private void SyncHeader(bool show)
     {
-        // Upgrades belong exclusively to the ticket selection screen.
-        if (selectionUpgradeGroup != null && selectionUpgradeGroup.gameObject.activeSelf != show)
-            selectionUpgradeGroup.gameObject.SetActive(show);
-        if (upgradeHome == null || walletHomePositions == null || headerMoved == show) return;
+        // The upgrade button is authored under TicketChoiceOverlay; its visibility follows that screen.
+        if (walletHomePositions == null || headerMoved == show) return;
         headerMoved = show;
-        if (show)
-        {
-            selectionUpgradeGroup.SetParent(selectionHeader, false);
-            selectionUpgradeGroup.anchoredPosition = new Vector2(1400, -13);
-            selectionUpgradeGroup.localScale = Vector3.one * .72f;
-        }
-        else
-        {
-            selectionUpgradeGroup.SetParent(upgradeHome, false);
-            selectionUpgradeGroup.SetSiblingIndex(upgradeHomeSibling);
-            selectionUpgradeGroup.anchoredPosition = upgradeHomePosition;
-            selectionUpgradeGroup.localScale = upgradeHomeScale;
-        }
         for (int i = 0; i < walletParts.Length; i++)
         {
             if (walletParts[i] == null) continue;
