@@ -21,6 +21,8 @@ public sealed partial class ScratchVintageGameplayHUD : MonoBehaviour
     [SerializeField] private TMP_Text[] prizeAmounts = new TMP_Text[4];
     [SerializeField] private Image[] prizeCoins = new Image[4];
     [SerializeField] private Image payoutCoin;
+    [SerializeField] private Image[] matchSymbols = new Image[5];
+    [SerializeField] private TMP_Text matchJolly;
     [SerializeField] private Image[] prizeHighlights = new Image[4];
     [SerializeField] private Image[] prizeLocks = new Image[4];
     [SerializeField] private TMP_Text prizeFooter;
@@ -43,6 +45,7 @@ public sealed partial class ScratchVintageGameplayHUD : MonoBehaviour
     private int indicatorTicket = -1, lastRevealed;
     private float indicatorPulseAt = -10f;
     public RectTransform WalletFeedbackTarget => wallet != null ? wallet.rectTransform : null;
+    public TMP_Text MatchFeedbackLabel => matchName;
 
     private void Start()
     {
@@ -52,6 +55,7 @@ public sealed partial class ScratchVintageGameplayHUD : MonoBehaviour
         economy.Changed += Refresh;
         skills.Changed += Refresh;
         subscribed = true;
+        matchCells = game.GetComponent<ScratchCellManager>();
         InitializePayoutPresentation();
         Refresh();
     }

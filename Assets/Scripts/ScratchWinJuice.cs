@@ -238,8 +238,12 @@ public sealed class ScratchWinJuice : MonoBehaviour
                 Mathf.Clamp01(p * 18f) * Mathf.Clamp01((1f - p) * 15f));
         }
         ticketArtwork.color = Color.Lerp(cardColor, new Color(1f, 0.87f, 0.61f, cardColor.a), a * 0.06f);
-        matchLabel.color = Color.Lerp(resultColor, new Color(1f, .81f, .39f, resultColor.a), b);
-        matchLabel.rectTransform.localScale = resultScale * (1f + b * 0.20f);
+        // The vintage HUD owns result hierarchy and color; avoid two writers.
+        if (vintageHud == null || vintageHud.MatchFeedbackLabel != matchLabel)
+        {
+            matchLabel.color = Color.Lerp(resultColor, new Color(1f, .81f, .39f, resultColor.a), b);
+            matchLabel.rectTransform.localScale = resultScale * (1f + b * 0.20f);
+        }
         // Vintage HUD owns its visible wallet's timing and color.
         if (vintageHud == null || vintageHud.WalletFeedbackTarget != walletLabel.rectTransform)
         {

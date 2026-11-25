@@ -102,7 +102,8 @@ public sealed partial class ScratchVintageGameplayHUD
             // No count-up from zero: the actual prize remains readable throughout.
             payout.rectTransform.localScale = payoutScale * (1f + pulse * .065f);
             bool pulsing = pulse > .001f;
-            if (pulsing || payoutWasPulsing) PositionCoin(payoutCoin, payout, 12f);
+            if (payoutCoin != null && payoutCoin.gameObject.activeSelf && (pulsing || payoutWasPulsing))
+                PositionCoin(payoutCoin, payout, 10f);
             payoutWasPulsing = pulsing;
         }
     }

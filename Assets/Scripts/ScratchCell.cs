@@ -37,6 +37,9 @@ public sealed partial class ScratchCell : MonoBehaviour, IPointerDownHandler, ID
     private const float PreviewCoverOpacity = 0.75f;
 
     public bool IsComplete => completed;
+    // UI may repeat artwork only after a real completed scratch, never a preview.
+    public Sprite RevealedArtwork => completed && !preparingTicket && symbolImage != null
+        ? symbolImage.sprite : null;
     public bool HasSymbolDisplay => symbolImage != null || symbolText != null;
     public bool IsPreviewVisible => previewActive && !completed;
 

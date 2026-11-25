@@ -22,6 +22,20 @@ public static class ScratchVintageHudAudit
         { errors++; Debug.LogError("HUD stage missing or incorrectly sized."); }
         var indicators = so.FindProperty("indicators");
         if (indicators.arraySize != 5) { errors++; Debug.LogError("HUD must contain five authored pick indicators."); }
+        var symbols = so.FindProperty("matchSymbols");
+        if (symbols == null || symbols.arraySize != 5)
+        { errors++; Debug.LogError("HUD must contain five authored match symbol slots."); }
+        else
+        {
+            for (int i = 0; i < symbols.arraySize; i++)
+            {
+                var image = symbols.GetArrayElementAtIndex(i).objectReferenceValue as Image;
+                if (image == null || image.raycastTarget || !image.preserveAspect)
+                { errors++; Debug.LogError("Invalid authored match symbol slot " + i); }
+            }
+        }
+        if (so.FindProperty("matchJolly")?.objectReferenceValue == null)
+        { errors++; Debug.LogError("Missing authored Jolly slot."); }
         if (errors == 0) Debug.Log("VINTAGE GAMEPLAY HUD AUDIT PASS");
         else Debug.LogError("VINTAGE GAMEPLAY HUD AUDIT FAILED: " + errors);
     }
