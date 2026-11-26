@@ -4451,7 +4451,7 @@ MonoBehaviour:
     mask: {fileID: 21300000, guid: 001ce25377dc55759c44508c7c640c27, type: 3}
     size: {x: 780, y: 816}
     cellSize: {x: 168, y: 134}
-    coverSize: {x: 168, y: 134}
+    coverSize: {x: 157.92, y: 125.96}
     symbolSize: 94
     cellCenters:
     - {x: 120, y: 258}
@@ -4477,7 +4477,7 @@ MonoBehaviour:
     mask: {fileID: 21300000, guid: e6b280e1541d56bb96972b581c94ad38, type: 3}
     size: {x: 830, y: 834}
     cellSize: {x: 112, y: 112}
-    coverSize: {x: 112, y: 112}
+    coverSize: {x: 103.04, y: 103.04}
     symbolSize: 62
     cellCenters:
     - {x: 183, y: 252}
@@ -4512,7 +4512,7 @@ MonoBehaviour:
     mask: {fileID: 21300000, guid: 688697f71ebe5c0b93689dfaf38de932, type: 3}
     size: {x: 880, y: 844}
     cellSize: {x: 112, y: 130}
-    coverSize: {x: 112, y: 130}
+    coverSize: {x: 103.04, y: 119.6}
     symbolSize: 64
     cellCenters:
     - {x: 326, y: 270}
