@@ -56,8 +56,10 @@ public sealed partial class ScratchFlowPresentation
         if (resultUpgradesButton != null && resultUpgradesLabel != null)
         {
             int count = resultSkills != null ? resultSkills.PurchasableCount : 0;
-            resultUpgradesLabel.text = "POTENZIAMENTI" +
-                "\n<size=24>" + (count == 1 ? "1 ACQUISTABILE" : count + " ACQUISTABILI") + "</size>";
+            resultUpgradesLabel.text = resultUpgradeCount != null ? "POTENZIAMENTI" :
+                "POTENZIAMENTI\n<size=24>" + (count == 1 ? "1 ACQUISTABILE" : count + " ACQUISTABILI") + "</size>";
+            if (resultUpgradeCount != null) resultUpgradeCount.text = count.ToString();
+            if (resultUpgradeBadge != null) resultUpgradeBadge.SetActive(available && count > 0);
             resultUpgradesButton.gameObject.SetActive(available);
             resultUpgradesButton.interactable = available;
         }
@@ -76,6 +78,7 @@ public sealed partial class ScratchFlowPresentation
         ticketCanvasGroup.blocksRaycasts = false;
         HideResultActions();
         resultReadyAt = Time.unscaledTime + .24f;
+        resultDepartureStarted = -1f;
         if (!HasResultPopup) RefreshResultActions();
         ticketChooser.Refresh();
     }
@@ -87,6 +90,17 @@ public sealed partial class ScratchFlowPresentation
         {
             if (Time.unscaledTime < resultReadyAt ||
                 (resultJuice != null && resultJuice.PayoutAnimating)) return;
+            // The payout animation owns the ticket until all coins arrive.
+            // Then move the fully opaque ticket away before showing the modal.
+            if (resultDepartureStarted < 0f) resultDepartureStarted = Time.unscaledTime;
+            float travel = Mathf.Clamp01((Time.unscaledTime - resultDepartureStarted) / .30f);
+            float eased = EaseIn(travel);
+            ticketTransform.anchoredPosition = ticketHome + Vector2.down * (920f * eased);
+            ticketTransform.localRotation = Quaternion.Euler(0f, 0f, 3f * eased);
+            ticketTransform.localScale = Vector3.one * Mathf.Lerp(TicketDisplayScale, .84f, eased);
+            if (travel < 1f) return;
+            ticketCanvasGroup.alpha = 0f;
+            ticketCanvasGroup.blocksRaycasts = false;
             resultOpenedAt = Time.unscaledTime;
             if (resultPopupPanel != null) resultPopupPanel.localScale = Vector3.one * .96f;
             resultPopup.SetActive(true);
@@ -116,7 +130,14 @@ public sealed partial class ScratchFlowPresentation
             return;
         }
         StopMotion();
-        motion = StartCoroutine(FlyOutTicket(action, game.CurrentTicketKind));
+        if (HasResultPopup)
+        {
+            // The ticket already left before the popup opened. Do not fly it out twice.
+            phase = Phase.TicketLeaving;
+            CompleteTicketDeparture(action, game.CurrentTicketKind);
+        }
+        else
+            motion = StartCoroutine(FlyOutTicket(action, game.CurrentTicketKind));
     }
 
     private IEnumerator FlyInTicket()
@@ -183,6 +204,11 @@ public sealed partial class ScratchFlowPresentation
             yield return null;
         }
 
+        CompleteTicketDeparture(action, kind);
+    }
+
+    private void CompleteTicketDeparture(ResultAction action, ScratchGameManager.TicketKind kind)
+    {
         ticketCanvasGroup.alpha = 0f;
         motion = null;
         if (game.WaitingForTicketChoice)
@@ -190,11 +216,11 @@ public sealed partial class ScratchFlowPresentation
             phase = Phase.Choosing;
             // Reuse the standard transactional purchase path. No new charge logic.
             if (action == ResultAction.Repeat && game.ChooseNextTicket(kind))
-                yield break;
+                return;
             if (action == ResultAction.Upgrades)
             {
                 OpenShop();
-                yield break;
+                return;
             }
             ticketChooser.Refresh();
         }

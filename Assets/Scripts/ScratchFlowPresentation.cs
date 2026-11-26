@@ -40,6 +40,10 @@ public sealed partial class ScratchFlowPresentation : MonoBehaviour
     [SerializeField] private GameObject resultPopup;
     [SerializeField] private RectTransform resultPopupPanel;
     [SerializeField] private TMP_Text resultPopupHeading, resultPopupAmount;
+    [SerializeField] private GameObject resultUpgradeBadge;
+    [SerializeField] private TMP_Text resultUpgradeCount;
+    private float resultDepartureStarted = -1f;
+    public bool ShowingTicketArtwork => ShowingTicketHud && !ResultPopupVisible;
     private ScratchWinJuice resultJuice;
     private float resultReadyAt, resultOpenedAt;
     private Vector2 nextTicketHome;

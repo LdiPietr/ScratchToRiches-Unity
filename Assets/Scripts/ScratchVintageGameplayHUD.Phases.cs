@@ -39,7 +39,7 @@ public sealed partial class ScratchVintageGameplayHUD
             resultHelpGroup.activeInHierarchy == (flow.ShowingResult &&
                 (!flow.HasResultPopup || flow.ResultPopupVisible)) &&
             !(gameplayHeader.activeInHierarchy && shopWalletPanel.activeInHierarchy) &&
-            (ticketGroup == null || (board ? ticketGroup.alpha > .999f : ticketGroup.alpha < .001f)) &&
+            (ticketGroup == null || (flow.ShowingTicketArtwork ? ticketGroup.alpha > .999f : ticketGroup.alpha < .001f)) &&
             (game.TicketActive || game.TicketNumber == 0 || displayedPickLimit == game.RevealedCount) &&
             (picks == null || picks.text == game.RevealedCount + "<size=64> /" + displayedPickLimit + "</size>");
         detail = "board=" + board + "|header=" + header + "|shop=" + flow.ShopOpen +
