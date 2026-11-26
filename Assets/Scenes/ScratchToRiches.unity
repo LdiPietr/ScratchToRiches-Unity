@@ -71719,6 +71719,10 @@ MonoBehaviour:
   wallet: {fileID: 760000010103}
   shopWallet: {fileID: 148}
   shopWalletPanel: {fileID: 137}
+  gameplayHeader: {fileID: 760000010040}
+  gameplayLeft: {fileID: 760000010130}
+  gameplayRight: {fileID: 760000010820}
+  gameplayFooter: {fileID: 760000011010}
   picks: {fileID: 760000010153}
   remaining: {fileID: 760000010193}
   ticketNumber: {fileID: 760000010213}

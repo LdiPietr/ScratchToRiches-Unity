@@ -27,7 +27,7 @@ public sealed partial class ScratchGameManager
     /// </summary>
     public bool ChooseNextTicket(TicketKind kind)
     {
-        if (presentation != null && presentation.ShowingResult) return false;
+        if (presentation != null && !presentation.CanShowTicketChoices) return false;
         if (!WaitingForTicketChoice || !CanChooseTicket(kind))
             return false;
         if (state == RoundState.Ready) StartNewRun();

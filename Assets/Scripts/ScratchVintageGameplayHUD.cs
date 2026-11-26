@@ -13,6 +13,7 @@ public sealed partial class ScratchVintageGameplayHUD : MonoBehaviour
     [SerializeField] private ScratchFlowPresentation flow;
     [SerializeField] private TMP_Text chapter, wallet, shopWallet, picks, remaining, ticketNumber, ticketType, cost, basePrize;
     [SerializeField] private GameObject shopWalletPanel;
+    [SerializeField] private GameObject gameplayHeader, gameplayLeft, gameplayRight, gameplayFooter;
     [SerializeField] private TMP_Text milestone, milestoneCount, matchName, matchMultiplier, prizeLabel, payout;
     [SerializeField] private TMP_Text pairRule, tripleRule, available, helpPrimary, helpSecondary, classicSerial;
     [SerializeField] private RectTransform progress, ticket;
@@ -46,7 +47,7 @@ public sealed partial class ScratchVintageGameplayHUD : MonoBehaviour
     private static readonly Color Reserved = new Color32(119,147,132,255);
     private static readonly Regex CountPattern = new Regex(@"\((\d+)/(\d+)\)");
     private bool subscribed;
-    private int indicatorTicket = -1, lastRevealed;
+    private int indicatorTicket = -1, lastRevealed, displayedPickLimit;
     private float indicatorPulseAt = -10f;
     public RectTransform WalletFeedbackTarget => wallet != null ? wallet.rectTransform : null;
     public TMP_Text MatchFeedbackLabel => matchName;
@@ -75,7 +76,11 @@ public sealed partial class ScratchVintageGameplayHUD : MonoBehaviour
     private void Refresh()
     {
         var kind = game.CurrentTicketKind;
-        int max = game.MaxScratches, revealed = game.RevealedCount, selected = game.SelectedCount;
+        int revealed = game.RevealedCount, selected = game.SelectedCount;
+        // Snapshot the limit of the current ticket; shop purchases belong to the next ticket.
+        if (game.TicketActive || indicatorTicket != game.TicketNumber || displayedPickLimit <= 0)
+            displayedPickLimit = game.MaxScratches;
+        int max = displayedPickLimit;
         if (indicatorTicket != game.TicketNumber)
         {
             indicatorTicket = game.TicketNumber;
@@ -219,7 +224,7 @@ public sealed partial class ScratchVintageGameplayHUD : MonoBehaviour
         if (startButton != null) startButton.gameObject.SetActive(false);
         if (helpPrimary != null) helpPrimary.gameObject.SetActive(!ready);
         if (helpSecondary != null) helpSecondary.gameObject.SetActive(!ready);
-        bool result = !live && game.TicketNumber > 0 && !flow.CanShowTicketChoices;
+        bool result = flow.ShowingResult;
         if (helpPrimary != null) helpPrimary.gameObject.SetActive(!ready && !result);
         if (helpSecondary != null) helpSecondary.gameObject.SetActive(!ready && !result);
         if (resultHelpGroup != null) resultHelpGroup.SetActive(result);
@@ -247,15 +252,7 @@ public sealed partial class ScratchVintageGameplayHUD : MonoBehaviour
                 last.color = Color.Lerp(Gold, Cream, pulse * .7f);
             }
         }
-        if (resultHelpGroup != null)
-        {
-            bool result = flow.ShowingResult;
-            if (resultHelpGroup.activeSelf != result) resultHelpGroup.SetActive(result);
-            if (result && helpPrimary != null) helpPrimary.gameObject.SetActive(false);
-            if (result && helpSecondary != null) helpSecondary.gameObject.SetActive(false);
-        }
-        if (shopWalletPanel != null && shopWalletPanel.activeSelf != flow.ShopOpen)
-            shopWalletPanel.SetActive(flow.ShopOpen);
+        SyncPhaseVisibility();
         if (shadow == null || ticket == null || ticketGroup == null) return;
         var rt = shadow.rectTransform;
         rt.sizeDelta = ticket.sizeDelta + new Vector2(48f, 48f);

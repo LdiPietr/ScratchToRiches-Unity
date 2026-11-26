@@ -37,6 +37,7 @@ public sealed class ScratchTicketChoiceUI : MonoBehaviour
     private static readonly Color Dark = new Color32(32, 59, 51, 255);
     private static readonly Color Cream = new Color32(249, 239, 216, 255);
     private bool registered;
+    public bool ChoicePanelVisible => choicePanel != null && choicePanel.activeInHierarchy;
 
     private void Awake()
     {
@@ -132,7 +133,8 @@ public sealed class ScratchTicketChoiceUI : MonoBehaviour
             return;
 
         bool show = !game.TicketActive && game.WaitingForTicketChoice &&
-            (presentation == null || presentation.CanShowTicketChoices);
+            (presentation == null || presentation.ShowingSelectionBackdrop);
+        bool acceptInput = show && (presentation == null || presentation.CanShowTicketChoices);
         for (int i = 0; i < 4; i++)
         {
             var kind = (ScratchGameManager.TicketKind)i;
@@ -179,7 +181,7 @@ public sealed class ScratchTicketChoiceUI : MonoBehaviour
             }
             if (locks[i] != null) locks[i].SetActive(!unlocked);
             if (ticketButtons[i] != null)
-                ticketButtons[i].interactable = show && unlocked && affordable;
+                ticketButtons[i].interactable = acceptInput && unlocked && affordable;
         }
 
         if (statusLabel != null) statusLabel.gameObject.SetActive(false);

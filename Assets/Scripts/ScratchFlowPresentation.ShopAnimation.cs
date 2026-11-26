@@ -38,6 +38,7 @@ public sealed partial class ScratchFlowPresentation
         }
         curtainRect.anchoredPosition = curtainHome;
         phase = Phase.CurtainVisible;
+        ticketChooser.Refresh();
         continueButton.interactable = true;
         motion = null;
     }
@@ -55,6 +56,7 @@ public sealed partial class ScratchFlowPresentation
     private IEnumerator RaiseCurtainAndReturn()
     {
         phase = Phase.CurtainAscending;
+        ticketChooser.Refresh();
         continueButton.interactable = false;
         float t = 0f;
         while (t < curtainTravelDuration)

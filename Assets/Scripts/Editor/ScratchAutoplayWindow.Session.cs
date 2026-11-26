@@ -15,6 +15,8 @@ public sealed partial class ScratchAutoplayWindow
 {
     private void StartTest()
     {
+        if (ScratchTransitionQA.Busy)
+        { EditorUtility.DisplayDialog("Autoplay", "Ferma prima il test transizioni.", "OK"); return; }
         autoplayMode = AutoplayMode.ProgressioneDemoCompleta;
         qaFunds = false;
         startFresh = true;

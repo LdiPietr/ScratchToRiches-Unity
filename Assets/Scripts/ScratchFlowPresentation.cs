@@ -65,6 +65,10 @@ public sealed partial class ScratchFlowPresentation : MonoBehaviour
     public bool ShopVisible => phase == Phase.CurtainVisible;
     public bool ShopContentVisible => ShopVisible && shopContent != null && shopContent.activeInHierarchy;
     public bool CanShowTicketChoices => phase == Phase.Choosing;
+    public bool ShowingSelectionBackdrop => phase == Phase.Choosing ||
+        phase == Phase.CurtainDescending || phase == Phase.CurtainAscending;
+    public bool ShowingTicketHud => phase == Phase.TicketEntering || phase == Phase.TicketLive ||
+        phase == Phase.TicketResult || phase == Phase.TicketLeaving;
 
     private void Awake()
     {

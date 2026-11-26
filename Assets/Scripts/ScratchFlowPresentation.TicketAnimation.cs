@@ -30,6 +30,8 @@ public sealed partial class ScratchFlowPresentation
         if (game.DemoFinished)
         {
             phase = Phase.Idle;
+            ticketCanvasGroup.alpha = 0f;
+            ticketCanvasGroup.blocksRaycasts = false;
             game.ShowDemoEnding();
             return;
         }

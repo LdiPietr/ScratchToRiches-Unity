@@ -112,6 +112,8 @@ public sealed partial class ScratchAutoplayWindow
         {
             if (GUILayout.Button("START - TEST COMPLETO", GUILayout.Height(34)))
                 StartTest();
+            if (GUILayout.Button("TEST RAPIDO TRANSIZIONI", GUILayout.Height(30)))
+                ScratchTransitionQA.Start();
         }
         using (new EditorGUI.DisabledScope(!running))
         {
