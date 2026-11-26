@@ -36,7 +36,8 @@ public sealed partial class ScratchVintageGameplayHUD
             gameplayLeft.activeInHierarchy == board && gameplayRight.activeInHierarchy == board &&
             gameplayFooter.activeInHierarchy == board &&
             shopWalletPanel.activeInHierarchy == flow.ShopVisible &&
-            resultHelpGroup.activeInHierarchy == flow.ShowingResult &&
+            resultHelpGroup.activeInHierarchy == (flow.ShowingResult &&
+                (!flow.HasResultPopup || flow.ResultPopupVisible)) &&
             !(gameplayHeader.activeInHierarchy && shopWalletPanel.activeInHierarchy) &&
             (ticketGroup == null || (board ? ticketGroup.alpha > .999f : ticketGroup.alpha < .001f)) &&
             (game.TicketActive || game.TicketNumber == 0 || displayedPickLimit == game.RevealedCount) &&

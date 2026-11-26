@@ -11,6 +11,7 @@ public sealed partial class ScratchFlowPresentation
 
     private void HideResultActions()
     {
+        if (resultPopup != null) resultPopup.SetActive(false);
         foreach (Button button in new[] { nextTicketButton, repeatTicketButton, resultUpgradesButton })
         {
             if (button == null) continue;
@@ -23,7 +24,22 @@ public sealed partial class ScratchFlowPresentation
     {
         if (!CanAcknowledgeResult) return;
         bool available = !game.DemoFinished;
-        nextTicketLabel.text = available ? "SCEGLI BIGLIETTO" : "VEDI FINALE";
+        nextTicketLabel.text = available ? "CAMBIA BIGLIETTO" : "VEDI FINALE";
+        if (HasResultPopup)
+        {
+            ((RectTransform)nextTicketButton.transform).anchoredPosition = available
+                ? nextTicketHome : new Vector2(246f, -395f);
+            if (resultPopupHeading != null)
+                resultPopupHeading.text = "BIGLIETTO " + ScratchGameManager.TicketDisplayName(game.CurrentTicketKind);
+            if (resultPopupAmount != null)
+            {
+                resultPopupAmount.text = game.TicketPayout > 0
+                    ? "+" + game.TicketPayout.ToString("N0") + " <size=34>MONETE</size>"
+                    : "<size=50>NESSUNA VINCITA</size>";
+                resultPopupAmount.color = game.TicketPayout > 0
+                    ? new Color32(234, 194, 92, 255) : new Color32(249, 239, 216, 255);
+            }
+        }
         nextTicketButton.gameObject.SetActive(true);
         nextTicketButton.interactable = true;
         if (repeatTicketButton != null && repeatTicketLabel != null)
@@ -32,7 +48,7 @@ public sealed partial class ScratchFlowPresentation
             int cost = ScratchGameManager.TicketPrice(kind);
             bool affordable = game.CanChooseTicket(kind);
             repeatTicketLabel.text = "RIACQUISTA " + ScratchGameManager.TicketDisplayName(kind) +
-                "\n<size=20>" + (cost == 0 ? "GRATIS" : cost.ToString("N0") + " MONETE") +
+                "\n<size=28>" + (cost == 0 ? "GRATIS" : cost.ToString("N0") + " MONETE") +
                 (affordable ? "" : " · SALDO INSUFFICIENTE") + "</size>";
             repeatTicketButton.gameObject.SetActive(available);
             repeatTicketButton.interactable = available && affordable;
@@ -41,7 +57,7 @@ public sealed partial class ScratchFlowPresentation
         {
             int count = resultSkills != null ? resultSkills.PurchasableCount : 0;
             resultUpgradesLabel.text = "POTENZIAMENTI" +
-                "\n<size=20>" + (count == 1 ? "1 ACQUISTABILE" : count + " ACQUISTABILI") + "</size>";
+                "\n<size=24>" + (count == 1 ? "1 ACQUISTABILE" : count + " ACQUISTABILI") + "</size>";
             resultUpgradesButton.gameObject.SetActive(available);
             resultUpgradesButton.interactable = available;
         }
@@ -58,8 +74,29 @@ public sealed partial class ScratchFlowPresentation
         ticketTransform.localScale = Vector3.one * TicketDisplayScale;
         ticketCanvasGroup.alpha = 1f;
         ticketCanvasGroup.blocksRaycasts = false;
-        RefreshResultActions();
+        HideResultActions();
+        resultReadyAt = Time.unscaledTime + .24f;
+        if (!HasResultPopup) RefreshResultActions();
         ticketChooser.Refresh();
+    }
+
+    private void TickResultPopup()
+    {
+        if (!HasResultPopup || !ShowingResult) return;
+        if (!ResultPopupVisible)
+        {
+            if (Time.unscaledTime < resultReadyAt ||
+                (resultJuice != null && resultJuice.PayoutAnimating)) return;
+            resultOpenedAt = Time.unscaledTime;
+            if (resultPopupPanel != null) resultPopupPanel.localScale = Vector3.one * .96f;
+            resultPopup.SetActive(true);
+            RefreshResultActions();
+        }
+        if (resultPopupPanel != null)
+        {
+            float t = Mathf.Clamp01((Time.unscaledTime - resultOpenedAt) / .18f);
+            resultPopupPanel.localScale = Vector3.one * Mathf.Lerp(.96f, 1f, EaseOut(t));
+        }
     }
 
     public void ContinueAfterResult() => LeaveResult(ResultAction.Choose);

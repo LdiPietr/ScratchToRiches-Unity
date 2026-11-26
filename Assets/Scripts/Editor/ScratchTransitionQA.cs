@@ -141,7 +141,7 @@ internal static class ScratchTransitionQA
             }
             if (game.TicketActive || !flow.ShowingResult) { Finish("Risultato assente"); yield break; }
             tickets++;
-            yield return Observe(1.25f);
+            yield return Observe(2f);
             if (!running) yield break;
             if (game.DemoFinished) { Finish("Finale raggiunto durante test; shop non verificato"); yield break; }
             var serializedFlow = new SerializedObject(flow);
@@ -150,11 +150,16 @@ internal static class ScratchTransitionQA
             var upgradeLabel = serializedFlow.FindProperty("resultUpgradesLabel").objectReferenceValue as TMPro.TMP_Text;
             var tree = game.GetComponent<ScratchSkillTree>();
             var economy = game.GetComponent<ScratchEconomyManager>();
-            if (repeatButton == null || upgradeButton == null || upgradeLabel == null ||
+            var popup = serializedFlow.FindProperty("resultPopup").objectReferenceValue as GameObject;
+            if (popup == null || !popup.activeInHierarchy ||
+                repeatButton == null || upgradeButton == null || upgradeLabel == null ||
+                !repeatButton.transform.IsChildOf(popup.transform) ||
+                !upgradeButton.transform.IsChildOf(popup.transform) ||
                 !repeatButton.gameObject.activeInHierarchy || !upgradeButton.gameObject.activeInHierarchy ||
                 repeatButton.interactable != game.CanChooseTicket(game.CurrentTicketKind) ||
                 !upgradeButton.interactable || !upgradeLabel.text.Contains(tree.PurchasableCount + " ACQUISTABIL"))
             { Finish("QoL: azioni o conteggio risultato non validi"); yield break; }
+            rows.Add(frames + ";QOL_POPUP;PASS");
             if (round == 0)
             {
                 int number = game.TicketNumber, balance = economy.Coins;

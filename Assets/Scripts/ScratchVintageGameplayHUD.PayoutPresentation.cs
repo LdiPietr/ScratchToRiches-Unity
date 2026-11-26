@@ -54,8 +54,9 @@ public sealed partial class ScratchVintageGameplayHUD
             ? (pending ? "Incasso in corso: " : "Incassato ") + "<color=#EAC25C>" + game.TicketPayout.ToString("N0") + "</color>"
             : "Nessuna vincita";
         string netColor = net > 0 ? "#EAC25C" : net < 0 ? "#D5A29A" : "#B9C9BE";
+        string netText = "Bilancio netto: <color=" + netColor + ">" + signedNet + "</color> monete";
         Set(resultSummary, game.TicketVoided ? "Biglietto di prova · nessuna vincita" :
-            outcome + "\nBilancio netto: <color=" + netColor + ">" + signedNet + "</color> monete");
+            flow.HasResultPopup ? netText : outcome + "\n" + netText);
     }
 
     private void UpdatePayoutPresentation()

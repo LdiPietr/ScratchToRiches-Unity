@@ -39,6 +39,7 @@ public sealed class ScratchWinJuice : MonoBehaviour
     private const float CoinSpacing = .075f;
     private ScratchFlowPresentation flow;
     private bool waitingForSettlement, subscribed;
+    public bool PayoutAnimating => rewardPulse > 0f;
 
     private void Start()
     {

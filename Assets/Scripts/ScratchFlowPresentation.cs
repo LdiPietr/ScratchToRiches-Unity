@@ -36,6 +36,15 @@ public sealed partial class ScratchFlowPresentation : MonoBehaviour
     [SerializeField] private Button repeatTicketButton, resultUpgradesButton;
     [SerializeField] private TMP_Text repeatTicketLabel, resultUpgradesLabel;
     private ScratchSkillTree resultSkills;
+    [Header("Authored result popup")]
+    [SerializeField] private GameObject resultPopup;
+    [SerializeField] private RectTransform resultPopupPanel;
+    [SerializeField] private TMP_Text resultPopupHeading, resultPopupAmount;
+    private ScratchWinJuice resultJuice;
+    private float resultReadyAt, resultOpenedAt;
+    private Vector2 nextTicketHome;
+    public bool HasResultPopup => resultPopup != null;
+    public bool ResultPopupVisible => resultPopup != null && resultPopup.activeInHierarchy;
     [SerializeField, Range(0.1f, 1.2f)] private float ticketTravelDuration = 0.36f;
 
     [Header("Full-screen skill curtain")]
@@ -61,7 +70,8 @@ public sealed partial class ScratchFlowPresentation : MonoBehaviour
 
     public bool CanScratch => phase == Phase.TicketLive;
     public bool ShowingResult => phase == Phase.TicketResult;
-    public bool CanAcknowledgeResult => ShowingResult && !game.TicketActive;
+    public bool CanAcknowledgeResult => ShowingResult && !game.TicketActive &&
+        (!HasResultPopup || ResultPopupVisible);
     public bool CanOpenShop => game != null && !game.TicketActive && game.WaitingForTicketChoice &&
         phase == Phase.Choosing;
     public bool ShopOpen => phase == Phase.CurtainDescending || phase == Phase.CurtainVisible || phase == Phase.CurtainAscending;
@@ -95,6 +105,9 @@ public sealed partial class ScratchFlowPresentation : MonoBehaviour
         }
         if (continueButton != null) continueButton.interactable = false;
         resultSkills = GetComponent<ScratchSkillTree>();
+        resultJuice = GetComponent<ScratchWinJuice>();
+        if (nextTicketButton != null)
+            nextTicketHome = ((RectTransform)nextTicketButton.transform).anchoredPosition;
         HideResultActions();
     }
 
@@ -141,6 +154,7 @@ public sealed partial class ScratchFlowPresentation : MonoBehaviour
     private void Update()
     {
         UpdateInformation();
+        TickResultPopup();
         if (shopButton != null) shopButton.interactable = CanOpenShop;
     }
 
