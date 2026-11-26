@@ -21,6 +21,8 @@ public sealed class ScratchWinJuice : MonoBehaviour
     [SerializeField] private Image[] scratchFlakes = new Image[0];
     private float flakePulse;
     private Vector3 flakeWorldOrigin;
+    private bool lightScratch;
+    private float nextScratchFlake;
 
     private Color cardColor, resultColor, moneyColor;
     private Vector3 resultScale, moneyScale;
@@ -147,12 +149,32 @@ public sealed class ScratchWinJuice : MonoBehaviour
     public void OnCellRevealed(RectTransform cell)
     {
         if (!enabled || ticketArtwork == null || cell == null) return;
-        flakeWorldOrigin = cell.TransformPoint(cell.rect.center);
+        lightScratch = false;
+        BeginFlakes(cell.TransformPoint(cell.rect.center));
+    }
+
+    // Use the existing authored flakes only after the mask actually loses pixels.
+    public void OnScratchMaterialRemoved(RectTransform cell, Vector2 screen, Camera camera)
+    {
+        if (!isActiveAndEnabled || cell == null || Time.unscaledTime < nextScratchFlake ||
+            (flakePulse > 0f && !lightScratch)) return;
+        if (!RectTransformUtility.ScreenPointToWorldPointInRectangle(cell, screen, camera, out Vector3 world))
+            return;
+        nextScratchFlake = Time.unscaledTime + .24f;
+        lightScratch = true;
+        BeginFlakes(world);
+    }
+
+    private void BeginFlakes(Vector3 world)
+    {
+        flakeWorldOrigin = world;
         flakePulse = 1f;
+        int ordinal = 0;
         foreach (Image flake in scratchFlakes)
             if (flake != null)
             {
-                flake.gameObject.SetActive(true);
+                flake.gameObject.SetActive(!lightScratch || ordinal < 4);
+                ordinal++;
                 flake.raycastTarget = false;
                 flake.color = new Color(1f, 1f, 1f, 0f);
             }
@@ -178,29 +200,29 @@ public sealed class ScratchWinJuice : MonoBehaviour
         float a = Mathf.Sin(scratchPulse * Mathf.PI);
         float b = Mathf.Sin(rewardPulse * Mathf.PI);
         float c = Mathf.Sin(walletPulse * Mathf.PI);
-        flakePulse = Mathf.MoveTowards(flakePulse, 0f, dt / 0.46f);
+        flakePulse = Mathf.MoveTowards(flakePulse, 0f, dt / (lightScratch ? .22f : .38f));
         float flakeProgress = 1f - flakePulse;
         for (int i = 0; i < scratchFlakes.Length; i++)
         {
             Image flake = scratchFlakes[i];
             if (flake == null) continue;
-            if (flakePulse <= 0f)
+            if (flakePulse <= 0f || (lightScratch && i >= 4))
             {
                 if (flake.gameObject.activeSelf) flake.gameObject.SetActive(false);
                 continue;
             }
             float angle = (i + 0.25f) * Mathf.PI * 2f / scratchFlakes.Length;
             Vector2 direction = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
-            float radius = 12f + (65f + 10f * (i % 3)) * (1f - (1f - flakeProgress) * (1f - flakeProgress));
+            float radius = (lightScratch ? 3f : 9f) + ((lightScratch ? 19f : 45f) + 4f * (i % 3)) * (1f - (1f - flakeProgress) * (1f - flakeProgress));
             RectTransform fr = flake.rectTransform;
             Vector3 origin = fr.parent.InverseTransformPoint(flakeWorldOrigin);
             fr.localPosition = origin + (Vector3)(direction * radius
-                + Vector2.down * (38f * flakeProgress * flakeProgress));
+                + Vector2.down * ((lightScratch ? 12f : 26f) * flakeProgress * flakeProgress));
             fr.localRotation = Quaternion.Euler(0f, 0f, (i % 2 == 0 ? 1f : -1f) * (i * 19f + flakeProgress * 100f));
-            fr.localScale = Vector3.one * ((i % 3 == 0 ? 1.35f : 1.06f) * Mathf.Lerp(1f, .55f, flakeProgress));
+            fr.localScale = Vector3.one * ((lightScratch ? .55f : .90f) * (i % 3 == 0 ? 1.2f : 1f) * Mathf.Lerp(1f, .55f, flakeProgress));
             Color foil = i % 3 == 0 ? new Color(.58f, .61f, .58f) :
                 i % 3 == 1 ? new Color(.98f, .96f, .86f) : new Color(.82f, .83f, .78f);
-            foil.a = Mathf.Clamp01(flakePulse * 2.8f);
+            foil.a = Mathf.Clamp01(flakePulse * 2.8f) * (lightScratch ? .65f : .85f);
             flake.color = foil;
         }
         // Existing authored coins travel from the ticket toward the actual HUD

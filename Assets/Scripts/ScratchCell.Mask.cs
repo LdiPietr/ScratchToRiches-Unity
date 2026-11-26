@@ -96,6 +96,13 @@ public sealed partial class ScratchCell
         scratchTexture.Apply(false);
         if (100f * erasedPixelCount / Mathf.Max(1, scratchablePixelCount) >= manager.ScratchPercentage)
             Complete();
+        else if (gameManager != null)
+        {
+            // Presentation only: runs after changed=true and never changes mask or progress.
+            var feedback = gameManager.GetComponent<ScratchWinJuice>();
+            if (feedback != null)
+                feedback.OnScratchMaterialRemoved(scratchRect, eventData.position, eventData.pressEventCamera);
+        }
     }
 
     private bool EraseStamp(int centerX, int centerY, int radius)
