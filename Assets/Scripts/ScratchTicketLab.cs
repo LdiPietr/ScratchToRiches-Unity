@@ -13,6 +13,13 @@ public sealed class ScratchTicketLab : MonoBehaviour
     [SerializeField, Min(0.01f)] private float strokeInterval = .035f;
     [SerializeField, Min(0f)] private float inspectionPause = 1.5f;
     [SerializeField, Range(8, 16)] private int samplesPerAxis = 12;
+    [SerializeField] private bool recordAutomatically = true;
+#if UNITY_EDITOR
+    // Editor recorder hooks keep UnityEditor/Recorder out of the runtime assembly.
+    public static System.Func<string, bool> BeginVideoTicket;
+    public static System.Func<bool> VideoCheckpoint;
+    public static System.Action FinishVideo;
+#endif
     private ScratchGameManager.TicketKind selected;
     private readonly string[] labels = { "CLASSICO 3×3", "FORTUNATO 4×4", "DORATO 5×5", "DIAMANTE 25 ESAGONI" };
     private readonly string[] results = { "Non testato", "Non testato", "Non testato", "Non testato" };
@@ -66,6 +73,40 @@ public sealed class ScratchTicketLab : MonoBehaviour
         sweep = null;
         Release();
         running = false;
+        EndVideo();
+    }
+
+    private void EndVideo()
+    {
+#if UNITY_EDITOR
+        if (recordAutomatically) FinishVideo?.Invoke();
+#endif
+    }
+
+    private bool CaptureTicket(int index)
+    {
+#if UNITY_EDITOR
+        if (recordAutomatically)
+            return BeginVideoTicket != null && BeginVideoTicket(new[] { "Classico", "Fortunato", "Dorato", "Diamante" }[index]);
+#endif
+        return true;
+    }
+
+    private bool CaptureCheckpoint()
+    {
+#if UNITY_EDITOR
+        if (recordAutomatically) return VideoCheckpoint != null && VideoCheckpoint();
+#endif
+        return true;
+    }
+
+    private void CaptureFailed()
+    {
+        Release();
+        running = false;
+        sweep = null;
+        status = "Errore registrazione: controlla Console";
+        EndVideo();
     }
 
     private void Release()
@@ -91,7 +132,11 @@ public sealed class ScratchTicketLab : MonoBehaviour
         for (int i = first; i <= last; i++)
         {
             results[i] = "In corso";
+            if (!CaptureTicket(i))
+            { results[i] = "VIDEO FAIL"; CaptureFailed(); yield break; }
             bool ok = Prepare(i, seed + i);
+            // Let the new Recorder see the covered board before inspection begins.
+            yield return null;
             int expected = i == 0 ? 9 : i == 1 ? 16 : 25;
             if (ok) ok = CheckFresh(expected, i);
             if (ok)
@@ -111,6 +156,10 @@ public sealed class ScratchTicketLab : MonoBehaviour
             {
                 foreach (ScratchCell cell in cells.ActiveCells)
                 {
+                    // Rotate only between cells, never during a scratch gesture.
+                    if (!CaptureCheckpoint())
+                    { results[i] = "VIDEO FAIL"; CaptureFailed(); yield break; }
+                    yield return null;
                     yield return Scratch(cell);
                     if (!cell.IsComplete || cell.RevealedArtwork == null)
                     { ok = false; Debug.LogError("LAB: " + labels[i] + " " + cell.name + " non rivelata", this); }
@@ -126,9 +175,11 @@ public sealed class ScratchTicketLab : MonoBehaviour
             status = results[i] + " · " + match.Tier + " · ispezione finale";
             yield return new WaitForSecondsRealtime(inspectionPause);
         }
+        status = failures == 0 ? "Test terminato: PASS" : "Test terminato: " + failures + " errori";
+        yield return null;
+        EndVideo();
         running = false;
         sweep = null;
-        status = failures == 0 ? "Test terminato: PASS" : "Test terminato: " + failures + " errori";
     }
 
     private bool CheckFresh(int expected, int kind)
@@ -212,7 +263,9 @@ public sealed class ScratchTicketLab : MonoBehaviour
         var button = new GUIStyle(GUI.skin.button) { fontSize = 22 };
         GUI.Box(new Rect(45,100,395,675), "");
         GUI.Label(new Rect(65,120,365,45),"LABORATORIO BIGLIETTI",title);
-        GUI.Label(new Rect(65,170,355,65),"Grattatura libera · nessun costo",label);
+        GUI.Label(new Rect(65,170,355,65),recordAutomatically
+            ? "Grattatura libera · video automatico in Editor"
+            : "Grattatura libera · nessun costo",label);
         GUI.enabled = !running;
         for (int i=0;i<4;i++)
             if (GUI.Button(new Rect(65,235+i*58,355,48),labels[i],button)) Select(i);

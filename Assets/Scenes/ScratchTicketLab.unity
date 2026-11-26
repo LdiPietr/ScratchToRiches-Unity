@@ -12723,3 +12723,4 @@ MonoBehaviour:
   strokeInterval: 0.035
   inspectionPause: 1.5
   samplesPerAxis: 12
+  recordAutomatically: 1
