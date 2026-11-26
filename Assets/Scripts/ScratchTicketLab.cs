@@ -116,17 +116,17 @@ public sealed class ScratchTicketLab : MonoBehaviour
         pointer = null;
     }
 
-    private void StartTest(bool all)
+    private void StartTest(bool all, bool quick = false)
     {
         StopTest();
         if (EventSystem.current == null) { status = "EventSystem mancante"; return; }
         failures = 0;
         if (all) for (int i = 0; i < results.Length; i++) results[i] = "Non testato";
         running = true;
-        sweep = StartCoroutine(Run(all ? 0 : (int)selected, all ? 3 : (int)selected));
+        sweep = StartCoroutine(Run(all ? 0 : (int)selected, all ? 3 : (int)selected, quick));
     }
 
-    private IEnumerator Run(int first, int last)
+    private IEnumerator Run(int first, int last, bool quick)
     {
         yield return null;
         for (int i = first; i <= last; i++)
@@ -138,6 +138,7 @@ public sealed class ScratchTicketLab : MonoBehaviour
             // Let the new Recorder see the covered board before inspection begins.
             yield return null;
             int expected = i == 0 ? 9 : i == 1 ? 16 : 25;
+            int target = quick ? 3 : expected;
             if (ok) ok = CheckFresh(expected, i);
             if (ok)
             {
@@ -154,8 +155,10 @@ public sealed class ScratchTicketLab : MonoBehaviour
             yield return new WaitForSecondsRealtime(inspectionPause);
             if (ok)
             {
-                foreach (ScratchCell cell in cells.ActiveCells)
+                for (int cellIndex = 0; cellIndex < cells.ActiveCells.Length; cellIndex++)
                 {
+                    if (quick && cellIndex != 0 && cellIndex != expected / 2 && cellIndex != expected - 1) continue;
+                    ScratchCell cell = cells.ActiveCells[cellIndex];
                     // Rotate only between cells, never during a scratch gesture.
                     if (!CaptureCheckpoint())
                     { results[i] = "VIDEO FAIL"; CaptureFailed(); yield break; }
@@ -166,8 +169,8 @@ public sealed class ScratchTicketLab : MonoBehaviour
                 }
             }
             int revealed = CountRevealed();
-            ok &= revealed == expected;
-            results[i] = (ok ? "PASS " : "FAIL ") + revealed + "/" + expected;
+            ok &= revealed == target;
+            results[i] = (ok ? "PASS " : "FAIL ") + revealed + "/" + target + (quick ? " rapido" : "");
             if (!ok) failures++;
             string report = "TICKET LAB " + labels[i] + " " + results[i];
             if (ok) Debug.Log(report, this); else Debug.LogError(report, this);
@@ -175,7 +178,7 @@ public sealed class ScratchTicketLab : MonoBehaviour
             status = results[i] + " · " + match.Tier + " · ispezione finale";
             yield return new WaitForSecondsRealtime(inspectionPause);
         }
-        status = failures == 0 ? "Test terminato: PASS" : "Test terminato: " + failures + " errori";
+        status = (quick ? "Audit rapido: " : "Test completo: ") + (failures == 0 ? "PASS" : failures + " errori");
         yield return null;
         EndVideo();
         running = false;
@@ -261,7 +264,7 @@ public sealed class ScratchTicketLab : MonoBehaviour
         var title = new GUIStyle(GUI.skin.label) { fontSize = 26, fontStyle = FontStyle.Bold };
         var label = new GUIStyle(GUI.skin.label) { fontSize = 21, wordWrap = true };
         var button = new GUIStyle(GUI.skin.button) { fontSize = 22 };
-        GUI.Box(new Rect(45,100,395,675), "");
+        GUI.Box(new Rect(45,100,395,735), "");
         GUI.Label(new Rect(65,120,365,45),"LABORATORIO BIGLIETTI",title);
         GUI.Label(new Rect(65,170,355,65),recordAutomatically
             ? "Grattatura libera · video automatico in Editor"
@@ -273,8 +276,9 @@ public sealed class ScratchTicketLab : MonoBehaviour
         if (GUI.Button(new Rect(65,532,355,48),peek ? "NASCONDI ANTEPRIMA" : "OCCHIO DI FALCO",button)) TogglePeek();
         if (GUI.Button(new Rect(65,590,355,48),"TEST BIGLIETTO ATTUALE",button)) StartTest(false);
         if (GUI.Button(new Rect(65,648,355,48),"TEST TUTTI I BIGLIETTI",button)) StartTest(true);
+        if (GUI.Button(new Rect(65,706,355,48),"AUDIT RAPIDO (4 BIGLIETTI)",button)) StartTest(true, true);
         GUI.enabled = running;
-        if (GUI.Button(new Rect(65,706,355,48),"STOP TEST",button)) { StopTest(); status = "Interrotto"; }
+        if (GUI.Button(new Rect(65,764,355,48),"STOP TEST",button)) { StopTest(); status = "Interrotto"; }
         GUI.enabled = true;
         GUI.Box(new Rect(1480,100,395,410),"");
         GUI.Label(new Rect(1500,120,355,60),labels[(int)selected],title);
