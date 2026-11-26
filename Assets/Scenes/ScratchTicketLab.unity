@@ -12719,3 +12719,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ScratchTicketLab
   cells: {fileID: 2000000001}
   symbols: {fileID: 2000000004}
+  seed: 41026
+  strokeInterval: 0.035
+  inspectionPause: 1.5
+  samplesPerAxis: 12
