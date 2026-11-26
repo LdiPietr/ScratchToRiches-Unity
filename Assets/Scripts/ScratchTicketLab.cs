@@ -5,7 +5,7 @@ using UnityEngine.UI;
 
 // Isolated, scene-authored ticket board. No economy, persistence or progression.
 [DisallowMultipleComponent]
-public sealed class ScratchTicketLab : MonoBehaviour
+public sealed partial class ScratchTicketLab : MonoBehaviour
 {
     [SerializeField] private ScratchCellManager cells;
     [SerializeField] private ScratchSymbolManager symbols;
@@ -140,6 +140,7 @@ public sealed class ScratchTicketLab : MonoBehaviour
             int expected = i == 0 ? 9 : i == 1 ? 16 : 25;
             int target = quick ? 3 : expected;
             if (ok) ok = CheckFresh(expected, i);
+            if (ok) yield return Snapshot("01_coperto");
             if (ok)
             {
                 var firstCell = cells.ActiveCells[0];
@@ -147,6 +148,7 @@ public sealed class ScratchTicketLab : MonoBehaviour
                 TogglePeek();
                 bool previewOk = firstCell.IsPreviewVisible && firstCell.TryGetVisibleSymbol(out _) &&
                     Mathf.Approximately(raw.color.a, .75f);
+                if (previewOk) yield return Snapshot("02_occhio_di_falco");
                 yield return new WaitForSecondsRealtime(inspectionPause);
                 TogglePeek();
                 ok = previewOk && CheckFresh(expected, i);
@@ -177,6 +179,7 @@ public sealed class ScratchTicketLab : MonoBehaviour
             var match = symbols.Evaluate(cells.ActiveCells);
             status = results[i] + " · " + match.Tier + " · ispezione finale";
             yield return new WaitForSecondsRealtime(inspectionPause);
+            yield return Snapshot("04_risultato");
         }
         status = (quick ? "Audit rapido: " : "Test completo: ") + (failures == 0 ? "PASS" : failures + " errori");
         yield return null;
@@ -230,7 +233,7 @@ public sealed class ScratchTicketLab : MonoBehaviour
                 { pressed = cell; pointer = ev; cell.OnPointerDown(ev); }
                 else cell.OnDrag(ev);
                 if (!inspected && cell == cells.ActiveCells[0] && cell.RevealedPercentage >= 25f && !cell.IsComplete)
-                { inspected = true; yield return new WaitForSecondsRealtime(inspectionPause); }
+                { inspected = true; yield return Snapshot("03_grattatura_parziale"); yield return new WaitForSecondsRealtime(inspectionPause); }
                 yield return new WaitForSecondsRealtime(strokeInterval);
             }
         }

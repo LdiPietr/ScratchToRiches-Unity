@@ -9957,7 +9957,7 @@ MonoBehaviour:
     size: {x: 830, y: 834}
     cellSize: {x: 112, y: 112}
     coverSize: {x: 103.04, y: 103.04}
-    symbolSize: 62
+    symbolSize: 65
     cellCenters:
     - {x: 183, y: 252}
     - {x: 299, y: 252}
@@ -9992,7 +9992,7 @@ MonoBehaviour:
     size: {x: 880, y: 844}
     cellSize: {x: 112, y: 130}
     coverSize: {x: 103.04, y: 119.6}
-    symbolSize: 64
+    symbolSize: 66
     cellCenters:
     - {x: 326, y: 270}
     - {x: 440, y: 270}

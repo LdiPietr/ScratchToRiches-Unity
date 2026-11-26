@@ -35,12 +35,15 @@ internal static class ScratchTicketLabRecorder
     private static bool session, finalizing, failed;
     private static int partNumber, ticketPart;
     private static string ticket;
+    private static readonly List<string> snapshots = new List<string>();
+    private static readonly HashSet<string> snapshotKeys = new HashSet<string>();
 
     static ScratchTicketLabRecorder()
     {
         ScratchTicketLab.BeginVideoTicket = BeginTicket;
         ScratchTicketLab.VideoCheckpoint = Checkpoint;
         ScratchTicketLab.FinishVideo = Finish;
+        ScratchTicketLab.SaveSnapshot = SaveSnapshot;
         EditorApplication.update += Verify;
         EditorApplication.playModeStateChanged += OnPlayMode;
         AssemblyReloadEvents.beforeAssemblyReload += Finish;
@@ -63,11 +66,17 @@ internal static class ScratchTicketLabRecorder
             catch (Exception ex)
             { Debug.LogError("LAB VIDEO: " + ex.Message); return false; }
             parts.Clear();
+            snapshots.Clear();
+            snapshotKeys.Clear();
             partNumber = 0;
             failed = false;
             session = true;
         }
-        else if (!StopPart()) { Finish(); return false; }
+        else
+        {
+            ValidateSnapshots(ticket);
+            if (!StopPart()) { Finish(); return false; }
+        }
         ticket = name;
         ticketPart = 0;
         if (StartPart()) return true;
@@ -132,7 +141,7 @@ internal static class ScratchTicketLabRecorder
     {
         if (!session) return;
         session = false;
-        if (active != null) StopPart();
+        if (active != null) { ValidateSnapshots(ticket); StopPart(); }
         finalizing = parts.Count > 0;
         WriteManifest();
         if (!finalizing) Debug.LogError("LAB VIDEO: nessuna clip registrata.");
@@ -186,8 +195,53 @@ internal static class ScratchTicketLabRecorder
             if (p.State != "OK" && p.State != "FAIL") return;
         finalizing = false;
         WriteManifest();
-        if (failed) Debug.LogError("LAB VIDEO: una o piu clip non sono caricabili; leggi video_manifest.csv. " + directory);
-        else Debug.Log("LAB VIDEO PASS: tutte le clip verificate < 400 MB. " + directory);
+        if (failed) Debug.LogError("LAB QA: video o screenshot non conformi; leggi i due manifest. " + directory);
+        else Debug.Log("LAB VIDEO PASS: clip < 400 MB e screenshot PNG verificati. " + directory);
+    }
+
+    private static void SaveSnapshot(string phase, Texture2D image)
+    {
+        if (!session || active == null) return;
+        string name = ticket + "_" + phase + ".png";
+        try
+        {
+            string path = Path.Combine(directory, name);
+            byte[] bytes = image.EncodeToPNG();
+            if (bytes == null || bytes.Length < 24 || bytes.Length >= UploadLimit)
+                throw new IOException("PNG vuoto o fuori limite.");
+            File.WriteAllBytes(path, bytes);
+            snapshots.Add(name + ";" + image.width + ";" + image.height + ";" + bytes.Length + ";OK");
+            snapshotKeys.Add(ticket + "/" + phase);
+        }
+        catch (Exception ex)
+        {
+            failed = true;
+            snapshots.Add(name + ";0;0;0;FAIL");
+            Debug.LogError("LAB PNG: " + name + " " + ex.Message);
+        }
+        WriteSnapshotManifest();
+    }
+
+    private static void ValidateSnapshots(string name)
+    {
+        foreach (string phase in new[] { "01_coperto", "02_occhio_di_falco", "03_grattatura_parziale", "04_risultato" })
+        {
+            if (snapshotKeys.Contains(name + "/" + phase)) continue;
+            snapshots.Add(name + "_" + phase + ".png;0;0;0;MISSING");
+            failed = true;
+        }
+        WriteSnapshotManifest();
+    }
+
+    private static void WriteSnapshotManifest()
+    {
+        try
+        {
+            var rows = new List<string> { "file;width;height;bytes;status" };
+            rows.AddRange(snapshots);
+            File.WriteAllLines(Path.Combine(directory, "snapshot_manifest.csv"), rows, Encoding.UTF8);
+        }
+        catch (Exception ex) { failed = true; Debug.LogError("LAB PNG manifest: " + ex.Message); }
     }
 
     private static void Reject(Part p, string detail)
