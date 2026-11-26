@@ -48,7 +48,7 @@ internal static class ScratchTransitionQA
             EditorUtility.DisplayDialog("Test transizioni", "Apri ScratchToRiches in Play Mode sulla selezione dei biglietti (non sul finale).", "OK");
             return;
         }
-        if (!EditorUtility.DisplayDialog("Test transizioni", "Test breve con biglietti reali e negozio. Il test non resetta i progressi; incassi e un eventuale acquisto C11 legale restano salvati. Procedere?", "Avvia", "Annulla")) return;
+        if (!EditorUtility.DisplayDialog("Test transizioni", "Test breve con tre biglietti reali, riacquisto diretto, selezione e negozio. Il test non resetta i progressi; incassi e un eventuale acquisto C11 legale restano salvati. Procedere?", "Avvia", "Annulla")) return;
         directory = Path.Combine(Application.persistentDataPath, "TransitionQA",
             DateTime.Now.ToString("yyyyMMdd_HHmmss") + "_" + Guid.NewGuid().ToString("N").Substring(0,6));
         Directory.CreateDirectory(directory);
@@ -101,14 +101,14 @@ internal static class ScratchTransitionQA
         if (!Check("initial_choice")) yield break;
         yield return Observe(.65f);
         if (!running) yield break;
-        for (int round = 0; round < 2; round++)
+        for (int round = 0; round < 3; round++)
         {
             var kind = ScratchGameManager.TicketKind.Standard;
-            if (round == 1)
+            if (round == 2)
                 for (int i = 3; i >= 1; i--)
                     if (game.CanChooseTicket((ScratchGameManager.TicketKind)i))
                     { kind = (ScratchGameManager.TicketKind)i; break; }
-            if (!game.ChooseNextTicket(kind)) { Finish("Scelta non riuscita"); yield break; }
+            if (round != 1 && !game.ChooseNextTicket(kind)) { Finish("Scelta non riuscita"); yield break; }
             yield return Observe(.85f);
             if (!running) yield break;
             if (!flow.CanScratch) { Finish("Ingresso biglietto"); yield break; }
@@ -144,17 +144,53 @@ internal static class ScratchTransitionQA
             yield return Observe(1.25f);
             if (!running) yield break;
             if (game.DemoFinished) { Finish("Finale raggiunto durante test; shop non verificato"); yield break; }
-            flow.ContinueAfterResult();
-            yield return Observe(.85f);
-            if (!running) yield break;
-            if (!flow.CanOpenShop) { Finish("Selezione dopo risultato assente"); yield break; }
-            flow.OpenShop();
+            var serializedFlow = new SerializedObject(flow);
+            var repeatButton = serializedFlow.FindProperty("repeatTicketButton").objectReferenceValue as Button;
+            var upgradeButton = serializedFlow.FindProperty("resultUpgradesButton").objectReferenceValue as Button;
+            var upgradeLabel = serializedFlow.FindProperty("resultUpgradesLabel").objectReferenceValue as TMPro.TMP_Text;
+            var tree = game.GetComponent<ScratchSkillTree>();
+            var economy = game.GetComponent<ScratchEconomyManager>();
+            if (repeatButton == null || upgradeButton == null || upgradeLabel == null ||
+                !repeatButton.gameObject.activeInHierarchy || !upgradeButton.gameObject.activeInHierarchy ||
+                repeatButton.interactable != game.CanChooseTicket(game.CurrentTicketKind) ||
+                !upgradeButton.interactable || !upgradeLabel.text.Contains(tree.PurchasableCount + " ACQUISTABIL"))
+            { Finish("QoL: azioni o conteggio risultato non validi"); yield break; }
+            if (round == 0)
+            {
+                int number = game.TicketNumber, balance = economy.Coins;
+                var previousKind = game.CurrentTicketKind;
+                int price = ScratchGameManager.TicketPrice(previousKind);
+                repeatButton.onClick.Invoke();
+                flow.RepeatAfterResult(); // a duplicate input must not buy twice
+                yield return Observe(1.25f);
+                if (!running) yield break;
+                if (!flow.CanScratch || !game.TicketActive || game.CurrentTicketKind != previousKind ||
+                    game.TicketNumber != number + 1 || economy.Coins != balance - price)
+                { Finish("QoL: riacquisto o addebito duplicato"); yield break; }
+                rows.Add(frames + ";QOL_REPEAT;PASS");
+                continue;
+            }
+            if (round == 1)
+            {
+                upgradeButton.onClick.Invoke();
+                rows.Add(frames + ";QOL_DIRECT_SHOP;requested");
+            }
+            else
+            {
+                flow.ContinueAfterResult();
+                yield return Observe(.85f);
+                if (!running) yield break;
+                if (!flow.CanOpenShop) { Finish("Selezione dopo risultato assente"); yield break; }
+                rows.Add(frames + ";QOL_CHOOSE_OTHER;PASS");
+                flow.OpenShop();
+            }
             yield return Observe(.95f);
             if (!running) yield break;
             if (!flow.ShopVisible) { Finish("Shop non visibile"); yield break; }
+            if (round == 1) rows.Add(frames + ";QOL_DIRECT_SHOP;PASS");
             var skills = game.GetComponent<ScratchSkillTree>();
             int before = game.MaxScratches;
-            if (round == 0 && skills.CanPurchase("C11"))
+            if (round == 1 && skills.CanPurchase("C11"))
             {
                 if (!skills.TryPurchase("C11")) { Finish("Acquisto C11 fallito"); yield break; }
                 rows.Add(frames + ";C11;" + before + "->" + game.MaxScratches);

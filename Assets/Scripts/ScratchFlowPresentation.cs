@@ -33,6 +33,9 @@ public sealed partial class ScratchFlowPresentation : MonoBehaviour
     [SerializeField] private Button shopButton;
     [SerializeField] private Button nextTicketButton;
     [SerializeField] private TMP_Text nextTicketLabel;
+    [SerializeField] private Button repeatTicketButton, resultUpgradesButton;
+    [SerializeField] private TMP_Text repeatTicketLabel, resultUpgradesLabel;
+    private ScratchSkillTree resultSkills;
     [SerializeField, Range(0.1f, 1.2f)] private float ticketTravelDuration = 0.36f;
 
     [Header("Full-screen skill curtain")]
@@ -91,7 +94,8 @@ public sealed partial class ScratchFlowPresentation : MonoBehaviour
             ticketCanvasGroup.blocksRaycasts = false;
         }
         if (continueButton != null) continueButton.interactable = false;
-        if (nextTicketButton != null) nextTicketButton.gameObject.SetActive(false);
+        resultSkills = GetComponent<ScratchSkillTree>();
+        HideResultActions();
     }
 
     private void Start()
@@ -111,6 +115,10 @@ public sealed partial class ScratchFlowPresentation : MonoBehaviour
         continueButton.onClick.AddListener(ContinueAfterUpgrades);
         shopButton.onClick.AddListener(OpenShop);
         nextTicketButton.onClick.AddListener(ContinueAfterResult);
+        if (repeatTicketButton != null) repeatTicketButton.onClick.AddListener(RepeatAfterResult);
+        if (resultUpgradesButton != null) resultUpgradesButton.onClick.AddListener(OpenUpgradesAfterResult);
+        economy.Changed += RefreshResultActions;
+        if (resultSkills != null) resultSkills.Changed += RefreshResultActions;
         subscribed = true;
         UpdateInformation();
         HandleGameChanged();
@@ -124,6 +132,10 @@ public sealed partial class ScratchFlowPresentation : MonoBehaviour
         continueButton.onClick.RemoveListener(ContinueAfterUpgrades);
         shopButton.onClick.RemoveListener(OpenShop);
         nextTicketButton.onClick.RemoveListener(ContinueAfterResult);
+        if (repeatTicketButton != null) repeatTicketButton.onClick.RemoveListener(RepeatAfterResult);
+        if (resultUpgradesButton != null) resultUpgradesButton.onClick.RemoveListener(OpenUpgradesAfterResult);
+        economy.Changed -= RefreshResultActions;
+        if (resultSkills != null) resultSkills.Changed -= RefreshResultActions;
     }
 
     private void Update()
@@ -137,6 +149,7 @@ public sealed partial class ScratchFlowPresentation : MonoBehaviour
         UpdateInformation();
 
         if (ShopOpen) return;
+        if (ShowingResult) RefreshResultActions();
         if (!game.TicketActive && (phase == Phase.TicketLive || phase == Phase.TicketEntering) && game.State != ScratchGameManager.RoundState.Ready)
         {
             StopMotion();
@@ -148,7 +161,7 @@ public sealed partial class ScratchFlowPresentation : MonoBehaviour
         {
             StopMotion();
             seenTicketNumber = 0;
-            nextTicketButton.gameObject.SetActive(false);
+            HideResultActions();
             phase = Phase.Choosing;
             ticketCanvasGroup.alpha = 0f;
             ticketCanvasGroup.blocksRaycasts = false;

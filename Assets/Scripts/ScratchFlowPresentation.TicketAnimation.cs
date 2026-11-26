@@ -7,6 +7,48 @@ using UnityEngine.UI;
 public sealed partial class ScratchFlowPresentation
 {
     private const float TicketDisplayScale = .97f;
+    private enum ResultAction { Choose, Repeat, Upgrades }
+
+    private void HideResultActions()
+    {
+        foreach (Button button in new[] { nextTicketButton, repeatTicketButton, resultUpgradesButton })
+        {
+            if (button == null) continue;
+            button.interactable = false;
+            button.gameObject.SetActive(false);
+        }
+    }
+
+    private void RefreshResultActions()
+    {
+        if (!CanAcknowledgeResult) return;
+        bool available = !game.DemoFinished;
+        nextTicketLabel.text = available ? "SCEGLI BIGLIETTO" : "VEDI FINALE";
+        nextTicketButton.gameObject.SetActive(true);
+        nextTicketButton.interactable = true;
+        if (repeatTicketButton != null && repeatTicketLabel != null)
+        {
+            var kind = game.CurrentTicketKind;
+            int cost = ScratchGameManager.TicketPrice(kind);
+            bool affordable = game.CanChooseTicket(kind);
+            repeatTicketLabel.text = "RIACQUISTA " + ScratchGameManager.TicketDisplayName(kind) +
+                "\n<size=20>" + (cost == 0 ? "GRATIS" : cost.ToString("N0") + " MONETE") +
+                (affordable ? "" : " · SALDO INSUFFICIENTE") + "</size>";
+            repeatTicketButton.gameObject.SetActive(available);
+            repeatTicketButton.interactable = available && affordable;
+        }
+        if (resultUpgradesButton != null && resultUpgradesLabel != null)
+        {
+            int count = resultSkills != null ? resultSkills.PurchasableCount : 0;
+            resultUpgradesLabel.text = "POTENZIAMENTI" +
+                "\n<size=20>" + (count == 1 ? "1 ACQUISTABILE" : count + " ACQUISTABILI") + "</size>";
+            resultUpgradesButton.gameObject.SetActive(available);
+            resultUpgradesButton.interactable = available;
+        }
+    }
+
+    public void RepeatAfterResult() => LeaveResult(ResultAction.Repeat);
+    public void OpenUpgradesAfterResult() => LeaveResult(ResultAction.Upgrades);
 
     private void ShowTicketResult()
     {
@@ -16,17 +58,18 @@ public sealed partial class ScratchFlowPresentation
         ticketTransform.localScale = Vector3.one * TicketDisplayScale;
         ticketCanvasGroup.alpha = 1f;
         ticketCanvasGroup.blocksRaycasts = false;
-        nextTicketLabel.text = game.DemoFinished ? "VEDI FINALE" : "PROSSIMO BIGLIETTO";
-        nextTicketButton.gameObject.SetActive(true);
-        nextTicketButton.interactable = true;
+        RefreshResultActions();
         ticketChooser.Refresh();
     }
 
-    public void ContinueAfterResult()
+    public void ContinueAfterResult() => LeaveResult(ResultAction.Choose);
+
+    private void LeaveResult(ResultAction action)
     {
         if (!CanAcknowledgeResult) return;
-        nextTicketButton.interactable = false;
-        nextTicketButton.gameObject.SetActive(false);
+        if (action != ResultAction.Choose && game.DemoFinished) return;
+        if (action == ResultAction.Repeat && !game.CanChooseTicket(game.CurrentTicketKind)) return;
+        HideResultActions();
         if (game.DemoFinished)
         {
             phase = Phase.Idle;
@@ -36,13 +79,13 @@ public sealed partial class ScratchFlowPresentation
             return;
         }
         StopMotion();
-        motion = StartCoroutine(FlyOutTicket());
+        motion = StartCoroutine(FlyOutTicket(action, game.CurrentTicketKind));
     }
 
     private IEnumerator FlyInTicket()
     {
         phase = Phase.TicketEntering;
-        nextTicketButton.gameObject.SetActive(false);
+        HideResultActions();
         ticketChooser.Refresh();
         ticketCanvasGroup.blocksRaycasts = false;
         // Keep the ticket fully opaque from its first visible frame. Fading a
@@ -77,7 +120,7 @@ public sealed partial class ScratchFlowPresentation
         motion = null;
     }
 
-    private IEnumerator FlyOutTicket()
+    private IEnumerator FlyOutTicket(ResultAction action, ScratchGameManager.TicketKind kind)
     {
         phase = Phase.TicketLeaving;
         ticketCanvasGroup.blocksRaycasts = false;
@@ -108,6 +151,14 @@ public sealed partial class ScratchFlowPresentation
         if (game.WaitingForTicketChoice)
         {
             phase = Phase.Choosing;
+            // Reuse the standard transactional purchase path. No new charge logic.
+            if (action == ResultAction.Repeat && game.ChooseNextTicket(kind))
+                yield break;
+            if (action == ResultAction.Upgrades)
+            {
+                OpenShop();
+                yield break;
+            }
             ticketChooser.Refresh();
         }
         else

@@ -147,6 +147,19 @@ public sealed partial class ScratchSkillTree : MonoBehaviour
         return string.Empty;
     }
 
+    // Count individually affordable next levels, not a simulated shopping cart.
+    public int PurchasableCount
+    {
+        get
+        {
+            if (game == null || game.TicketActive || game.DemoFinished) return 0;
+            int count = 0;
+            foreach (var entry in Catalog)
+                if (CanPurchase(entry.id)) count++;
+            return count;
+        }
+    }
+
     public bool CanPurchase(SkillId id) => CanPurchase(StableId(id));
 
     public bool CanPurchase(string stableId) =>

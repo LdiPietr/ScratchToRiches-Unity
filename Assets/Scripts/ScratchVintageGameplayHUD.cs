@@ -121,9 +121,7 @@ public sealed partial class ScratchVintageGameplayHUD : MonoBehaviour
 
         RefreshGoal();
         RefreshMatch();
-        int buyable = 0;
-        foreach (var entry in skills.Catalog)
-            if (skills.CanPurchase(entry.id)) buyable++;
+        int buyable = skills.PurchasableCount;
         Set(available, game.TicketActive ? "Completa il biglietto" :
             buyable == 1 ? "1 acquistabile" : buyable + " acquistabili");
         RefreshPossiblePrizes(kind, max);
