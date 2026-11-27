@@ -9,7 +9,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 [InitializeOnLoad]
-internal static class ScratchTransitionQA
+internal static partial class ScratchTransitionQA
 {
     private static ScratchGameManager game;
     private static ScratchFlowPresentation flow;
@@ -66,6 +66,7 @@ internal static class ScratchTransitionQA
         directory = Path.Combine(Application.persistentDataPath, "TransitionQA",
             DateTime.Now.ToString("yyyyMMdd_HHmmss") + "_" + Guid.NewGuid().ToString("N").Substring(0,6));
         Directory.CreateDirectory(directory);
+        previewOnly = false;
         balanceOnly = onlyBalance;
         if (!balanceOnly)
         {
@@ -322,20 +323,24 @@ internal static class ScratchTransitionQA
     {
         var outcome = so.FindProperty("resultOutcomeLabel").objectReferenceValue as TMPro.TMP_Text;
         var amount = so.FindProperty("resultPopupAmount").objectReferenceValue as TMPro.TMP_Text;
+        var unit = so.FindProperty("resultPopupUnit").objectReferenceValue as TMPro.TMP_Text;
+        var net = so.FindProperty("resultPopupNet").objectReferenceValue as TMPro.TMP_Text;
         var heading = so.FindProperty("resultPopupHeading").objectReferenceValue as TMPro.TMP_Text;
         var icons = so.FindProperty("resultMatchIcons");
         var match = game.CurrentMatch;
         int payout = game.TicketPayout;
-        if (outcome == null || amount == null || heading == null || icons == null || icons.arraySize != 5 ||
+        if (outcome == null || amount == null || unit == null || net == null || heading == null || icons == null || icons.arraySize != 5 ||
             !outcome.gameObject.activeInHierarchy || !amount.gameObject.activeInHierarchy ||
             !heading.gameObject.activeInHierarchy ||
             outcome.text != ScratchFlowPresentation.PopupOutcome(match.Tier, payout, game.TicketVoided) ||
             heading.text != "BIGLIETTO " + ScratchGameManager.TicketDisplayName(game.CurrentTicketKind) ||
-            amount.text != (payout > 0 ? "+" : "") + payout.ToString("N0") + " <size=30>MONETE</size>") return false;
+            amount.text != (payout > 0 ? "+" : "") + payout.ToString("N0") ||
+            unit.text != "MONETE" ||
+            net.text != ScratchFlowPresentation.PopupNet(payout, ScratchGameManager.TicketPrice(game.CurrentTicketKind), game.TicketVoided)) return false;
         bool winning = !game.TicketVoided && payout > 0 && match.IsMatch;
         bool profitable = winning && payout > ScratchGameManager.TicketPrice(game.CurrentTicketKind);
         Color expected = profitable ? new Color32(234,194,92,255) : new Color32(192,205,195,255);
-        if (outcome.color != expected || amount.color != expected) return false;
+        if (outcome.color != expected || amount.color != expected || unit.color != expected) return false;
         var sprites = new List<Sprite>();
         var jolly = so.FindProperty("resultJollySprite").objectReferenceValue as Sprite;
         if (winning)
@@ -352,8 +357,9 @@ internal static class ScratchTransitionQA
                 (i < count && (icon.sprite == null || icon.sprite != sprites[i]))) return false;
         }
         Canvas.ForceUpdateCanvases();
-        foreach (var text in new[] { heading, outcome, amount })
+        foreach (var text in new[] { heading, outcome, amount, unit, net })
         {
+            if (string.IsNullOrEmpty(text.text)) continue;
             text.ForceMeshUpdate();
             if (text.isTextOverflowing) return false;
         }
@@ -468,6 +474,15 @@ internal static class ScratchTransitionQA
         movie = null;
         rows.Add(frames + ";END;" + tickets + " biglietti|" + (reason.Length == 0 ? "PASS" : reason));
         Save();
+        if (previewOnly)
+        {
+            if (flow != null) flow.EndPopupPreview();
+            validating = false;
+            previewOnly = false;
+            if (reason.Length == 0) Debug.Log("POPUP VISUAL QA PASS: " + directory);
+            else Debug.LogError("POPUP VISUAL QA FAIL: " + reason + " " + directory);
+            return;
+        }
         if (balanceOnly)
         {
             validating = false;

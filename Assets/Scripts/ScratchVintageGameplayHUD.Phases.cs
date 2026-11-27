@@ -9,7 +9,7 @@ public sealed partial class ScratchVintageGameplayHUD
         bool board = flow.ShowingTicketHud;
         bool help = board && !flow.ShowingResult && game.TicketActive;
         Visible(gameplayHeader, board || flow.ShowingSelectionBackdrop);
-        Visible(gameplayLeft, board);
+        Visible(gameplayLeft, board && !flow.ResultPopupVisible);
         Visible(gameplayRight, board && !flow.ResultPopupVisible);
         Visible(gameplayFooter, board && !flow.ResultPopupVisible);
         Visible(shopWalletPanel, flow.ShopVisible);
@@ -33,7 +33,7 @@ public sealed partial class ScratchVintageGameplayHUD
             gameplayHeader != null && gameplayLeft != null && gameplayRight != null &&
             gameplayFooter != null && shopWalletPanel != null && resultHelpGroup != null &&
             gameplayHeader.activeInHierarchy == header &&
-            gameplayLeft.activeInHierarchy == board && gameplayRight.activeInHierarchy == (board && !flow.ResultPopupVisible) &&
+            gameplayLeft.activeInHierarchy == (board && !flow.ResultPopupVisible) && gameplayRight.activeInHierarchy == (board && !flow.ResultPopupVisible) &&
             gameplayFooter.activeInHierarchy == (board && !flow.ResultPopupVisible) &&
             shopWalletPanel.activeInHierarchy == flow.ShopVisible &&
             resultHelpGroup.activeInHierarchy == (flow.ShowingResult &&

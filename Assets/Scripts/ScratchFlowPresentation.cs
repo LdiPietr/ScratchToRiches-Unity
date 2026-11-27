@@ -40,7 +40,7 @@ public sealed partial class ScratchFlowPresentation : MonoBehaviour
     [SerializeField] private GameObject resultPopup;
     [SerializeField] private RectTransform resultPopupPanel;
     [SerializeField] private TMP_Text resultPopupHeading, resultPopupAmount;
-    [SerializeField] private TMP_Text resultOutcomeLabel;
+    [SerializeField] private TMP_Text resultOutcomeLabel, resultPopupUnit, resultPopupNet;
     [SerializeField] private Image[] resultMatchIcons = new Image[5];
     [SerializeField] private Sprite resultJollySprite;
     [SerializeField] private GameObject resultUpgradeBadge;
@@ -77,7 +77,7 @@ public sealed partial class ScratchFlowPresentation : MonoBehaviour
 
     public bool CanScratch => phase == Phase.TicketLive;
     public bool ShowingResult => phase == Phase.TicketResult;
-    public bool CanAcknowledgeResult => ShowingResult && !game.TicketActive &&
+    public bool CanAcknowledgeResult => !previewingResult && ShowingResult && !game.TicketActive &&
         (!HasResultPopup || ResultPopupVisible);
     public bool CanOpenShop => game != null && !game.TicketActive && game.WaitingForTicketChoice &&
         phase == Phase.Choosing;
@@ -169,7 +169,7 @@ public sealed partial class ScratchFlowPresentation : MonoBehaviour
     {
         UpdateInformation();
 
-        if (ShopOpen) return;
+        if (ShopOpen || previewingResult) return;
         if (ShowingResult) RefreshResultActions();
         if (!game.TicketActive && (phase == Phase.TicketLive || phase == Phase.TicketEntering) && game.State != ScratchGameManager.RoundState.Ready)
         {

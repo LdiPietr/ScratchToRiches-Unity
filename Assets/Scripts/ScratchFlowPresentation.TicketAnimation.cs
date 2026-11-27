@@ -20,101 +20,6 @@ public sealed partial class ScratchFlowPresentation
         }
     }
 
-    private void RefreshResultActions()
-    {
-        if (!CanAcknowledgeResult) return;
-        bool available = !game.DemoFinished;
-        nextTicketLabel.text = available ? "CAMBIA BIGLIETTO" : "VEDI FINALE";
-        if (HasResultPopup)
-        {
-            ((RectTransform)nextTicketButton.transform).anchoredPosition = available
-                ? nextTicketHome : new Vector2(246f, -381f);
-            if (resultPopupHeading != null)
-                resultPopupHeading.text = "BIGLIETTO " + ScratchGameManager.TicketDisplayName(game.CurrentTicketKind);
-            RefreshPopupOutcome();
-        }
-        nextTicketButton.gameObject.SetActive(true);
-        nextTicketButton.interactable = true;
-        if (repeatTicketButton != null && repeatTicketLabel != null)
-        {
-            var kind = game.CurrentTicketKind;
-            int cost = ScratchGameManager.TicketPrice(kind);
-            bool affordable = game.CanChooseTicket(kind);
-            repeatTicketLabel.text = "RIACQUISTA " + ScratchGameManager.TicketDisplayName(kind) +
-                "\n<size=28>" + (cost == 0 ? "GRATIS" : cost.ToString("N0") + " MONETE") +
-                (affordable ? "" : " · SALDO INSUFFICIENTE") + "</size>";
-            repeatTicketButton.gameObject.SetActive(available);
-            repeatTicketButton.interactable = available && affordable;
-        }
-        if (resultUpgradesButton != null && resultUpgradesLabel != null)
-        {
-            int count = resultSkills != null ? resultSkills.PurchasableCount : 0;
-            resultUpgradesLabel.text = resultUpgradeCount != null ? "POTENZIAMENTI" :
-                "POTENZIAMENTI\n<size=24>" + (count == 1 ? "1 ACQUISTABILE" : count + " ACQUISTABILI") + "</size>";
-            if (resultUpgradeCount != null) resultUpgradeCount.text = count.ToString();
-            if (resultUpgradeBadge != null) resultUpgradeBadge.SetActive(available && count > 0);
-            resultUpgradesButton.gameObject.SetActive(available);
-            resultUpgradesButton.interactable = available;
-        }
-    }
-
-    // Pure presentation classification; never modifies settlement or ticket rules.
-    public static string PopupOutcome(ScratchSymbolManager.MatchTier tier, int payout, bool voided)
-    {
-        if (voided) return "BIGLIETTO DI PROVA";
-        if (payout <= 0) return "NESSUNA VINCITA";
-        switch (tier)
-        {
-            case ScratchSymbolManager.MatchTier.Pair: return "COPPIA";
-            case ScratchSymbolManager.MatchTier.Triple: return "TRIS";
-            case ScratchSymbolManager.MatchTier.Poker: return "POKER";
-            case ScratchSymbolManager.MatchTier.Five: return "CINQUINA";
-            default: return "RIMBORSO";
-        }
-    }
-
-    private void RefreshPopupOutcome()
-    {
-        var match = game.CurrentMatch;
-        int payout = game.TicketPayout;
-        bool winning = !game.TicketVoided && payout > 0 && match.IsMatch;
-        bool profitable = winning && payout > ScratchGameManager.TicketPrice(game.CurrentTicketKind);
-        Color accent = profitable ? new Color32(234, 194, 92, 255) : new Color32(192, 205, 195, 255);
-        if (resultOutcomeLabel != null)
-        {
-            resultOutcomeLabel.text = PopupOutcome(match.Tier, payout, game.TicketVoided);
-            resultOutcomeLabel.color = accent;
-        }
-        if (resultPopupAmount != null)
-        {
-            resultPopupAmount.text = (payout > 0 ? "+" : "") + payout.ToString("N0") + " <size=30>MONETE</size>";
-            resultPopupAmount.color = accent;
-        }
-        if (resultMatchIcons == null) return;
-        foreach (Image icon in resultMatchIcons)
-            if (icon != null) icon.gameObject.SetActive(false);
-        if (!winning) return;
-        var cells = game.GetComponent<ScratchCellManager>();
-        if (cells == null || cells.ActiveCells == null) return;
-        int count = 0;
-        foreach (ScratchCell cell in cells.ActiveCells)
-        {
-            if (count >= resultMatchIcons.Length || count >= match.MatchingCount) break;
-            if (cell == null || !cell.IsComplete || !game.IsCellSelected(cell) ||
-                !cell.TryGetVisibleSymbol(out string symbol) ||
-                (symbol != match.Symbol && symbol != "JOLLY")) continue;
-            Sprite artwork = symbol == "JOLLY" ? resultJollySprite : cell.RevealedArtwork;
-            Image icon = resultMatchIcons[count];
-            if (icon == null || artwork == null) continue;
-            icon.sprite = artwork;
-            icon.gameObject.SetActive(true);
-            count++;
-        }
-        for (int i = 0; i < count; i++)
-            resultMatchIcons[i].rectTransform.anchoredPosition =
-                new Vector2(420f - (count * 72f + (count - 1) * 8f) * .5f + i * 80f, -132f);
-    }
-
     public void RepeatAfterResult() => LeaveResult(ResultAction.Repeat);
     public void OpenUpgradesAfterResult() => LeaveResult(ResultAction.Upgrades);
 
@@ -135,7 +40,7 @@ public sealed partial class ScratchFlowPresentation
 
     private void TickResultPopup()
     {
-        if (!HasResultPopup || !ShowingResult) return;
+        if (!HasResultPopup || !ShowingResult || previewingResult) return;
         if (!ResultPopupVisible)
         {
             if (Time.unscaledTime < resultReadyAt ||

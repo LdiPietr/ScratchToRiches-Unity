@@ -1,0 +1,147 @@
+#if UNITY_EDITOR
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.IO;
+using TMPro;
+using UnityEditor;
+using UnityEngine;
+using UnityEngine.UI;
+
+internal static partial class ScratchTransitionQA
+{
+    private static bool previewOnly;
+
+    [MenuItem("Tools/Scratch to Riches/Test visivo popup (tutti i risultati)")]
+    public static void StartPopupPreview()
+    {
+        if (Busy || ScratchAutoplayWindow.AnyTestRunning || ScratchManualTelemetry.IsRecording) return;
+        game = UnityEngine.Object.FindAnyObjectByType<ScratchGameManager>();
+        flow = game != null ? game.GetComponent<ScratchFlowPresentation>() : null;
+        hud = game != null ? game.GetComponent<ScratchVintageGameplayHUD>() : null;
+        if (!EditorApplication.isPlaying || game == null || flow == null || hud == null ||
+            game.gameObject.scene.path != "Assets/Scenes/ScratchToRiches.unity" ||
+            !flow.CanShowTicketChoices || !game.WaitingForTicketChoice || game.DemoFinished)
+        {
+            EditorUtility.DisplayDialog("Test visivo popup", "Apri ScratchToRiches in Play Mode sulla selezione biglietti.", "OK");
+            return;
+        }
+        directory = Path.Combine(Application.persistentDataPath, "TransitionQA",
+            "Popup_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + "_" + Guid.NewGuid().ToString("N").Substring(0,6));
+        Directory.CreateDirectory(directory);
+        rows.Clear();
+        rows.Add("frame;event;detail");
+        rows.Add("0;MODE;SYNTHETIC_VISUAL_FIXTURE|no settlement or save changes");
+        frames = tickets = 0;
+        previous = failure = "";
+        previousBackground = Application.runInBackground;
+        Application.runInBackground = true;
+        balanceOnly = false;
+        previewOnly = true;
+        running = true;
+        deadline = EditorApplication.timeSinceStartup + 60;
+        routine = flow.StartCoroutine(RunPopupPreview());
+    }
+
+    private static IEnumerator RunPopupPreview()
+    {
+        var wallet = game.GetComponent<ScratchEconomyManager>();
+        int balance = wallet.Coins, number = game.TicketNumber, completed = game.TicketsCompleted;
+        long earned = wallet.TotalEarned;
+        var symbols = new SerializedObject(game.GetComponent<ScratchSymbolManager>()).FindProperty("symbolSprites");
+        var so = new SerializedObject(flow);
+        if (symbols == null || symbols.arraySize < 7) { Finish("Sprite di test mancanti"); yield break; }
+        var tiers = new[] { 0, 0, 0, 1, 2, 3, 4, 4, 0 };
+        var payouts = new[] { 0, 0, 8, 104, 180, 240, 300, 999999999, 0 };
+        var names = new[] { "nessuna_gratis", "nessuna_pagamento", "rimborso", "coppia", "tris",
+            "poker", "cinquina", "cinquina_jolly_importo_grande", "biglietto_prova" };
+        var expected = new[] { "NESSUNA VINCITA", "NESSUNA VINCITA", "RIMBORSO", "COPPIA",
+            "TRIS", "POKER", "CINQUINA", "CINQUINA", "BIGLIETTO DI PROVA" };
+        var expectedNet = new[] { "", "-10", "-2", "+94", "+170", "+230", "+290", "+999,999,989", "" };
+        for (int i = 0; i < names.Length; i++)
+        {
+            var kind = i == 0 ? ScratchGameManager.TicketKind.Standard : ScratchGameManager.TicketKind.Fortunato;
+            var tier = (ScratchSymbolManager.MatchTier)tiers[i];
+            bool voided = i == 8;
+            int count = !voided && tiers[i] > 0 ? tiers[i] + 1 : 0;
+            var artwork = new List<Sprite>();
+            for (int k = 0; k < count; k++)
+            {
+                Sprite sprite = i == 7 && k == count - 1
+                    ? so.FindProperty("resultJollySprite").objectReferenceValue as Sprite
+                    : symbols.GetArrayElementAtIndex(i % 7).objectReferenceValue as Sprite;
+                if (sprite == null) { Finish("Sprite fixture mancante"); yield break; }
+                artwork.Add(sprite);
+            }
+            if (!flow.PreviewPopup(kind, tier, payouts[i], voided, artwork, i != 1, i < 3 ? 0 : 6))
+            { Finish("Apertura fixture non riuscita"); yield break; }
+            yield return new WaitForEndOfFrame();
+            yield return new WaitForEndOfFrame();
+            if (!running) yield break;
+            if (!Check("popup_fixture")) yield break;
+            if (!VerifyPopupFixture(so, expected[i], payouts[i], expectedNet[i], artwork, i != 1))
+            { Finish("Fixture non conforme: " + names[i]); yield break; }
+            if (wallet.Coins != balance || wallet.TotalEarned != earned ||
+                game.TicketNumber != number || game.TicketsCompleted != completed || game.TicketActive)
+            { Finish("La fixture ha modificato il gameplay"); yield break; }
+            var snapshot = ScreenCapture.CaptureScreenshotAsTexture();
+            if (snapshot == null) { Finish("Screenshot fixture assente"); yield break; }
+            string file = "popup_" + (i + 1).ToString("D2") + "_" + names[i] + ".png";
+            try
+            {
+                byte[] bytes = snapshot.EncodeToPNG();
+                if (bytes == null || bytes.Length < 24) { Finish("Screenshot fixture vuoto"); yield break; }
+                File.WriteAllBytes(Path.Combine(directory, file), bytes);
+                rows.Add(frames + ";POPUP_FIXTURE;PASS|" + names[i] + "|icons=" + count + "|" + file);
+            }
+            finally { UnityEngine.Object.Destroy(snapshot); }
+        }
+        flow.EndPopupPreview();
+        yield return new WaitForEndOfFrame();
+        if (!Check("fixture_return")) yield break;
+        if (!flow.CanShowTicketChoices || wallet.Coins != balance || wallet.TotalEarned != earned ||
+            game.TicketNumber != number || game.TicketsCompleted != completed)
+        { Finish("Ripristino selezione o dati non coerente"); yield break; }
+        rows.Add(frames + ";PREVIEW_COVERAGE;PASS|9 screenshots|wallet and progression unchanged");
+        Finish("");
+    }
+
+    private static bool VerifyPopupFixture(SerializedObject so, string expected, int payout,
+        string netValue, List<Sprite> artwork, bool affordable)
+    {
+        TMP_Text GetText(string name) => so.FindProperty(name).objectReferenceValue as TMP_Text;
+        var heading = GetText("resultPopupHeading");
+        var outcome = GetText("resultOutcomeLabel");
+        var amount = GetText("resultPopupAmount");
+        var unit = GetText("resultPopupUnit");
+        var net = GetText("resultPopupNet");
+        var repeat = GetText("repeatTicketLabel");
+        var button = so.FindProperty("repeatTicketButton").objectReferenceValue as Button;
+        if (heading == null || outcome == null || amount == null || unit == null || net == null ||
+            repeat == null || button == null || outcome.text != expected ||
+            amount.text != (payout > 0 ? "+" : "") + payout.ToString("N0") || unit.text != "MONETE" ||
+            button.interactable != affordable || repeat.text.Contains("SALDO INSUFFICIENTE") == affordable)
+            return false;
+        if (netValue.Length == 0 ? net.text.Length != 0 :
+            !net.text.Contains(netValue == "+999,999,989" ? "+" + 999999989.ToString("N0") : netValue)) return false;
+        var icons = so.FindProperty("resultMatchIcons");
+        if (icons == null || icons.arraySize != 5) return false;
+        for (int i = 0; i < icons.arraySize; i++)
+        {
+            var icon = icons.GetArrayElementAtIndex(i).objectReferenceValue as Image;
+            if (icon == null || icon.gameObject.activeInHierarchy != (i < artwork.Count) ||
+                (i < artwork.Count && icon.sprite != artwork[i])) return false;
+        }
+        Canvas.ForceUpdateCanvases();
+        foreach (var label in new[] { heading, outcome, amount, unit, net, repeat })
+        {
+            if (string.IsNullOrEmpty(label.text)) continue;
+            label.ForceMeshUpdate();
+            if (label.isTextOverflowing) return false;
+        }
+        // The whole amount and its unit share one center axis, independent of digits.
+        return Mathf.Abs(amount.rectTransform.anchoredPosition.x - unit.rectTransform.anchoredPosition.x) < .01f &&
+            Mathf.Abs(outcome.rectTransform.anchoredPosition.x - amount.rectTransform.anchoredPosition.x) < .01f;
+    }
+}
+#endif

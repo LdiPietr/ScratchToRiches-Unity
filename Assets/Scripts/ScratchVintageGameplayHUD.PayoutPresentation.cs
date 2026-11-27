@@ -55,8 +55,9 @@ public sealed partial class ScratchVintageGameplayHUD
             : "Nessuna vincita";
         string netColor = net > 0 ? "#EAC25C" : net < 0 ? "#D5A29A" : "#B9C9BE";
         string netText = "Bilancio netto: <color=" + netColor + ">" + signedNet + "</color> monete";
-        Set(resultSummary, game.TicketVoided ? "Biglietto di prova · nessuna vincita" :
-            flow.HasResultPopup ? netText : outcome + "\n" + netText);
+        // The authored modal owns its own net label, including the free-ticket case.
+        if (!flow.HasResultPopup)
+            Set(resultSummary, game.TicketVoided ? "Biglietto di prova · nessuna vincita" : outcome + "\n" + netText);
     }
 
     private void UpdatePayoutPresentation()
