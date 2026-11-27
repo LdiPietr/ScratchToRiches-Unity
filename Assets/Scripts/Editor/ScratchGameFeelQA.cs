@@ -18,6 +18,9 @@ using Kind = ScratchGameManager.TicketKind;
 internal static partial class ScratchGameFeelQA
 {
     private const string LaunchedKey = "STR.GameFeelQA.Launched";
+    private const string BenchmarkKey = "STR.GameFeelQA.Benchmark";
+    private static bool Benchmark => SessionState.GetBool(BenchmarkKey, false);
+    private static int ExpectedCases => Benchmark ? 15 : 11;
     private static ScratchGameManager game;
     private static ScratchFlowPresentation flow;
     private static ScratchEconomyManager wallet;
@@ -56,13 +59,19 @@ internal static partial class ScratchGameFeelQA
                 leaving = false;
                 ScratchGameFeelPrefs.End();
                 SessionState.SetBool(LaunchedKey, false);
+                SessionState.SetBool(BenchmarkKey, false);
             }
         };
         AssemblyReloadEvents.beforeAssemblyReload += () => { if (running) Finish("Reload script", false); };
     }
 
     [MenuItem("Tools/Scratch to Riches/Test Game Feel deterministico (video)")]
-    public static void Start()
+    public static void Start() => StartMode(false);
+
+    [MenuItem("Tools/Scratch to Riches/Test comparativo grattatura (video)")]
+    public static void StartBenchmark() => StartMode(true);
+
+    private static void StartMode(bool benchmark)
     {
         if (EditorApplication.isPlayingOrWillChangePlaymode || ScratchTransitionQA.Busy ||
             ScratchAutoplayWindow.AnyTestRunning || ScratchManualTelemetry.IsRecording)
@@ -72,9 +81,14 @@ internal static partial class ScratchGameFeelQA
             (EditorSettings.enterPlayModeOptionsEnabled &&
              (EditorSettings.enterPlayModeOptions & EnterPlayModeOptions.DisableSceneReload) != 0))
         { EditorUtility.DisplayDialog("Game Feel QA", "Apri e salva ScratchToRiches. Scene Reload deve essere attivo.", "OK"); return; }
-        if (!EditorUtility.DisplayDialog("Game Feel QA", "11 biglietti deterministici nella scena reale. Profilo temporaneo in memoria, nessun incasso nel salvataggio normale. Il test entra ed esce dal Play Mode automaticamente. Lascia attiva la Game View.", "Avvia", "Annulla")) return;
+        string description = benchmark
+            ? "15 biglietti Fortunato: 5 configurazioni, 3 punti iniziali identici per ciascuna. La prima casella segue la patina residua. Le altre due completano il biglietto normalmente tramite il percorso QA esistente."
+            : "11 biglietti deterministici nella scena reale.";
+        if (!EditorUtility.DisplayDialog("Game Feel QA", description +
+            " Profilo temporaneo in memoria. Il test entra ed esce dal Play Mode automaticamente. Lascia attiva la Game View.", "Avvia", "Annulla")) return;
         leaving = false;
         ScratchGameFeelPrefs.Begin();
+        SessionState.SetBool(BenchmarkKey, benchmark);
         SessionState.SetBool(LaunchedKey, false);
         readyUntil = EditorApplication.timeSinceStartup + 30;
         EditorApplication.EnterPlaymode();
@@ -90,7 +104,7 @@ internal static partial class ScratchGameFeelQA
                 long bytes = File.Exists(video) ? new FileInfo(video).Length : 0;
                 if (bytes >= 4096 && ScratchAutoplayVideoBudget.TryDuration(video, out double duration))
                 {
-                    bool ok = stopOk && bytes < 400000000L && string.IsNullOrEmpty(failure) && passed == 11;
+                    bool ok = stopOk && bytes < 400000000L && string.IsNullOrEmpty(failure) && passed == ExpectedCases;
                     rows.Add("VIDEO;" + (ok ? "PASS" : "FAIL") + ";bytes=" + bytes + "|seconds=" + duration.ToString("F2", CultureInfo.InvariantCulture));
                     Save();
                     validating = false;
@@ -145,16 +159,17 @@ internal static partial class ScratchGameFeelQA
         symbols = game.GetComponent<ScratchSymbolManager>();
         juice = game.GetComponent<ScratchWinJuice>();
         hud = game.GetComponent<ScratchVintageGameplayHUD>();
-        directory = Path.Combine(Application.persistentDataPath, "GameFeelQA",
+        directory = Path.Combine(Application.persistentDataPath, Benchmark ? "ScratchComparisonQA" : "GameFeelQA",
             DateTime.Now.ToString("yyyyMMdd_HHmmss") + "_" + Guid.NewGuid().ToString("N").Substring(0,6));
         Directory.CreateDirectory(directory);
         rows.Clear(); rows.Add("case;status;detail");
         rows.Add("PROFILE;INFO;isolated in-memory save|seed=41026|forced symbols only");
+        if (Benchmark) rows.Add("METHOD;INFO;adaptive nearest remaining foil|same Fortunato first cell|3 matched starts|fixed max step=1/16 short side|no hidden symbol data");
         previousBackground = Application.runInBackground;
         Application.runInBackground = true;
         frameCount = passed = 0; failure = "";
         video = null; recorder = null; stopOk = false;
-        deadline = EditorApplication.timeSinceStartup + 420;
+        deadline = EditorApplication.timeSinceStartup + (Benchmark ? 600 : 420);
         running = true;
         if (wallet == null || skills == null || cells == null || symbols == null || juice == null || hud == null ||
             game.gameObject.scene.path != "Assets/Scenes/ScratchToRiches.unity" || wallet.Coins != 500 ||
@@ -169,10 +184,10 @@ internal static partial class ScratchGameFeelQA
         { Finish("Pool effetti non conforme"); return; }
         UnityEngine.Random.InitState(41026);
         recorder = new ScratchAutoplayMovieRecorder();
-        if (!recorder.Start(directory,1080,30,false,"game_feel",3f,true))
+        if (!recorder.Start(directory,1080,30,false,Benchmark ? "scratch_comparison" : "game_feel",3f,true))
         { Finish("Recorder: " + recorder.LastError); return; }
         video = recorder.OutputPath;
-        routine = flow.StartCoroutine(Run());
+        routine = flow.StartCoroutine(Benchmark ? RunComparison() : Run());
     }
 
     private static Image[] Images(SerializedProperty property)
@@ -192,8 +207,8 @@ internal static partial class ScratchGameFeelQA
         Application.runInBackground = previousBackground;
         stopOk = recorder != null && recorder.Stop();
         recorder = null;
-        rows.Add("END;" + (reason.Length == 0 && passed == 11 ? "PASS" : "FAIL") +
-            ";cases=" + passed + "/11|frames=" + frameCount + "|" + reason.Replace(';', ','));
+        rows.Add("END;" + (reason.Length == 0 && passed == ExpectedCases ? "PASS" : "FAIL") +
+            ";cases=" + passed + "/" + ExpectedCases + "|frames=" + frameCount + "|" + reason.Replace(';', ','));
         Save();
         validating = validate && !string.IsNullOrEmpty(video);
         verifyUntil = EditorApplication.timeSinceStartup + 45;
@@ -211,6 +226,6 @@ internal static partial class ScratchGameFeelQA
         EditorApplication.ExitPlaymode();
     }
 
-    private static void Save() => File.WriteAllLines(Path.Combine(directory, "gamefeel_checks.csv"), rows);
+    private static void Save() => File.WriteAllLines(Path.Combine(directory, Benchmark ? "scratch_comparison.csv" : "gamefeel_checks.csv"), rows);
 }
 #endif
