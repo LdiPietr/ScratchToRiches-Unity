@@ -117,6 +117,7 @@ internal static class ScratchTransitionQA
     {
         yield return new WaitForEndOfFrame();
         if (!Check("initial_choice")) yield break;
+        if (!CheckPopupClassification()) { Finish("Classificazione popup errata"); yield break; }
         yield return Observe(.65f);
         if (!running) yield break;
         bool paidChoice = false, paidRepeat = false, paidBlocked = false;
@@ -203,6 +204,20 @@ internal static class ScratchTransitionQA
                 flow.ShowingTicketArtwork)
             { Finish("QoL: azioni o conteggio risultato non validi"); yield break; }
             rows.Add(frames + ";QOL_POPUP;PASS|ticket hidden|badge exact");
+            if (!CheckPopupAppearance(serializedFlow, popup))
+            { Finish("Popup: contenuto, simboli o dimensioni non validi"); yield break; }
+            if (!balanceOnly)
+            {
+                var snapshot = ScreenCapture.CaptureScreenshotAsTexture();
+                if (snapshot == null) { Finish("Screenshot popup assente"); yield break; }
+                string file = "popup_" + tickets.ToString("D2") + "_" + game.CurrentMatch.Tier + ".png";
+                try
+                {
+                    File.WriteAllBytes(Path.Combine(directory, file), snapshot.EncodeToPNG());
+                    rows.Add(frames + ";POPUP_PNG;PASS|" + file + "|" + snapshot.width + "x" + snapshot.height);
+                }
+                finally { UnityEngine.Object.Destroy(snapshot); }
+            }
             int currentPrice = ScratchGameManager.TicketPrice(game.CurrentTicketKind);
             if (balanceOnly)
             {
@@ -289,6 +304,61 @@ internal static class ScratchTransitionQA
             "|paid_repeat=" + (paidRepeat ? "PASS" : "NOT_COVERED") +
             "|insufficient_balance=" + (paidBlocked ? "PASS" : "NOT_COVERED"));
         Finish("");
+    }
+
+    private static bool CheckPopupClassification()
+    {
+        string[] names = { "RIMBORSO", "COPPIA", "TRIS", "POKER", "CINQUINA" };
+        for (int i = 0; i < names.Length; i++)
+            if (ScratchFlowPresentation.PopupOutcome((ScratchSymbolManager.MatchTier)i, 10, false) != names[i])
+                return false;
+        if (ScratchFlowPresentation.PopupOutcome(ScratchSymbolManager.MatchTier.None, 0, false) != "NESSUNA VINCITA" ||
+            ScratchFlowPresentation.PopupOutcome(ScratchSymbolManager.MatchTier.Five, 0, true) != "BIGLIETTO DI PROVA") return false;
+        rows.Add(frames + ";POPUP_CLASSIFICATION;PASS|7 synthetic presentation cases");
+        return true;
+    }
+
+    private static bool CheckPopupAppearance(SerializedObject so, GameObject popup)
+    {
+        var outcome = so.FindProperty("resultOutcomeLabel").objectReferenceValue as TMPro.TMP_Text;
+        var amount = so.FindProperty("resultPopupAmount").objectReferenceValue as TMPro.TMP_Text;
+        var heading = so.FindProperty("resultPopupHeading").objectReferenceValue as TMPro.TMP_Text;
+        var icons = so.FindProperty("resultMatchIcons");
+        var match = game.CurrentMatch;
+        int payout = game.TicketPayout;
+        if (outcome == null || amount == null || heading == null || icons == null || icons.arraySize != 5 ||
+            !outcome.gameObject.activeInHierarchy || !amount.gameObject.activeInHierarchy ||
+            !heading.gameObject.activeInHierarchy ||
+            outcome.text != ScratchFlowPresentation.PopupOutcome(match.Tier, payout, game.TicketVoided) ||
+            heading.text != "BIGLIETTO " + ScratchGameManager.TicketDisplayName(game.CurrentTicketKind) ||
+            amount.text != (payout > 0 ? "+" : "") + payout.ToString("N0") + " <size=30>MONETE</size>") return false;
+        bool winning = !game.TicketVoided && payout > 0 && match.IsMatch;
+        bool profitable = winning && payout > ScratchGameManager.TicketPrice(game.CurrentTicketKind);
+        Color expected = profitable ? new Color32(234,194,92,255) : new Color32(192,205,195,255);
+        if (outcome.color != expected || amount.color != expected) return false;
+        var sprites = new List<Sprite>();
+        var jolly = so.FindProperty("resultJollySprite").objectReferenceValue as Sprite;
+        if (winning)
+            foreach (var cell in game.GetComponent<ScratchCellManager>().ActiveCells)
+                if (cell != null && cell.IsComplete && game.IsCellSelected(cell) &&
+                    cell.TryGetVisibleSymbol(out string symbol) && (symbol == match.Symbol || symbol == "JOLLY"))
+                    sprites.Add(symbol == "JOLLY" ? jolly : cell.RevealedArtwork);
+        int count = winning ? Mathf.Min(5, Mathf.Min(match.MatchingCount, sprites.Count)) : 0;
+        for (int i = 0; i < icons.arraySize; i++)
+        {
+            var icon = icons.GetArrayElementAtIndex(i).objectReferenceValue as Image;
+            if (icon == null || !icon.transform.IsChildOf(popup.transform) ||
+                icon.gameObject.activeInHierarchy != (i < count) ||
+                (i < count && (icon.sprite == null || icon.sprite != sprites[i]))) return false;
+        }
+        Canvas.ForceUpdateCanvases();
+        foreach (var text in new[] { heading, outcome, amount })
+        {
+            text.ForceMeshUpdate();
+            if (text.isTextOverflowing) return false;
+        }
+        rows.Add(frames + ";POPUP_VISUAL_DATA;PASS|" + outcome.text + "|payout=" + payout + "|icons=" + count);
+        return true;
     }
 
     private static bool TryPaidTicket(out ScratchGameManager.TicketKind kind)

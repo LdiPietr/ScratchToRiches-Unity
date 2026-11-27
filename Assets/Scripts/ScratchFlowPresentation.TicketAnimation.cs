@@ -28,17 +28,10 @@ public sealed partial class ScratchFlowPresentation
         if (HasResultPopup)
         {
             ((RectTransform)nextTicketButton.transform).anchoredPosition = available
-                ? nextTicketHome : new Vector2(246f, -395f);
+                ? nextTicketHome : new Vector2(246f, -381f);
             if (resultPopupHeading != null)
                 resultPopupHeading.text = "BIGLIETTO " + ScratchGameManager.TicketDisplayName(game.CurrentTicketKind);
-            if (resultPopupAmount != null)
-            {
-                resultPopupAmount.text = game.TicketPayout > 0
-                    ? "+" + game.TicketPayout.ToString("N0") + " <size=34>MONETE</size>"
-                    : "<size=50>NESSUNA VINCITA</size>";
-                resultPopupAmount.color = game.TicketPayout > 0
-                    ? new Color32(234, 194, 92, 255) : new Color32(249, 239, 216, 255);
-            }
+            RefreshPopupOutcome();
         }
         nextTicketButton.gameObject.SetActive(true);
         nextTicketButton.interactable = true;
@@ -63,6 +56,63 @@ public sealed partial class ScratchFlowPresentation
             resultUpgradesButton.gameObject.SetActive(available);
             resultUpgradesButton.interactable = available;
         }
+    }
+
+    // Pure presentation classification; never modifies settlement or ticket rules.
+    public static string PopupOutcome(ScratchSymbolManager.MatchTier tier, int payout, bool voided)
+    {
+        if (voided) return "BIGLIETTO DI PROVA";
+        if (payout <= 0) return "NESSUNA VINCITA";
+        switch (tier)
+        {
+            case ScratchSymbolManager.MatchTier.Pair: return "COPPIA";
+            case ScratchSymbolManager.MatchTier.Triple: return "TRIS";
+            case ScratchSymbolManager.MatchTier.Poker: return "POKER";
+            case ScratchSymbolManager.MatchTier.Five: return "CINQUINA";
+            default: return "RIMBORSO";
+        }
+    }
+
+    private void RefreshPopupOutcome()
+    {
+        var match = game.CurrentMatch;
+        int payout = game.TicketPayout;
+        bool winning = !game.TicketVoided && payout > 0 && match.IsMatch;
+        bool profitable = winning && payout > ScratchGameManager.TicketPrice(game.CurrentTicketKind);
+        Color accent = profitable ? new Color32(234, 194, 92, 255) : new Color32(192, 205, 195, 255);
+        if (resultOutcomeLabel != null)
+        {
+            resultOutcomeLabel.text = PopupOutcome(match.Tier, payout, game.TicketVoided);
+            resultOutcomeLabel.color = accent;
+        }
+        if (resultPopupAmount != null)
+        {
+            resultPopupAmount.text = (payout > 0 ? "+" : "") + payout.ToString("N0") + " <size=30>MONETE</size>";
+            resultPopupAmount.color = accent;
+        }
+        if (resultMatchIcons == null) return;
+        foreach (Image icon in resultMatchIcons)
+            if (icon != null) icon.gameObject.SetActive(false);
+        if (!winning) return;
+        var cells = game.GetComponent<ScratchCellManager>();
+        if (cells == null || cells.ActiveCells == null) return;
+        int count = 0;
+        foreach (ScratchCell cell in cells.ActiveCells)
+        {
+            if (count >= resultMatchIcons.Length || count >= match.MatchingCount) break;
+            if (cell == null || !cell.IsComplete || !game.IsCellSelected(cell) ||
+                !cell.TryGetVisibleSymbol(out string symbol) ||
+                (symbol != match.Symbol && symbol != "JOLLY")) continue;
+            Sprite artwork = symbol == "JOLLY" ? resultJollySprite : cell.RevealedArtwork;
+            Image icon = resultMatchIcons[count];
+            if (icon == null || artwork == null) continue;
+            icon.sprite = artwork;
+            icon.gameObject.SetActive(true);
+            count++;
+        }
+        for (int i = 0; i < count; i++)
+            resultMatchIcons[i].rectTransform.anchoredPosition =
+                new Vector2(420f - (count * 72f + (count - 1) * 8f) * .5f + i * 80f, -132f);
     }
 
     public void RepeatAfterResult() => LeaveResult(ResultAction.Repeat);

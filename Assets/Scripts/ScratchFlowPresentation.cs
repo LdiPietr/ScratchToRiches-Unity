@@ -40,6 +40,9 @@ public sealed partial class ScratchFlowPresentation : MonoBehaviour
     [SerializeField] private GameObject resultPopup;
     [SerializeField] private RectTransform resultPopupPanel;
     [SerializeField] private TMP_Text resultPopupHeading, resultPopupAmount;
+    [SerializeField] private TMP_Text resultOutcomeLabel;
+    [SerializeField] private Image[] resultMatchIcons = new Image[5];
+    [SerializeField] private Sprite resultJollySprite;
     [SerializeField] private GameObject resultUpgradeBadge;
     [SerializeField] private TMP_Text resultUpgradeCount;
     private float resultDepartureStarted = -1f;
