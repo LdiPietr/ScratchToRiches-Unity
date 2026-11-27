@@ -68,6 +68,8 @@ internal static partial class ScratchGameFeelQA
             if (!cells.ActiveCells[0].IsComplete || result.physical + .01f < cells.ScratchPercentage ||
                 result.events <= 0 || (titan && skills.TitanActivationCount != titanBefore + 1))
             { Finish(name + ": misurazione incompleta"); yield break; }
+            if (!ValidateFlakes(name + "_first_cell", 1, mode == 2, mode == 3, titan))
+            { Finish(name + ": feedback particellare prima casella"); yield break; }
             results[mode,repeat] = result;
             rows.Add(name + ";BENCHMARK;events=" + result.events +
                 "|idle_events=" + result.idleEvents + "|distance_cell_short_sides=" + F(result.distance) +

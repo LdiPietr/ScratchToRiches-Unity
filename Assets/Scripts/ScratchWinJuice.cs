@@ -4,7 +4,7 @@ using TMPro;
 
 /// <summary>Premium scratch and payout feedback using existing scene objects only.</summary>
 [DisallowMultipleComponent]
-public sealed class ScratchWinJuice : MonoBehaviour
+public sealed partial class ScratchWinJuice : MonoBehaviour
 {
     [SerializeField] private ScratchGameManager game;
     [SerializeField] private ScratchEconomyManager economy;
@@ -19,10 +19,6 @@ public sealed class ScratchWinJuice : MonoBehaviour
     [SerializeField] private Sprite tripleBadge;
     [SerializeField] private Sprite pokerBadge;
     [SerializeField] private Image[] scratchFlakes = new Image[0];
-    private float flakePulse;
-    private Vector3 flakeWorldOrigin;
-    private bool lightScratch;
-    private float nextScratchFlake;
 
     private Color cardColor, resultColor, moneyColor;
     private Vector3 resultScale, moneyScale;
@@ -61,8 +57,7 @@ public sealed class ScratchWinJuice : MonoBehaviour
         previousMoney = economy.Coins;
         foreach (Image coin in winCoins)
             if (coin != null) coin.gameObject.SetActive(false);
-        foreach (Image flake in scratchFlakes)
-            if (flake != null) flake.gameObject.SetActive(false);
+        InitializeFlakes();
         UpdateMatchBadge();
         waitingForSettlement = game.TicketActive;
         game.Changed += GameChanged;
@@ -78,6 +73,7 @@ public sealed class ScratchWinJuice : MonoBehaviour
             feedbackTier = default;
             feedbackSymbol = string.Empty;
             rewardPulse = 0f;
+            ClearFlakes();
         }
         var match = game.CurrentMatch;
         bool validMatch = !game.TicketVoided && match.IsMatch;
@@ -147,40 +143,6 @@ public sealed class ScratchWinJuice : MonoBehaviour
         }
     }
 
-    public void OnCellRevealed(RectTransform cell)
-    {
-        if (!enabled || ticketArtwork == null || cell == null) return;
-        lightScratch = false;
-        BeginFlakes(cell.TransformPoint(cell.rect.center));
-    }
-
-    // Use the existing authored flakes only after the mask actually loses pixels.
-    public void OnScratchMaterialRemoved(RectTransform cell, Vector2 screen, Camera camera)
-    {
-        if (!isActiveAndEnabled || cell == null || Time.unscaledTime < nextScratchFlake ||
-            (flakePulse > 0f && !lightScratch)) return;
-        if (!RectTransformUtility.ScreenPointToWorldPointInRectangle(cell, screen, camera, out Vector3 world))
-            return;
-        nextScratchFlake = Time.unscaledTime + .24f;
-        lightScratch = true;
-        BeginFlakes(world);
-    }
-
-    private void BeginFlakes(Vector3 world)
-    {
-        flakeWorldOrigin = world;
-        flakePulse = 1f;
-        int ordinal = 0;
-        foreach (Image flake in scratchFlakes)
-            if (flake != null)
-            {
-                flake.gameObject.SetActive(!lightScratch || ordinal < 4);
-                ordinal++;
-                flake.raycastTarget = false;
-                flake.color = new Color(1f, 1f, 1f, 0f);
-            }
-    }
-
     private void EconomyChanged()
     {
         if (economy.Coins > previousMoney) walletPulse = 1f;
@@ -201,31 +163,7 @@ public sealed class ScratchWinJuice : MonoBehaviour
         float a = Mathf.Sin(scratchPulse * Mathf.PI);
         float b = Mathf.Sin(rewardPulse * Mathf.PI);
         float c = Mathf.Sin(walletPulse * Mathf.PI);
-        flakePulse = Mathf.MoveTowards(flakePulse, 0f, dt / (lightScratch ? .22f : .38f));
-        float flakeProgress = 1f - flakePulse;
-        for (int i = 0; i < scratchFlakes.Length; i++)
-        {
-            Image flake = scratchFlakes[i];
-            if (flake == null) continue;
-            if (flakePulse <= 0f || (lightScratch && i >= 4))
-            {
-                if (flake.gameObject.activeSelf) flake.gameObject.SetActive(false);
-                continue;
-            }
-            float angle = (i + 0.25f) * Mathf.PI * 2f / scratchFlakes.Length;
-            Vector2 direction = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
-            float radius = (lightScratch ? 3f : 9f) + ((lightScratch ? 19f : 45f) + 4f * (i % 3)) * (1f - (1f - flakeProgress) * (1f - flakeProgress));
-            RectTransform fr = flake.rectTransform;
-            Vector3 origin = fr.parent.InverseTransformPoint(flakeWorldOrigin);
-            fr.localPosition = origin + (Vector3)(direction * radius
-                + Vector2.down * ((lightScratch ? 12f : 26f) * flakeProgress * flakeProgress));
-            fr.localRotation = Quaternion.Euler(0f, 0f, (i % 2 == 0 ? 1f : -1f) * (i * 19f + flakeProgress * 100f));
-            fr.localScale = Vector3.one * ((lightScratch ? .55f : .90f) * (i % 3 == 0 ? 1.2f : 1f) * Mathf.Lerp(1f, .55f, flakeProgress));
-            Color foil = i % 3 == 0 ? new Color(.58f, .61f, .58f) :
-                i % 3 == 1 ? new Color(.98f, .96f, .86f) : new Color(.82f, .83f, .78f);
-            foil.a = Mathf.Clamp01(flakePulse * 2.8f) * (lightScratch ? .65f : .85f);
-            flake.color = foil;
-        }
+        TickFlakes(Time.unscaledTime);
         // Existing authored coins travel from the ticket toward the actual HUD
         // balance. No spawned objects, extra payout or changes to economy.
         float elapsed = Time.unscaledTime - rewardStarted;

@@ -179,7 +179,7 @@ internal static partial class ScratchGameFeelQA
         coins = Images(so.FindProperty("winCoins"));
         flakes = Images(so.FindProperty("scratchFlakes"));
         walletLabel = so.FindProperty("walletLabel").objectReferenceValue as TMP_Text;
-        if (coins.Length != 10 || flakes.Length != 8 || walletLabel == null ||
+        if (coins.Length != 10 || flakes.Length != 24 || walletLabel == null ||
             Array.Exists(coins, x => x == null) || Array.Exists(flakes, x => x == null))
         { Finish("Pool effetti non conforme"); return; }
         UnityEngine.Random.InitState(41026);

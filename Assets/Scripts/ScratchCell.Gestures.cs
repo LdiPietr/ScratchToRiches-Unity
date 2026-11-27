@@ -72,13 +72,22 @@ public sealed partial class ScratchCell
     }
 
     // The same charge consumption drives real SHIFT input and Editor QA.
-    private bool ActivateTitanForGesture()
+    private bool ActivateTitanForGesture(Vector2? origin = null)
     {
         if (titanThisGesture || !pointerDown || completed)
             return false;
         ScratchSkillTree tree = gameManager != null
             ? gameManager.GetComponent<ScratchSkillTree>() : null;
         titanThisGesture = tree != null && tree.TryConsumeManualTitanCharge();
+        if (titanThisGesture && gameManager != null && scratchRect != null)
+        {
+            int n = scratchTexture != null ? scratchTexture.width : 1;
+            Vector2 uv = origin ?? (hasPreviousPixel
+                ? new Vector2((previousPixel.x + .5f) / n, (previousPixel.y + .5f) / n)
+                : Vector2.one * .5f);
+            var feedback = gameManager.GetComponent<ScratchWinJuice>();
+            if (feedback != null) feedback.OnTitanActivated(scratchRect, uv);
+        }
         return titanThisGesture;
     }
 

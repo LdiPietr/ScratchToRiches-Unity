@@ -43,7 +43,7 @@ public sealed partial class ScratchCell
 
         if (!titanThisGesture && pointerDown &&
             (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift)))
-            ActivateTitanForGesture();
+            ActivateTitanForGesture(new Vector2((pixelX + .5f) / size, (pixelY + .5f) / size));
 
         Vector2Int current = new Vector2Int(pixelX, pixelY);
 
@@ -63,6 +63,7 @@ public sealed partial class ScratchCell
         }
 
         bool changed = false;
+        Vector2? main = null, left = null, right = null, fanLeft = null, fanRight = null;
         int additional = manager.AdditionalScratchStripes +
             (titanThisGesture ? 3 : 0);
         for (int i = 1; i <= steps; i++)
@@ -70,21 +71,22 @@ public sealed partial class ScratchCell
             float t = (float)i / steps;
             int x = hasPreviousPixel ? Mathf.RoundToInt(Mathf.Lerp(previousPixel.x, current.x, t)) : current.x;
             int y = hasPreviousPixel ? Mathf.RoundToInt(Mathf.Lerp(previousPixel.y, current.y, t)) : current.y;
-            changed |= EraseStamp(x, y, radius);
+            changed |= EraseStamp(x, y, radius, ref main);
 
             // Skill tree double/multi-pass: parallel strokes, clamped inside mask.
             for (int stripe = 1; stripe <= additional; stripe++)
             {
                 int offset = 12 * ((stripe + 1) / 2);
                 if ((stripe & 1) == 0) offset = -offset;
-                changed |= EraseStamp(x + offset, y, radius);
+                if (offset < 0) changed |= EraseStamp(x + offset, y, radius, ref left);
+                else changed |= EraseStamp(x + offset, y, radius, ref right);
             }
             if (manager.FanModeEnabled)
             {
                 // G04: two converging manual strips around the main track.
                 int fanOffset = Mathf.RoundToInt(18f * (1f - t));
-                changed |= EraseStamp(x - fanOffset, y, radius);
-                changed |= EraseStamp(x + fanOffset, y, radius);
+                changed |= EraseStamp(x - fanOffset, y, radius, ref fanLeft);
+                changed |= EraseStamp(x + fanOffset, y, radius, ref fanRight);
             }
         }
 
@@ -94,18 +96,19 @@ public sealed partial class ScratchCell
             return;
 
         scratchTexture.Apply(false);
-        if (100f * erasedPixelCount / Mathf.Max(1, scratchablePixelCount) >= manager.ScratchPercentage)
-            Complete();
-        else if (gameManager != null)
+        // Only actual removed foil contributes to the cosmetic emission origins.
+        if (gameManager != null)
         {
-            // Presentation only: runs after changed=true and never changes mask or progress.
             var feedback = gameManager.GetComponent<ScratchWinJuice>();
             if (feedback != null)
-                feedback.OnScratchMaterialRemoved(scratchRect, eventData.position, eventData.pressEventCamera);
+                feedback.OnScratchMaterialRemoved(scratchRect, main, left, right, fanLeft, fanRight,
+                    radius / (float)Mathf.Max(1, manager.BrushRadius), titanThisGesture);
         }
+        if (100f * erasedPixelCount / Mathf.Max(1, scratchablePixelCount) >= manager.ScratchPercentage)
+            Complete();
     }
 
-    private bool EraseStamp(int centerX, int centerY, int radius)
+    private bool EraseStamp(int centerX, int centerY, int radius, ref Vector2? foil)
     {
         int resolution = scratchTexture.width;
         // Keep an approximately circular brush on screen and equal fractional
@@ -117,6 +120,7 @@ public sealed partial class ScratchCell
         int extentX = Mathf.CeilToInt(rx), extentY = Mathf.CeilToInt(ry);
         Color32 clear = new Color32(0, 0, 0, 0);
         bool changed = false;
+        int sumX = 0, sumY = 0, count = 0;
 
         for (int y = Mathf.Max(0, centerY - extentY); y <= Mathf.Min(resolution - 1, centerY + extentY); y++)
         {
@@ -133,11 +137,15 @@ public sealed partial class ScratchCell
 
                 erasedPixels[index] = true;
                 erasedPixelCount++;
+                sumX += x; sumY += y; count++;
                 scratchTexture.SetPixel(x, y, clear);
                 changed = true;
             }
         }
 
+        if (count > 0)
+            foil = new Vector2((sumX / (float)count + .5f) / resolution,
+                (sumY / (float)count + .5f) / resolution);
         return changed;
     }
 
@@ -159,7 +167,7 @@ public sealed partial class ScratchCell
         {
             // Optional physical-print feedback on the real scratched cell.
             ScratchWinJuice feedback = gameManager.GetComponent<ScratchWinJuice>();
-            if (feedback != null) feedback.OnCellRevealed(scratchRect);
+            if (feedback != null) feedback.OnCellRevealed(scratchRect, titanThisGesture);
             gameManager.OnCellCompleted(this);
         }
     }

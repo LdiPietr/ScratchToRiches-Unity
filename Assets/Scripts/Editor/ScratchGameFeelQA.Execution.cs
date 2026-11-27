@@ -83,6 +83,8 @@ internal static partial class ScratchGameFeelQA
                 peakFlakes <= 0 || flakeFrames == 0 ||
                 walletLabel.text != wallet.Coins.ToString("N0") || !hud.ValidatePhaseVisibility(out _))
             { Finish(name + ": effetti, saldo visuale o popup non conformi"); yield break; }
+            if (!ValidateFlakes(name, limit, i == 8, i == 9, titan))
+            { Finish(name + ": feedback particellare non conforme"); yield break; }
             rows.Add(name + ";PASS;match=" + match.Tier + "|payout=" + payout + "|wallet=" + wallet.Coins +
                 "|peak_active_coins=" + peakCoins + "|peak_visible_coins=" + peakVisibleCoins + "|coin_frames=" + coinFrames +
                 "|peak_flakes=" + peakFlakes + "|flake_frames=" + flakeFrames +
@@ -137,6 +139,7 @@ internal static partial class ScratchGameFeelQA
     {
         peakCoins = peakVisibleCoins = peakFlakes = flakeFrames = coinFrames = firstSteps = 0;
         firstStamp = 0; sawPayout = false;
+        if (juice != null) juice.QaResetFlakeMetrics();
     }
 
     private static void Sample()
