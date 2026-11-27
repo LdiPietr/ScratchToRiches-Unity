@@ -24,21 +24,13 @@ public sealed partial class ScratchFlowPresentation
     {
         if (!CanAcknowledgeResult) return;
         bool available = !game.DemoFinished;
-        nextTicketLabel.text = available ? "CAMBIA BIGLIETTO" : "VEDI FINALE";
+        nextTicketLabel.text = available ? "Biglietti" : "Vedi finale";
+        if (resultTicketsIcon != null) resultTicketsIcon.gameObject.SetActive(available);
         if (HasResultPopup)
         {
             ((RectTransform)nextTicketButton.transform).anchoredPosition = available
                 ? nextTicketHome : new Vector2(246f, -395f);
-            if (resultPopupHeading != null)
-                resultPopupHeading.text = "BIGLIETTO " + ScratchGameManager.TicketDisplayName(game.CurrentTicketKind);
-            if (resultPopupAmount != null)
-            {
-                resultPopupAmount.text = game.TicketPayout > 0
-                    ? "+" + game.TicketPayout.ToString("N0") + " <size=34>MONETE</size>"
-                    : "<size=50>NESSUNA VINCITA</size>";
-                resultPopupAmount.color = game.TicketPayout > 0
-                    ? new Color32(234, 194, 92, 255) : new Color32(249, 239, 216, 255);
-            }
+            UpdatePremiumReward();
         }
         nextTicketButton.gameObject.SetActive(true);
         nextTicketButton.interactable = true;
@@ -47,22 +39,53 @@ public sealed partial class ScratchFlowPresentation
             var kind = game.CurrentTicketKind;
             int cost = ScratchGameManager.TicketPrice(kind);
             bool affordable = game.CanChooseTicket(kind);
-            repeatTicketLabel.text = "RIACQUISTA " + ScratchGameManager.TicketDisplayName(kind) +
-                "\n<size=28>" + (cost == 0 ? "GRATIS" : cost.ToString("N0") + " MONETE") +
-                (affordable ? "" : " · SALDO INSUFFICIENTE") + "</size>";
+            string ticketName = ScratchGameManager.TicketDisplayName(kind);
+            if (!string.IsNullOrEmpty(ticketName))
+                ticketName = char.ToUpperInvariant(ticketName[0]) + ticketName.Substring(1).ToLowerInvariant();
+            string price = cost == 0 ? "Gratis" : cost.ToString("N0") + " monete";
+            repeatTicketLabel.text = resultRepeatCost != null ? "Gioca ancora" :
+                "Gioca ancora\n<size=28>" + ticketName + " · " + price + "</size>";
+            if (resultRepeatCost != null)
+                resultRepeatCost.text = ticketName + " · " + price +
+                    (affordable ? "" : " · Saldo insufficiente");
             repeatTicketButton.gameObject.SetActive(available);
             repeatTicketButton.interactable = available && affordable;
         }
         if (resultUpgradesButton != null && resultUpgradesLabel != null)
         {
             int count = resultSkills != null ? resultSkills.PurchasableCount : 0;
-            resultUpgradesLabel.text = resultUpgradeCount != null ? "POTENZIAMENTI" :
+            resultUpgradesLabel.text = resultUpgradeCount != null ? "Potenziamenti" :
                 "POTENZIAMENTI\n<size=24>" + (count == 1 ? "1 ACQUISTABILE" : count + " ACQUISTABILI") + "</size>";
             if (resultUpgradeCount != null) resultUpgradeCount.text = count.ToString();
             if (resultUpgradeBadge != null) resultUpgradeBadge.SetActive(available && count > 0);
             resultUpgradesButton.gameObject.SetActive(available);
             resultUpgradesButton.interactable = available;
         }
+    }
+
+    private void UpdatePremiumReward()
+    {
+        bool paid = game.TicketPayout > 0 && !game.TicketVoided;
+        string heading = game.TicketVoided ? "Biglietto di prova" : !paid ? "Nessuna vincita" :
+            !game.CurrentMatch.IsMatch ? "Rimborso" :
+            game.CurrentMatch.Tier == ScratchSymbolManager.MatchTier.Five ? "Vincita straordinaria!" :
+            game.CurrentMatch.Tier == ScratchSymbolManager.MatchTier.Poker ? "Grande vincita!" :
+            game.CurrentMatch.Tier == ScratchSymbolManager.MatchTier.Triple ? "Ottima vincita!" : "Hai vinto!";
+        if (resultPopupHeading != null) resultPopupHeading.text = heading;
+        if (resultPopupAmount == null) return;
+        resultPopupAmount.text = paid ? "+" + game.TicketPayout.ToString("N0") : "0";
+        resultPopupAmount.color = paid ? new Color32(234, 194, 92, 255) : new Color32(185, 199, 185, 255);
+        if (resultRewardCoin == null) return;
+        resultRewardCoin.gameObject.SetActive(paid);
+        RectTransform amount = resultPopupAmount.rectTransform;
+        amount.sizeDelta = new Vector2(620f, 108f);
+        amount.anchoredPosition = new Vector2(paid ? 160f : 110f, -120f);
+        if (!paid) return;
+        // Center coin and rendered amount as one group, including long payouts.
+        resultPopupAmount.ForceMeshUpdate(true, true);
+        float width = Mathf.Min(620f, resultPopupAmount.textBounds.size.x);
+        resultRewardCoin.rectTransform.anchoredPosition =
+            new Vector2(470f - width * .5f - 98f, -133f);
     }
 
     public void RepeatAfterResult() => LeaveResult(ResultAction.Repeat);
