@@ -29,7 +29,7 @@ public sealed partial class ScratchFlowPresentation
         if (HasResultPopup)
         {
             ((RectTransform)nextTicketButton.transform).anchoredPosition = available
-                ? nextTicketHome : new Vector2(246f, -395f);
+                ? nextTicketHome : new Vector2(320f, -681f);
             UpdatePremiumReward();
         }
         nextTicketButton.gameObject.SetActive(true);
@@ -78,14 +78,14 @@ public sealed partial class ScratchFlowPresentation
         if (resultRewardCoin == null) return;
         resultRewardCoin.gameObject.SetActive(paid);
         RectTransform amount = resultPopupAmount.rectTransform;
-        amount.sizeDelta = new Vector2(620f, 108f);
-        amount.anchoredPosition = new Vector2(paid ? 160f : 110f, -120f);
+        amount.sizeDelta = new Vector2(730f, 145f);
+        amount.anchoredPosition = new Vector2(paid ? 230f : 175f, -230f);
         if (!paid) return;
         // Center coin and rendered amount as one group, including long payouts.
         resultPopupAmount.ForceMeshUpdate(true, true);
-        float width = Mathf.Min(620f, resultPopupAmount.textBounds.size.x);
+        float width = Mathf.Min(730f, resultPopupAmount.textBounds.size.x);
         resultRewardCoin.rectTransform.anchoredPosition =
-            new Vector2(470f - width * .5f - 98f, -133f);
+            new Vector2(595f - width * .5f - 132f, -245f);
     }
 
     public void RepeatAfterResult() => LeaveResult(ResultAction.Repeat);
