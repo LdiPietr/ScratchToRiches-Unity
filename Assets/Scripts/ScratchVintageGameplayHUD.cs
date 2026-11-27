@@ -102,10 +102,10 @@ public sealed partial class ScratchVintageGameplayHUD : MonoBehaviour
             im.gameObject.SetActive(i < max);
             if (i >= max) continue;
             im.color = i < revealed ? Gold : i < selected ? Reserved : Dark;
-            float step = max == 5 ? 78 : 88;
+            float step = max == 5 ? 88 : 96;
             var rt = im.rectTransform;
-            rt.anchoredPosition = new Vector2(28 + i * step, -247);
-            rt.sizeDelta = new Vector2(max == 5 ? 62 : 72, 16);
+            rt.anchoredPosition = new Vector2(i * step, -192);
+            rt.sizeDelta = new Vector2(max == 5 ? 68 : 76, 24);
         }
         Set(ticketNumber, game.TicketNumber == 0 ? "BIGLIETTO —" : "BIGLIETTO " + game.TicketNumber.ToString("000"));
         string name = ScratchGameManager.TicketDisplayName(kind);

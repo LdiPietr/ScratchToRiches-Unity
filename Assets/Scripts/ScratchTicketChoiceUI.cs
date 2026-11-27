@@ -201,14 +201,8 @@ public sealed class ScratchTicketChoiceUI : MonoBehaviour
         for (int i = 0; i < walletParts.Length; i++)
         {
             if (walletParts[i] == null) continue;
-            // Selection uses the compact header wallet; gameplay uses the left panel.
-            Vector2[] selectionPositions = { new Vector2(66, -18), new Vector2(63, -53),
-                new Vector2(117, -48), new Vector2(46, -10), new Vector2(369, -42) };
-            Vector2[] selectionSizes = { new Vector2(280, 28), new Vector2(50, 50),
-                new Vector2(225, 62), new Vector2(310, 112), new Vector2(165, 54) };
-            bool compact = show && i < selectionPositions.Length;
-            walletParts[i].anchoredPosition = compact ? selectionPositions[i] : walletHomePositions[i];
-            walletParts[i].sizeDelta = compact ? selectionSizes[i] : walletHomeSizes[i];
+            walletParts[i].anchoredPosition = walletHomePositions[i] + (show ? Vector2.left * 460 : Vector2.zero);
+            walletParts[i].sizeDelta = show && i == 2 ? new Vector2(310, walletHomeSizes[i].y) : walletHomeSizes[i];
         }
     }
 }
