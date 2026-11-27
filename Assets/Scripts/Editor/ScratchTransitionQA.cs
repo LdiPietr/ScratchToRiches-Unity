@@ -48,7 +48,7 @@ internal static class ScratchTransitionQA
             EditorUtility.DisplayDialog("Test transizioni", "Apri ScratchToRiches in Play Mode sulla selezione dei biglietti (non sul finale).", "OK");
             return;
         }
-        if (!EditorUtility.DisplayDialog("Test transizioni", "Test breve con tre biglietti reali, riacquisto diretto, selezione e negozio. Il test non resetta i progressi; incassi e un eventuale acquisto C11 legale restano salvati. Procedere?", "Avvia", "Annulla")) return;
+        if (!EditorUtility.DisplayDialog("Test transizioni", "Test breve con tre o quattro biglietti reali, riacquisto diretto, selezione, negozio e controlli economici se disponibili. Il test non resetta i progressi; incassi e un eventuale acquisto C11 legale restano salvati. Procedere?", "Avvia", "Annulla")) return;
         directory = Path.Combine(Application.persistentDataPath, "TransitionQA",
             DateTime.Now.ToString("yyyyMMdd_HHmmss") + "_" + Guid.NewGuid().ToString("N").Substring(0,6));
         Directory.CreateDirectory(directory);
@@ -101,14 +101,32 @@ internal static class ScratchTransitionQA
         if (!Check("initial_choice")) yield break;
         yield return Observe(.65f);
         if (!running) yield break;
-        for (int round = 0; round < 3; round++)
+        bool paidChoice = false, paidRepeat = false, paidBlocked = false;
+        int rounds = 3;
+        for (int round = 0; round < rounds; round++)
         {
             var kind = ScratchGameManager.TicketKind.Standard;
             if (round == 2)
                 for (int i = 3; i >= 1; i--)
-                    if (game.CanChooseTicket((ScratchGameManager.TicketKind)i))
+                    if (game.CanChooseTicket((ScratchGameManager.TicketKind)i) &&
+                        ScratchGameManager.TicketPrice((ScratchGameManager.TicketKind)i) > 0)
                     { kind = (ScratchGameManager.TicketKind)i; break; }
-            if (round != 1 && !game.ChooseNextTicket(kind)) { Finish("Scelta non riuscita"); yield break; }
+            if (round != 1 && round != 3)
+            {
+                var wallet = game.GetComponent<ScratchEconomyManager>();
+                int balance = wallet.Coins, number = game.TicketNumber;
+                int price = ScratchGameManager.TicketPrice(kind);
+                if (!game.ChooseNextTicket(kind)) { Finish("Scelta non riuscita"); yield break; }
+                if (price > 0)
+                {
+                    if (wallet.Coins != balance - price || game.TicketNumber != number + 1 ||
+                        game.CurrentTicketKind != kind)
+                    { Finish("Scelta: costo, numero o tipo biglietto errato"); yield break; }
+                    paidChoice = true;
+                    rows.Add(frames + ";PAID_CHOICE;PASS|" + kind + "|cost=" + price +
+                        "|balance=" + balance + "->" + wallet.Coins);
+                }
+            }
             yield return Observe(.85f);
             if (!running) yield break;
             if (!flow.CanScratch) { Finish("Ingresso biglietto"); yield break; }
@@ -165,7 +183,27 @@ internal static class ScratchTransitionQA
                 flow.ShowingTicketArtwork)
             { Finish("QoL: azioni o conteggio risultato non validi"); yield break; }
             rows.Add(frames + ";QOL_POPUP;PASS|ticket hidden|badge exact");
-            if (round == 0)
+            int currentPrice = ScratchGameManager.TicketPrice(game.CurrentTicketKind);
+            if (currentPrice > 0 && economy.Coins < currentPrice)
+            {
+                int number = game.TicketNumber, balance = economy.Coins;
+                var previousKind = game.CurrentTicketKind;
+                var repeatLabel = serializedFlow.FindProperty("repeatTicketLabel").objectReferenceValue as TMPro.TMP_Text;
+                if (repeatButton.interactable || repeatLabel == null ||
+                    !repeatLabel.text.Contains("SALDO INSUFFICIENTE"))
+                { Finish("Saldo insufficiente: pulsante o testo errato"); yield break; }
+                flow.RepeatAfterResult();
+                yield return Observe(.45f);
+                if (!running) yield break;
+                if (!flow.ResultPopupVisible || !flow.ShowingResult || game.TicketActive ||
+                    economy.Coins != balance || game.TicketNumber != number ||
+                    game.CurrentTicketKind != previousKind)
+                { Finish("Saldo insufficiente: riacquisto non bloccato"); yield break; }
+                paidBlocked = true;
+                rows.Add(frames + ";PAID_REPEAT_BLOCKED;PASS|" + previousKind +
+                    "|cost=" + currentPrice + "|balance=" + balance);
+            }
+            if (round == 0 || (round == 2 && currentPrice > 0 && repeatButton.interactable))
             {
                 int number = game.TicketNumber, balance = economy.Coins;
                 var previousKind = game.CurrentTicketKind;
@@ -178,6 +216,13 @@ internal static class ScratchTransitionQA
                     game.TicketNumber != number + 1 || economy.Coins != balance - price)
                 { Finish("QoL: riacquisto o addebito duplicato"); yield break; }
                 rows.Add(frames + ";QOL_REPEAT;PASS");
+                if (price > 0)
+                {
+                    paidRepeat = true;
+                    rounds = 4;
+                    rows.Add(frames + ";PAID_REPEAT;PASS|" + previousKind + "|cost=" + price +
+                        "|balance=" + balance + "->" + economy.Coins);
+                }
                 continue;
             }
             if (round == 1)
@@ -214,6 +259,9 @@ internal static class ScratchTransitionQA
             if (!running) yield break;
             if (!flow.CanShowTicketChoices) { Finish("Ritorno selezione fallito"); yield break; }
         }
+        rows.Add(frames + ";ECONOMY_COVERAGE;paid_choice=" + (paidChoice ? "PASS" : "NOT_COVERED") +
+            "|paid_repeat=" + (paidRepeat ? "PASS" : "NOT_COVERED") +
+            "|insufficient_balance=" + (paidBlocked ? "PASS" : "NOT_COVERED"));
         Finish("");
     }
 
