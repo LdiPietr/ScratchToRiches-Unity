@@ -202,7 +202,9 @@ public sealed class ScratchTicketChoiceUI : MonoBehaviour
         {
             if (walletParts[i] == null) continue;
             walletParts[i].anchoredPosition = walletHomePositions[i] + (show ? Vector2.left * 460 : Vector2.zero);
-            walletParts[i].sizeDelta = show && i == 2 ? new Vector2(310, walletHomeSizes[i].y) : walletHomeSizes[i];
+            // The scene-authored wallet frame follows the existing animated header layout.
+            walletParts[i].sizeDelta = show && i == 2 ? new Vector2(310, walletHomeSizes[i].y) :
+                show && i == 3 ? new Vector2(walletHomeSizes[i].x + 90f, walletHomeSizes[i].y) : walletHomeSizes[i];
         }
     }
 }
