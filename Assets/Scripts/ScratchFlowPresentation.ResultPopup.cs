@@ -42,7 +42,7 @@ public sealed partial class ScratchFlowPresentation
         nextTicketLabel.text = available ? "CAMBIA BIGLIETTO" : "VEDI FINALE";
         if (HasResultPopup)
             ((RectTransform)nextTicketButton.transform).anchoredPosition = available
-                ? nextTicketHome : new Vector2(246f, -390f);
+                ? nextTicketHome : new Vector2(246f, -400f);
         nextTicketButton.gameObject.SetActive(true);
         nextTicketButton.interactable = true;
         if (repeatTicketButton != null && repeatTicketLabel != null)
@@ -51,6 +51,10 @@ public sealed partial class ScratchFlowPresentation
             repeatTicketLabel.text = "RIACQUISTA " + ScratchGameManager.TicketDisplayName(kind) +
                 "\n<size=24>" + (cost == 0 ? "GRATIS" : cost.ToString("N0") + " MONETE") +
                 (affordable ? "" : " · SALDO INSUFFICIENTE") + "</size>";
+            // A disabled gold surface is darkened by the authored Button ColorBlock.
+            // Keep its explanation legible rather than dimming the dark active label.
+            repeatTicketLabel.color = affordable
+                ? new Color32(32, 51, 46, 255) : new Color32(249, 239, 216, 255);
             repeatTicketButton.gameObject.SetActive(available);
             repeatTicketButton.interactable = available && affordable;
         }
@@ -94,25 +98,30 @@ public sealed partial class ScratchFlowPresentation
         int cost = ScratchGameManager.TicketPrice(kind);
         bool winning = !voided && payout > 0 && tier != ScratchSymbolManager.MatchTier.None;
         Color accent = winning && payout > cost ? new Color32(234,194,92,255) : new Color32(192,205,195,255);
+        int rank = winning ? Mathf.Clamp((int)tier, 1, 4) : 0;
+        float titleMax = rank == 0 ? 38f : 34f + (rank - 1) * 4f;
+        float amountMax = rank == 0 ? 88f : 84f + (rank - 1) * 8f;
         if (resultPopupHeading != null)
             resultPopupHeading.text = "BIGLIETTO " + ScratchGameManager.TicketDisplayName(kind);
         if (resultOutcomeLabel != null)
         {
             resultOutcomeLabel.text = PopupOutcome(tier, payout, voided);
             resultOutcomeLabel.color = accent;
+            resultOutcomeLabel.fontSizeMax = titleMax;
             SetPopupY(resultOutcomeLabel.rectTransform, winning ? -83f : -137f);
         }
         if (resultPopupAmount != null)
         {
             resultPopupAmount.text = (payout > 0 ? "+" : "") + payout.ToString("N0");
             resultPopupAmount.color = accent;
-            SetPopupY(resultPopupAmount.rectTransform, winning ? -209f : -192f);
+            resultPopupAmount.fontSizeMax = amountMax;
+            SetPopupY(resultPopupAmount.rectTransform, winning ? -205f : -186f);
         }
         if (resultPopupUnit != null)
         {
             resultPopupUnit.text = "MONETE";
             resultPopupUnit.color = accent;
-            SetPopupY(resultPopupUnit.rectTransform, winning ? -303f : -286f);
+            SetPopupY(resultPopupUnit.rectTransform, winning ? -305f : -286f);
         }
         if (resultPopupNet != null) resultPopupNet.text = PopupNet(payout, cost, voided);
         if (resultMatchIcons == null) return;

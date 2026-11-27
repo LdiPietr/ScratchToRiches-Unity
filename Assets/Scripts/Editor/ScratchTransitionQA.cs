@@ -363,6 +363,8 @@ internal static partial class ScratchTransitionQA
             text.ForceMeshUpdate();
             if (text.isTextOverflowing) return false;
         }
+        if (!CheckPopupPolish(so, match.Tier, payout, game.TicketVoided,
+            game.CanChooseTicket(game.CurrentTicketKind))) return false;
         rows.Add(frames + ";POPUP_VISUAL_DATA;PASS|" + outcome.text + "|payout=" + payout + "|icons=" + count);
         return true;
     }

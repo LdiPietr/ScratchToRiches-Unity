@@ -79,7 +79,8 @@ internal static partial class ScratchTransitionQA
             yield return new WaitForEndOfFrame();
             if (!running) yield break;
             if (!Check("popup_fixture")) yield break;
-            if (!VerifyPopupFixture(so, expected[i], payouts[i], expectedNet[i], artwork, i != 1))
+            if (!VerifyPopupFixture(so, expected[i], payouts[i], expectedNet[i], artwork, i != 1) ||
+                !CheckPopupPolish(so, tier, payouts[i], voided, i != 1))
             { Finish("Fixture non conforme: " + names[i]); yield break; }
             if (wallet.Coins != balance || wallet.TotalEarned != earned ||
                 game.TicketNumber != number || game.TicketsCompleted != completed || game.TicketActive)
@@ -104,6 +105,42 @@ internal static partial class ScratchTransitionQA
         { Finish("Ripristino selezione o dati non coerente"); yield break; }
         rows.Add(frames + ";PREVIEW_COVERAGE;PASS|9 screenshots|wallet and progression unchanged");
         Finish("");
+    }
+
+    // Both the synthetic and real-ticket tests exercise these presentation invariants.
+    private static bool CheckPopupPolish(SerializedObject so, ScratchSymbolManager.MatchTier tier,
+        int payout, bool voided, bool affordable)
+    {
+        var outcome = so.FindProperty("resultOutcomeLabel").objectReferenceValue as TMP_Text;
+        var amount = so.FindProperty("resultPopupAmount").objectReferenceValue as TMP_Text;
+        var repeat = so.FindProperty("repeatTicketLabel").objectReferenceValue as TMP_Text;
+        var button = so.FindProperty("repeatTicketButton").objectReferenceValue as Button;
+        var popup = so.FindProperty("resultPopup").objectReferenceValue as GameObject;
+        if (outcome == null || amount == null || repeat == null || button == null || popup == null) return false;
+        var root = popup.GetComponent<Image>();
+        var dimmer = popup.transform.Find("ResultBodyDimmer")?.GetComponent<Image>();
+        var header = new SerializedObject(hud).FindProperty("gameplayHeader").objectReferenceValue as GameObject;
+        if (root == null || !root.raycastTarget || root.color.a > .001f ||
+            dimmer == null || dimmer.raycastTarget || dimmer.color.a < .45f ||
+            header == null || !header.activeInHierarchy) return false;
+        var headerRect = header.GetComponent<RectTransform>();
+        if (headerRect == null) return false;
+        var a = new Vector3[4];
+        var b = new Vector3[4];
+        headerRect.GetWorldCorners(a);
+        dimmer.rectTransform.GetWorldCorners(b);
+        if (b[1].y > a[0].y + .1f || Mathf.Abs(b[1].y - a[0].y) > .5f) return false;
+        int rank = !voided && payout > 0 ? (int)tier : 0;
+        float[] titleMax = { 38, 34, 38, 42, 46 };
+        float[] amountMax = { 88, 84, 92, 100, 108 };
+        if (rank < 0 || rank > 4 || Mathf.Abs(outcome.fontSizeMax - titleMax[rank]) > .01f ||
+            Mathf.Abs(amount.fontSizeMax - amountMax[rank]) > .01f) return false;
+        Color expected = affordable ? new Color32(32,51,46,255) : new Color32(249,239,216,255);
+        var disabled = button.colors.disabledColor;
+        if (repeat.color != expected || button.interactable != affordable ||
+            disabled.a < .99f || disabled.r > .45f || disabled.g > .45f || disabled.b > .45f) return false;
+        rows.Add(frames + ";POPUP_POLISH;PASS|header clear|rank=" + rank + "|affordable=" + affordable);
+        return true;
     }
 
     private static bool VerifyPopupFixture(SerializedObject so, string expected, int payout,
