@@ -1,3 +1,6 @@
+#if UNITY_EDITOR
+using PlayerPrefs = ScratchGameFeelPrefs;
+#endif
 using System;
 using System.Collections.Generic;
 using TMPro;

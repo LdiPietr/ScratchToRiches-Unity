@@ -1,3 +1,6 @@
+#if UNITY_EDITOR
+using PlayerPrefs = ScratchGameFeelPrefs;
+#endif
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -90,6 +93,34 @@ public sealed partial class ScratchSkillTree : MonoBehaviour
     }
 
     public IReadOnlyList<ScratchSkillCatalogV2.Entry> Catalog => ScratchSkillCatalogV2.All;
+
+#if UNITY_EDITOR
+    // Only the isolated Game Feel profile may seed levels directly.
+    // Never bypass purchases in a regular Play Mode session.
+    public void ConfigureGameFeelQA(int extraPicks, bool refund, bool inspectAndJolly,
+        int brushLevel, int stripes, bool fan, bool titan)
+    {
+        if (!ScratchGameFeelPrefs.Active || !Application.isPlaying || game == null || game.TicketActive)
+            throw new InvalidOperationException("Game Feel QA requires its isolated profile at ticket selection.");
+        EnsureStableLevels();
+        void Set(string id, int value)
+        {
+            var entry = ScratchSkillCatalogV2.Find(id);
+            stableLevels[id] = Mathf.Clamp(value, 0, entry.maxLevel);
+        }
+        Set("C11", extraPicks);
+        Set("E05", refund ? 2 : 0);
+        Set("C06", inspectAndJolly ? 1 : 0);
+        Set("F04", inspectAndJolly ? 1 : 0);
+        Set("G01", brushLevel);
+        Set("G03", stripes);
+        Set("G04", fan ? 1 : 0);
+        Set("G08", titan ? 1 : 0);
+        titanCharges = titan ? 1 : 0;
+        titanChargeProgress = 0;
+        Changed?.Invoke();
+    }
+#endif
 
     public int GetLevel(SkillId id) => GetLevel(StableId(id));
 

@@ -24,7 +24,7 @@ internal static partial class ScratchTransitionQA
     private static int frames, tickets;
     private static string previous;
     private static readonly List<string> rows = new List<string>();
-    public static bool Busy => running || validating;
+    public static bool Busy => running || validating || ScratchGameFeelPrefs.Active;
 
     static ScratchTransitionQA()
     {

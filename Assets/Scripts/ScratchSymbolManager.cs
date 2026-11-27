@@ -143,7 +143,17 @@ public sealed partial class ScratchSymbolManager : MonoBehaviour
 #if UNITY_EDITOR
         bool forced = editorTestPattern != TestPattern.Random;
         if (forced)
-            ApplyEditorTestPattern(layout, editorTestPattern, pool);
+        {
+            // These additional patterns are reserved for the isolated QA profile.
+            if (editorTestPattern == TestPattern.NoMatch || editorTestPattern == TestPattern.FiveJolly)
+            {
+                if (!ScratchGameFeelPrefs.Active || poolSize < 5)
+                    return false;
+                for (int i = 0; i < Mathf.Min(5, layout.Length); i++)
+                    layout[i] = editorTestPattern == TestPattern.NoMatch ? pool[i] : (i == 4 ? JollyId : pool[0]);
+            }
+            else ApplyEditorTestPattern(layout, editorTestPattern, pool);
+        }
 #else
         bool forced = false;
 #endif

@@ -2,7 +2,7 @@
 public sealed partial class ScratchSymbolManager
 {
     public enum MatchTier { None, Pair, Triple, Poker, Five }
-    public enum TestPattern { Random, Pair, Triple, Poker, Five }
+    public enum TestPattern { Random, Pair, Triple, Poker, Five, NoMatch, FiveJolly }
 
     public readonly struct MatchResult
     {
