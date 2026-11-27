@@ -20,7 +20,7 @@ internal static class ScratchTransitionQA
     private static PointerEventData pointer;
     private static string directory, output, failure;
     private static double deadline, verifyUntil;
-    private static bool running, validating, stopOk, previousBackground;
+    private static bool running, validating, stopOk, previousBackground, balanceOnly;
     private static int frames, tickets;
     private static string previous;
     private static readonly List<string> rows = new List<string>();
@@ -35,7 +35,12 @@ internal static class ScratchTransitionQA
     }
 
     [MenuItem("Tools/Scratch to Riches/Test rapido transizioni")]
-    public static void Start()
+    public static void Start() => StartTest(false);
+
+    [MenuItem("Tools/Scratch to Riches/Test saldo insufficiente (senza video)")]
+    public static void StartBalance() => StartTest(true);
+
+    private static void StartTest(bool onlyBalance)
     {
         if (Busy || ScratchAutoplayWindow.AnyTestRunning || ScratchManualTelemetry.IsRecording) return;
         game = UnityEngine.Object.FindAnyObjectByType<ScratchGameManager>();
@@ -48,14 +53,27 @@ internal static class ScratchTransitionQA
             EditorUtility.DisplayDialog("Test transizioni", "Apri ScratchToRiches in Play Mode sulla selezione dei biglietti (non sul finale).", "OK");
             return;
         }
-        if (!EditorUtility.DisplayDialog("Test transizioni", "Test breve con tre o quattro biglietti reali, riacquisto diretto, selezione, negozio e controlli economici se disponibili. Il test non resetta i progressi; incassi e un eventuale acquisto C11 legale restano salvati. Procedere?", "Avvia", "Annulla")) return;
+        if (onlyBalance && !TryPaidTicket(out _))
+        {
+            EditorUtility.DisplayDialog("Test saldo", "Serve un biglietto a pagamento sbloccato e acquistabile. Torna alla selezione dopo averlo sbloccato.", "OK");
+            return;
+        }
+        if (onlyBalance)
+        {
+            if (!EditorUtility.DisplayDialog("Test saldo", "Un biglietto reale senza video. La vincita e il costo reali restano salvati; il saldo di prova viene ripristinato subito.", "Avvia", "Annulla")) return;
+        }
+        else if (!EditorUtility.DisplayDialog("Test transizioni", "Test breve con tre o quattro biglietti reali, riacquisto diretto, selezione, negozio e controlli economici se disponibili. Il test non resetta i progressi; incassi e un eventuale acquisto C11 legale restano salvati. Procedere?", "Avvia", "Annulla")) return;
         directory = Path.Combine(Application.persistentDataPath, "TransitionQA",
             DateTime.Now.ToString("yyyyMMdd_HHmmss") + "_" + Guid.NewGuid().ToString("N").Substring(0,6));
         Directory.CreateDirectory(directory);
-        movie = new ScratchAutoplayMovieRecorder();
-        if (!movie.Start(directory,1080,24,false,"transizioni",3f,true))
-        { Debug.LogError("TRANSITION QA: " + movie.LastError); return; }
-        output = movie.OutputPath;
+        balanceOnly = onlyBalance;
+        if (!balanceOnly)
+        {
+            movie = new ScratchAutoplayMovieRecorder();
+            if (!movie.Start(directory,1080,24,false,"transizioni",3f,true))
+            { Debug.LogError("TRANSITION QA: " + movie.LastError); return; }
+            output = movie.OutputPath;
+        }
         rows.Clear();
         rows.Add("frame;event;detail");
         frames = tickets = 0;
@@ -102,11 +120,13 @@ internal static class ScratchTransitionQA
         yield return Observe(.65f);
         if (!running) yield break;
         bool paidChoice = false, paidRepeat = false, paidBlocked = false;
-        int rounds = 3;
+        int rounds = balanceOnly ? 1 : 3;
         for (int round = 0; round < rounds; round++)
         {
             var kind = ScratchGameManager.TicketKind.Standard;
-            if (round == 2)
+            if (balanceOnly && !TryPaidTicket(out kind))
+            { Finish("Nessun biglietto a pagamento acquistabile"); yield break; }
+            if (!balanceOnly && round == 2)
                 for (int i = 3; i >= 1; i--)
                     if (game.CanChooseTicket((ScratchGameManager.TicketKind)i) &&
                         ScratchGameManager.TicketPrice((ScratchGameManager.TicketKind)i) > 0)
@@ -184,6 +204,12 @@ internal static class ScratchTransitionQA
             { Finish("QoL: azioni o conteggio risultato non validi"); yield break; }
             rows.Add(frames + ";QOL_POPUP;PASS|ticket hidden|badge exact");
             int currentPrice = ScratchGameManager.TicketPrice(game.CurrentTicketKind);
+            if (balanceOnly)
+            {
+                string reason = TestBalanceBoundary(economy, repeatButton, serializedFlow, currentPrice);
+                Finish(reason);
+                yield break;
+            }
             if (currentPrice > 0 && economy.Coins < currentPrice)
             {
                 int number = game.TicketNumber, balance = economy.Coins;
@@ -265,6 +291,69 @@ internal static class ScratchTransitionQA
         Finish("");
     }
 
+    private static bool TryPaidTicket(out ScratchGameManager.TicketKind kind)
+    {
+        for (int i = 1; i <= 3; i++)
+        {
+            kind = (ScratchGameManager.TicketKind)i;
+            if (game.CanChooseTicket(kind)) return true;
+        }
+        kind = ScratchGameManager.TicketKind.Standard;
+        return false;
+    }
+
+    private static string TestBalanceBoundary(ScratchEconomyManager wallet, Button repeat,
+        SerializedObject serializedFlow, int price)
+    {
+        int original = wallet.Coins, number = game.TicketNumber, payout = game.TicketPayout;
+        long earned = wallet.TotalEarned;
+        var kind = game.CurrentTicketKind;
+        var label = serializedFlow.FindProperty("repeatTicketLabel").objectReferenceValue as TMPro.TMP_Text;
+        string reason = "";
+        try
+        {
+            if (price <= 0 || label == null) throw new InvalidOperationException("Prezzo o label non valido");
+            SetTestBalance(wallet, price);
+            if (!repeat.interactable || !game.CanChooseTicket(kind) ||
+                label.text.Contains("SALDO INSUFFICIENTE"))
+                throw new InvalidOperationException("Saldo esatto: riacquisto non disponibile");
+            rows.Add(frames + ";EXACT_BALANCE;PASS|cost=" + price + "|balance=" + wallet.Coins);
+            SetTestBalance(wallet, price - 1);
+            if (repeat.interactable || game.CanChooseTicket(kind) ||
+                !label.text.Contains("SALDO INSUFFICIENTE"))
+                throw new InvalidOperationException("Saldo insufficiente: pulsante o testo errato");
+            repeat.onClick.Invoke();
+            flow.RepeatAfterResult();
+            if (!flow.ResultPopupVisible || !flow.ShowingResult || game.TicketActive ||
+                wallet.Coins != price - 1 || game.TicketNumber != number ||
+                game.CurrentTicketKind != kind || game.TicketPayout != payout || wallet.TotalEarned != earned)
+                throw new InvalidOperationException("Saldo insufficiente: richiesta non bloccata");
+            rows.Add(frames + ";PAID_REPEAT_BLOCKED;PASS|" + kind + "|cost=" + price + "|balance=" + wallet.Coins);
+        }
+        catch (Exception ex) { reason = ex.Message; }
+        finally
+        {
+            try
+            {
+                SetTestBalance(wallet, original);
+                if (wallet.TotalEarned != earned || repeat.interactable != game.CanChooseTicket(kind) ||
+                    label == null || label.text.Contains("SALDO INSUFFICIENTE") == game.CanChooseTicket(kind))
+                    throw new InvalidOperationException("Stato dopo ripristino non coerente");
+                rows.Add(frames + ";BALANCE_RESTORED;PASS|balance=" + wallet.Coins);
+            }
+            catch (Exception ex) { reason += " | Ripristino: " + ex.Message; }
+        }
+        return reason;
+    }
+
+    private static void SetTestBalance(ScratchEconomyManager wallet, int target)
+    {
+        int current = wallet.Coins;
+        if (current > target) wallet.TrySpendCoins(current - target);
+        else if (current < target) wallet.CreditForAutoplayTest(target - current);
+        if (wallet.Coins != target) throw new InvalidOperationException("Saldo di test non impostato");
+    }
+
     private static IEnumerator Observe(float seconds)
     {
         float until = Time.realtimeSinceStartup + seconds;
@@ -309,6 +398,13 @@ internal static class ScratchTransitionQA
         movie = null;
         rows.Add(frames + ";END;" + tickets + " biglietti|" + (reason.Length == 0 ? "PASS" : reason));
         Save();
+        if (balanceOnly)
+        {
+            validating = false;
+            if (reason.Length == 0) Debug.Log("BALANCE QA PASS: " + directory);
+            else Debug.LogError("BALANCE QA FAIL: " + reason + " " + directory);
+            return;
+        }
         validating = true;
         verifyUntil = EditorApplication.timeSinceStartup + 45;
     }
