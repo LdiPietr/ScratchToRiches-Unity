@@ -134,6 +134,8 @@ public static class ScratchRadialProgression
         return "PRONTO PER L'ACQUISTO";
     }
 
+    private static bool IsDemoEdition() => ScratchSkillTree.DemoEdition;
+
     public static string NextGoal(ScratchGameManager game, ScratchSkillTree skills)
     {
         if (game == null || skills == null) return "AVVIA LA PARTITA";
@@ -151,7 +153,7 @@ public static class ScratchRadialProgression
                 return "COMPLETA 5 DORATI (" +
                     game.CompletedByTier(ScratchGameManager.TicketKind.Gold) + "/5)";
             case 5:
-                if (ScratchSkillTree.DemoEdition)
+                if (IsDemoEdition())
                 {
                     foreach (string id in new[] { "G08", "F02", "C06", "F03", "F04" })
                         if (skills.GetLevel(id) == 0)
