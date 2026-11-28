@@ -34,11 +34,11 @@ public sealed partial class ScratchFlowPresentation
     private void UpdateRewardDecoration(float entrance)
     {
         int rank = rewardVisualRank;
-        float strength = rank == 0 ? 0f : rank == 1 ? .48f : rank == 2 ? .65f : rank == 3 ? .83f : 1f;
+        float strength = rank == 0 ? 0f : rank == 1 ? .22f : rank == 2 ? .45f : rank == 3 ? .75f : 1f;
         float appear = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(entrance));
         float pulse = 1f + (.12f + rank * .09f) * Mathf.Sin(Mathf.PI * appear);
         RewardTint(rewardGoldFrame, strength * appear * pulse);
-        RewardTint(rewardGoldRays, strength * .90f * appear * pulse);
+        RewardTint(rewardGoldRays, strength * .85f * appear * pulse);
         if (rewardGoldRays != null)
             rewardGoldRays.rectTransform.localScale = Vector3.one * (.78f + .22f * appear + .04f * rank);
         RewardTint(rewardDivider, .48f + strength * .35f);
@@ -54,7 +54,7 @@ public sealed partial class ScratchFlowPresentation
         for (int i = 0; i < rewardSparks.Length; i++)
         {
             Image spark = rewardSparks[i];
-            bool show = rank > 0 && i < rank * 2;
+            bool show = rank >= 2 && i < (rank - 1) * 2;
             float sparkle = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((entrance - (i / 2) * .10f) / (1f - (i / 2) * .10f)));
             RewardTint(spark, show ? (.65f + .08f * rank) * sparkle * pulse : 0f);
             if (spark != null)
@@ -159,16 +159,19 @@ public sealed partial class ScratchFlowPresentation
     {
         int cost = ScratchGameManager.TicketPrice(kind);
         bool winning = !voided && payout > 0 && tier != ScratchSymbolManager.MatchTier.None;
-        Color accent = winning && payout > cost ? new Color32(234,194,92,255) : new Color32(192,205,195,255);
+        bool refund = !voided && payout > 0 && tier == ScratchSymbolManager.MatchTier.None;
+        Color accent = winning && payout > cost ? new Color32(234,194,92,255) : refund ? new Color32(238,221,178,255) : new Color32(192,205,195,255);
         int rank = winning ? Mathf.Clamp((int)tier, 1, 4) : 0;
         SetRewardStyle(rank, payout);
         float titleMax = rank == 0 ? 38f : 38f + (rank - 1) * 4f;
-        float amountMax = rank == 0 ? 92f : 112f + (rank - 1) * 12f;
+        float amountMax = rank == 0 ? 92f : 100f + (rank - 1) * 13f;
+        if (payout >= 100000000) amountMax = Mathf.Min(amountMax, 76f);
+        if (payout >= 1000000000) amountMax = Mathf.Min(amountMax, 64f);
         if (resultPopupHeading != null)
             resultPopupHeading.text = "BIGLIETTO " + ScratchGameManager.TicketDisplayName(kind);
         if (resultOutcomeLabel != null)
         {
-            resultOutcomeLabel.text = PopupOutcome(tier, payout, voided);
+            resultOutcomeLabel.text = refund && payout < cost ? "RIMBORSO PARZIALE" : PopupOutcome(tier, payout, voided);
             resultOutcomeLabel.color = accent;
             resultOutcomeLabel.fontSizeMax = titleMax;
             SetPopupY(resultOutcomeLabel.rectTransform, winning ? -83f : -137f);
@@ -182,7 +185,7 @@ public sealed partial class ScratchFlowPresentation
             if (winning)
                 resultPopupAmount.colorGradient = new VertexGradient(
                     new Color32(255, 249, 210, 255), new Color32(255, 249, 210, 255),
-                    new Color32(244, 180, 60, 255), new Color32(244, 180, 60, 255));
+                    new Color32(244, (byte)(205 - rank * 6), 60, 255), new Color32(244, (byte)(205 - rank * 6), 60, 255));
             resultPopupAmount.fontSizeMax = amountMax;
             SetPopupY(resultPopupAmount.rectTransform, winning ? -214f : -186f);
             if (rewardAmountShadow != null)
