@@ -20,11 +20,11 @@ public sealed partial class ScratchWinJuice
     private int serial, batchId;
     private static readonly Color[] FoilColors =
     {
-        new Color(.68f,.72f,.70f), new Color(.98f,.97f,.91f), new Color(.84f,.86f,.82f)
+        new Color(.30f,.35f,.34f), new Color(1f,.99f,.94f), new Color(.74f,.80f,.77f)
     };
     private static readonly Color[] TitanColors =
     {
-        new Color(1f,.77f,.28f), new Color(.96f,.59f,.16f), new Color(1f,.90f,.53f)
+        new Color(1f,.78f,.22f), new Color(.90f,.43f,.07f), new Color(1f,.95f,.63f)
     };
 
     private void InitializeFlakes()
@@ -86,10 +86,10 @@ public sealed partial class ScratchWinJuice
         {
             float angle = (serial + 1) * 2.399963f;
             Vector2 drift = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) *
-                (titan ? 29f : 17f) * Mathf.Lerp(1f,1.65f,(width-1f)*.5f);
-            drift.x += direction * (channel >= 3 ? 13f : 7f);
-            if (Spawn(world, drift, titan ? .31f : .24f,
-                titan ? .62f : Mathf.Lerp(.37f,.54f,(width-1f)*.5f),
+                (titan ? 40f : 22f) * Mathf.Lerp(1f,1.65f,(width-1f)*.5f);
+            drift.x += direction * (channel >= 3 ? 23f : 12f);
+            if (Spawn(world, drift, titan ? .39f : .30f,
+                titan ? .78f : Mathf.Lerp(.46f,.65f,(width-1f)*.5f),
                 titan, titan ? 1 : 0, batch)) emitted++;
         }
         return emitted;
@@ -101,7 +101,7 @@ public sealed partial class ScratchWinJuice
         // Immediate impulse, independent of subsequent pointer motion.
         System.Array.Clear(nextTrace,0,nextTrace.Length);
         int batch = ++batchId;
-        int emitted = Burst(FoilWorld(cell,uv), 10, 55f, .40f, .78f, true, 2, batch);
+        int emitted = Burst(FoilWorld(cell,uv), 10, 74f, .53f, .94f, true, 2, batch);
 #if UNITY_EDITOR
         if (ScratchGameFeelPrefs.Active && emitted > 0) qaTitanActivations++;
 #endif
@@ -111,7 +111,7 @@ public sealed partial class ScratchWinJuice
     {
         if (!isActiveAndEnabled || cell == null || particles == null) return;
         int emitted = Burst(cell.TransformPoint(cell.rect.center), titan ? 10 : 7,
-            titan ? 58f : 40f, titan ? .41f : .34f, titan ? .82f : .69f,
+            titan ? 70f : 46f, titan ? .49f : .39f, titan ? .92f : .74f,
             titan, 3, ++batchId);
 #if UNITY_EDITOR
         if (ScratchGameFeelPrefs.Active && emitted > 0) qaRevealBursts++;
@@ -182,9 +182,13 @@ public sealed partial class ScratchWinJuice
         RectTransform rt = image.rectTransform;
         rt.localPosition = p.origin + (Vector3)(p.drift*travel + Vector2.down*17f*t*t);
         rt.localRotation = Quaternion.Euler(0f,0f,p.rotation+p.spin*t);
-        rt.localScale = Vector3.one * p.scale * Mathf.Lerp(1f,.45f,t);
+        // Keep fragments legible during the first half of their flight.
+        // Titan's one-shot impulse has a brief size punch, not a screen flash.
+        float punch = p.priority == 2 ? 1f + .20f * Mathf.Sin(Mathf.PI * Mathf.Clamp01(t / .28f)) : 1f;
+        rt.localScale = Vector3.one * p.scale * punch * Mathf.Lerp(1f,.58f,t);
         Color tint = p.tint;
-        tint.a = (p.gold ? .93f : .77f) * (1f-t)*(1f-t);
+        float fade = 1f - Mathf.SmoothStep(0f,1f,Mathf.InverseLerp(.22f,1f,t));
+        tint.a = (p.gold ? 1f : .92f) * fade;
         image.color = tint;
     }
 

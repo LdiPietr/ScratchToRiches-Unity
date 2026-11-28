@@ -16,6 +16,8 @@ internal static partial class ScratchGameFeelQA
     private sealed class Comparison
     {
         public int events, idleEvents;
+        public int renderFrames, peakRenderable, wrongDepth, impulseRenderable, firstRenderFrame = -1;
+        public float peakSize1080;
         public float distance, elapsed, first, postTitanDelta, physical;
         public readonly int[] milestoneEvents = new int[3];
         public readonly float[] milestoneDistance = new float[3];
@@ -70,6 +72,14 @@ internal static partial class ScratchGameFeelQA
             { Finish(name + ": misurazione incompleta"); yield break; }
             if (!ValidateFlakes(name + "_first_cell", 1, mode == 2, mode == 3, titan))
             { Finish(name + ": feedback particellare prima casella"); yield break; }
+            if (result.renderFrames == 0 || result.peakRenderable < 2 || result.wrongDepth != 0 ||
+                (titan && result.impulseRenderable < 4))
+            { Finish(name + ": particelle non renderizzabili sopra la patina"); yield break; }
+            rows.Add(name + ";RENDER_GEOMETRY;PASS|frames=" + result.renderFrames +
+                "|peak_renderable=" + result.peakRenderable + "|wrong_depth=" + result.wrongDepth +
+                "|peak_rect_short_side_1080=" + F(result.peakSize1080) +
+                "|first_render_qa_frame=" + result.firstRenderFrame +
+                "|initial_titan_renderable=" + (titan ? result.impulseRenderable.ToString() : "NA"));
             results[mode,repeat] = result;
             rows.Add(name + ";BENCHMARK;events=" + result.events +
                 "|idle_events=" + result.idleEvents + "|distance_cell_short_sides=" + F(result.distance) +
@@ -170,6 +180,8 @@ internal static partial class ScratchGameFeelQA
         if (titan && !cell.QaActivateTitanDuringGesture())
         { Finish("Titan non attivato"); yield break; }
         yield return Observe(.028f);
+        if (!running) yield break;
+        MeasureFlakeRendering(raw, result, titan);
 
         int stalled = 0;
         while (running && !cell.IsComplete && result.events < 600)
@@ -194,6 +206,8 @@ internal static partial class ScratchGameFeelQA
             CaptureMilestones(result,coverage,started);
             if (stalled > 16) { Finish("Percorso adattivo senza progresso"); yield break; }
             yield return Observe(.028f);
+            if (!running) yield break;
+            if (!cell.IsComplete) MeasureFlakeRendering(raw, result, false);
         }
         result.elapsed = Time.realtimeSinceStartup-started;
         result.physical = coverage;
