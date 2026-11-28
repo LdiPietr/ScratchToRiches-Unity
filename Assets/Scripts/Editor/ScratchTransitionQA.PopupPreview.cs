@@ -55,7 +55,7 @@ internal static partial class ScratchTransitionQA
         var payouts = new[] { 0, 0, 8, 104, 180, 240, 300, 999999999, 0 };
         var names = new[] { "nessuna_gratis", "nessuna_pagamento", "rimborso", "coppia", "tris",
             "poker", "cinquina", "cinquina_jolly_importo_grande", "biglietto_prova" };
-        var expected = new[] { "NESSUNA VINCITA", "NESSUNA VINCITA", "RIMBORSO", "COPPIA",
+        var expected = new[] { "NESSUNA VINCITA", "NESSUNA VINCITA", "RIMBORSO PARZIALE", "COPPIA",
             "TRIS", "POKER", "CINQUINA", "CINQUINA", "BIGLIETTO DI PROVA" };
         var expectedNet = new[] { "", "-10", "-2", "+94", "+170", "+230", "+290", "+999,999,989", "" };
         for (int i = 0; i < names.Length; i++)
@@ -138,7 +138,12 @@ internal static partial class ScratchTransitionQA
         if (b[1].y > a[0].y + .1f || Mathf.Abs(b[1].y - a[0].y) > .5f) return false;
         int rank = !voided && payout > 0 ? (int)tier : 0;
         float[] titleMax = { 38, 38, 42, 46, 50 };
-        float[] amountMax = { 92, 112, 124, 136, 148 };
+        float[] amountMax = { 92, 100, 113, 126, 139 };
+        if (rank >= 0 && rank < amountMax.Length)
+        {
+            if (payout >= 100000000) amountMax[rank] = Mathf.Min(amountMax[rank], 76f);
+            if (payout >= 1000000000) amountMax[rank] = Mathf.Min(amountMax[rank], 64f);
+        }
         if (rank < 0 || rank > 4 || Mathf.Abs(outcome.fontSizeMax - titleMax[rank]) > .01f ||
             Mathf.Abs(amount.fontSizeMax - amountMax[rank]) > .01f) return false;
         var frame = so.FindProperty("rewardGoldFrame").objectReferenceValue as Image;
@@ -158,7 +163,7 @@ internal static partial class ScratchTransitionQA
         for (int i = 0; i < sparks.arraySize; i++)
         {
             var image = sparks.GetArrayElementAtIndex(i).objectReferenceValue as Image;
-            if (image == null || image.raycastTarget || image.gameObject.activeInHierarchy != (rank > 0 && i < rank * 2)) return false;
+            if (image == null || image.raycastTarget || image.gameObject.activeInHierarchy != (rank >= 2 && i < (rank - 1) * 2)) return false;
         }
         var shadow = so.FindProperty("rewardAmountShadow").objectReferenceValue as TMP_Text;
         if (shadow == null || shadow.raycastTarget || shadow.gameObject.activeInHierarchy != (rank > 0) ||
