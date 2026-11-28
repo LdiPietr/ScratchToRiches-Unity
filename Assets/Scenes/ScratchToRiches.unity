@@ -20863,6 +20863,11 @@ MonoBehaviour:
   pairBadge: {fileID: 21300000, guid: d13e55cc933951a6a0b5133ed64053bc, type: 3}
   tripleBadge: {fileID: 21300000, guid: 6d87843669e35d6791c57a54414f3b44, type: 3}
   pokerBadge: {fileID: 21300000, guid: 2bbf546ca71756cba73154d145a60fe4, type: 3}
+  parallelFlakeReach: 30
+  fanFlakeReach: 54
+  titanImpulseReach: 104
+  titanImpulseLife: 0.58
+  titanImpulseScale: 1.05
   scratchFlakes:
   - {fileID: 9310000003}
   - {fileID: 9310000013}
