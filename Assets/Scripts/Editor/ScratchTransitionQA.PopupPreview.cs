@@ -121,8 +121,14 @@ internal static partial class ScratchTransitionQA
         var dimmer = popup.transform.Find("ResultBodyDimmer")?.GetComponent<Image>();
         var header = new SerializedObject(hud).FindProperty("gameplayHeader").objectReferenceValue as GameObject;
         if (root == null || !root.raycastTarget || root.color.a > .001f ||
-            dimmer == null || dimmer.raycastTarget || dimmer.color.a < .45f ||
+            dimmer == null || dimmer.raycastTarget || Mathf.Abs(dimmer.color.a - .55f) > .01f ||
             header == null || !header.activeInHierarchy) return false;
+        foreach (string field in new[] { "resultCardGroup", "rewardHeaderGroup", "rewardValueGroup", "rewardActionsGroup" })
+        {
+            var group = so.FindProperty(field).objectReferenceValue as CanvasGroup;
+            if (group == null || !group.gameObject.activeInHierarchy || Mathf.Abs(group.alpha - 1f) > .01f) return false;
+            if (field == "rewardActionsGroup" && (!group.interactable || !group.blocksRaycasts)) return false;
+        }
         var headerRect = header.GetComponent<RectTransform>();
         if (headerRect == null) return false;
         var a = new Vector3[4];
@@ -132,7 +138,7 @@ internal static partial class ScratchTransitionQA
         if (b[1].y > a[0].y + .1f || Mathf.Abs(b[1].y - a[0].y) > .5f) return false;
         int rank = !voided && payout > 0 ? (int)tier : 0;
         float[] titleMax = { 38, 34, 38, 42, 46 };
-        float[] amountMax = { 88, 84, 92, 100, 108 };
+        float[] amountMax = { 92, 100, 108, 116, 124 };
         if (rank < 0 || rank > 4 || Mathf.Abs(outcome.fontSizeMax - titleMax[rank]) > .01f ||
             Mathf.Abs(amount.fontSizeMax - amountMax[rank]) > .01f) return false;
         Color expected = affordable ? new Color32(32,51,46,255) : new Color32(249,239,216,255);

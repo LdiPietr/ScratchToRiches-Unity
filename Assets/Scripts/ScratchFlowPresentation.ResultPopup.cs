@@ -10,7 +10,8 @@ public sealed partial class ScratchFlowPresentation
 
     private void RefreshResultActions()
     {
-        if (!CanAcknowledgeResult) return;
+        if (previewingResult || !ShowingResult || game.TicketActive ||
+            (HasResultPopup && !ResultPopupVisible)) return;
         var kind = game.CurrentTicketKind;
         bool available = !game.DemoFinished;
         if (HasResultPopup)
@@ -42,7 +43,7 @@ public sealed partial class ScratchFlowPresentation
         nextTicketLabel.text = available ? "CAMBIA BIGLIETTO" : "VEDI FINALE";
         if (HasResultPopup)
             ((RectTransform)nextTicketButton.transform).anchoredPosition = available
-                ? nextTicketHome : new Vector2(246f, -400f);
+                ? nextTicketHome : new Vector2(246f, -424f);
         nextTicketButton.gameObject.SetActive(true);
         nextTicketButton.interactable = true;
         if (repeatTicketButton != null && repeatTicketLabel != null)
@@ -100,7 +101,7 @@ public sealed partial class ScratchFlowPresentation
         Color accent = winning && payout > cost ? new Color32(234,194,92,255) : new Color32(192,205,195,255);
         int rank = winning ? Mathf.Clamp((int)tier, 1, 4) : 0;
         float titleMax = rank == 0 ? 38f : 34f + (rank - 1) * 4f;
-        float amountMax = rank == 0 ? 88f : 84f + (rank - 1) * 8f;
+        float amountMax = rank == 0 ? 92f : 100f + (rank - 1) * 8f;
         if (resultPopupHeading != null)
             resultPopupHeading.text = "BIGLIETTO " + ScratchGameManager.TicketDisplayName(kind);
         if (resultOutcomeLabel != null)
@@ -115,13 +116,13 @@ public sealed partial class ScratchFlowPresentation
             resultPopupAmount.text = (payout > 0 ? "+" : "") + payout.ToString("N0");
             resultPopupAmount.color = accent;
             resultPopupAmount.fontSizeMax = amountMax;
-            SetPopupY(resultPopupAmount.rectTransform, winning ? -205f : -186f);
+            SetPopupY(resultPopupAmount.rectTransform, winning ? -207f : -186f);
         }
         if (resultPopupUnit != null)
         {
             resultPopupUnit.text = "MONETE";
             resultPopupUnit.color = accent;
-            SetPopupY(resultPopupUnit.rectTransform, winning ? -305f : -286f);
+            SetPopupY(resultPopupUnit.rectTransform, winning ? -322f : -305f);
         }
         if (resultPopupNet != null) resultPopupNet.text = PopupNet(payout, cost, voided);
         if (resultMatchIcons == null) return;
@@ -158,7 +159,9 @@ public sealed partial class ScratchFlowPresentation
         ticketCanvasGroup.alpha = 0f;
         ticketCanvasGroup.blocksRaycasts = false;
         resultPopup.SetActive(true);
-        if (resultPopupPanel != null) resultPopupPanel.localScale = Vector3.one;
+        if (resultPopupPanel != null) resultPopupPanel.gameObject.SetActive(true);
+        SetResultDimmer(.55f);
+        ApplyRewardEntrance(1f);
         ApplyPopupOutcome(kind, tier, payout, voided, sprites);
         RefreshResultButtons(kind, true, affordable, upgrades);
         ticketChooser.Refresh();

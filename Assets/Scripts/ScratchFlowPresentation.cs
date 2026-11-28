@@ -39,6 +39,8 @@ public sealed partial class ScratchFlowPresentation : MonoBehaviour
     [Header("Authored result popup")]
     [SerializeField] private GameObject resultPopup;
     [SerializeField] private RectTransform resultPopupPanel;
+    [SerializeField] private Image resultDimmer;
+    [SerializeField] private CanvasGroup resultCardGroup, rewardHeaderGroup, rewardValueGroup, rewardActionsGroup;
     [SerializeField] private TMP_Text resultPopupHeading, resultPopupAmount;
     [SerializeField] private TMP_Text resultOutcomeLabel, resultPopupUnit, resultPopupNet;
     [SerializeField] private Image[] resultMatchIcons = new Image[5];
@@ -51,7 +53,8 @@ public sealed partial class ScratchFlowPresentation : MonoBehaviour
     private float resultReadyAt, resultOpenedAt;
     private Vector2 nextTicketHome;
     public bool HasResultPopup => resultPopup != null;
-    public bool ResultPopupVisible => resultPopup != null && resultPopup.activeInHierarchy;
+    public bool ResultPopupVisible => resultPopup != null && resultPopup.activeInHierarchy &&
+        (resultPopupPanel == null || resultPopupPanel.gameObject.activeInHierarchy);
     [SerializeField, Range(0.1f, 1.2f)] private float ticketTravelDuration = 0.36f;
 
     [Header("Full-screen skill curtain")]
@@ -78,7 +81,7 @@ public sealed partial class ScratchFlowPresentation : MonoBehaviour
     public bool CanScratch => phase == Phase.TicketLive;
     public bool ShowingResult => phase == Phase.TicketResult;
     public bool CanAcknowledgeResult => !previewingResult && ShowingResult && !game.TicketActive &&
-        (!HasResultPopup || ResultPopupVisible);
+        (!HasResultPopup || (ResultPopupVisible && (rewardActionsGroup == null || rewardActionsGroup.interactable)));
     public bool CanOpenShop => game != null && !game.TicketActive && game.WaitingForTicketChoice &&
         phase == Phase.Choosing;
     public bool ShopOpen => phase == Phase.CurtainDescending || phase == Phase.CurtainVisible || phase == Phase.CurtainAscending;

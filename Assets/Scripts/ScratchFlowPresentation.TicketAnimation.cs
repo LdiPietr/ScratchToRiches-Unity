@@ -12,6 +12,7 @@ public sealed partial class ScratchFlowPresentation
     private void HideResultActions()
     {
         if (resultPopup != null) resultPopup.SetActive(false);
+        ResetRewardPresentation();
         foreach (Button button in new[] { nextTicketButton, repeatTicketButton, resultUpgradesButton })
         {
             if (button == null) continue;
@@ -32,7 +33,7 @@ public sealed partial class ScratchFlowPresentation
         ticketCanvasGroup.alpha = 1f;
         ticketCanvasGroup.blocksRaycasts = false;
         HideResultActions();
-        resultReadyAt = Time.unscaledTime + .24f;
+        resultReadyAt = Time.unscaledTime + .18f;
         resultDepartureStarted = -1f;
         if (!HasResultPopup) RefreshResultActions();
         ticketChooser.Refresh();
@@ -45,27 +46,94 @@ public sealed partial class ScratchFlowPresentation
         {
             if (Time.unscaledTime < resultReadyAt ||
                 (resultJuice != null && resultJuice.PayoutAnimating)) return;
-            // The payout animation owns the ticket until all coins arrive.
-            // Then move the fully opaque ticket away before showing the modal.
-            if (resultDepartureStarted < 0f) resultDepartureStarted = Time.unscaledTime;
-            float travel = Mathf.Clamp01((Time.unscaledTime - resultDepartureStarted) / .30f);
-            float eased = EaseIn(travel);
-            ticketTransform.anchoredPosition = ticketHome + Vector2.down * (920f * eased);
-            ticketTransform.localRotation = Quaternion.Euler(0f, 0f, 3f * eased);
-            ticketTransform.localScale = Vector3.one * Mathf.Lerp(TicketDisplayScale, .84f, eased);
+            if (resultDepartureStarted < 0f)
+            {
+                resultDepartureStarted = Time.unscaledTime;
+                // Activate the authored modal shield/dimmer, not its card yet.
+                if (resultPopupPanel != null) resultPopupPanel.gameObject.SetActive(false);
+                resultPopup.SetActive(true);
+            }
+            float travel = Mathf.Clamp01((Time.unscaledTime - resultDepartureStarted) / .36f);
+            float eased = travel * travel;
+            // Toss the complete layered ticket clear of the viewport. Do not
+            // fade a layered CanvasGroup: that would expose covered symbols.
+            ticketTransform.anchoredPosition = ticketHome + new Vector2(1450f, -850f) * eased;
+            ticketTransform.localRotation = Quaternion.Euler(0f, 0f, -16f * eased);
+            ticketTransform.localScale = Vector3.one * Mathf.Lerp(TicketDisplayScale, .88f, eased);
+            SetResultDimmer(.55f * Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(travel / .68f)));
             if (travel < 1f) return;
             ticketCanvasGroup.alpha = 0f;
             ticketCanvasGroup.blocksRaycasts = false;
             resultOpenedAt = Time.unscaledTime;
-            if (resultPopupPanel != null) resultPopupPanel.localScale = Vector3.one * .96f;
-            resultPopup.SetActive(true);
+            if (resultPopupPanel != null) resultPopupPanel.gameObject.SetActive(true);
+            ApplyRewardEntrance(0f);
             RefreshResultActions();
         }
+        ApplyRewardEntrance(Mathf.Clamp01((Time.unscaledTime - resultOpenedAt) / .32f));
+    }
+
+    private void SetResultDimmer(float alpha)
+    {
+        if (resultDimmer == null) return;
+        Color color = resultDimmer.color;
+        color.a = alpha;
+        resultDimmer.color = color;
+    }
+
+    private static void SetRewardGroup(CanvasGroup group, float alpha, bool input = false)
+    {
+        if (group == null) return;
+        group.alpha = alpha;
+        group.interactable = input;
+        group.blocksRaycasts = input;
+    }
+
+    private void ApplyRewardEntrance(float t)
+    {
+        float body = EaseOut(Mathf.Clamp01(t / .74f));
+        float rise = t < .72f ? Mathf.Lerp(.92f, 1.025f, EaseOut(t / .72f)) :
+            Mathf.Lerp(1.025f, 1f, Mathf.SmoothStep(0f, 1f, (t - .72f) / .28f));
+        if (resultPopupPanel != null) resultPopupPanel.localScale = Vector3.one * rise;
+        SetRewardGroup(resultCardGroup, body, true);
+        SetRewardGroup(rewardHeaderGroup, EaseOut(Mathf.Clamp01((t - .06f) / .55f)));
+        float value = EaseOut(Mathf.Clamp01((t - .18f) / .58f));
+        SetRewardGroup(rewardValueGroup, value);
+        if (rewardValueGroup != null)
+        {
+            float pop = game.TicketPayout > 0 ? .035f * Mathf.Sin(Mathf.PI * value) : 0f;
+            rewardValueGroup.transform.localScale = Vector3.one * (.96f + .04f * value + pop);
+        }
+        float actions = EaseOut(Mathf.Clamp01((t - .38f) / .62f));
+        SetRewardGroup(rewardActionsGroup, actions, t >= 1f);
+        if (rewardActionsGroup != null)
+            ((RectTransform)rewardActionsGroup.transform).anchoredPosition = Vector2.down * (12f * (1f - actions));
+    }
+
+    private void ResetRewardPresentation()
+    {
+        SetResultDimmer(0f);
         if (resultPopupPanel != null)
         {
-            float t = Mathf.Clamp01((Time.unscaledTime - resultOpenedAt) / .18f);
-            resultPopupPanel.localScale = Vector3.one * Mathf.Lerp(.96f, 1f, EaseOut(t));
+            resultPopupPanel.gameObject.SetActive(false);
+            resultPopupPanel.localScale = Vector3.one;
         }
+        SetRewardGroup(resultCardGroup, 0f);
+        SetRewardGroup(rewardHeaderGroup, 0f);
+        SetRewardGroup(rewardValueGroup, 0f);
+        SetRewardGroup(rewardActionsGroup, 0f);
+        if (rewardValueGroup != null) rewardValueGroup.transform.localScale = Vector3.one;
+        if (rewardActionsGroup != null)
+            ((RectTransform)rewardActionsGroup.transform).anchoredPosition = Vector2.zero;
+        resultDepartureStarted = -1f;
+    }
+
+    private void ResetDepartedTicket()
+    {
+        ticketCanvasGroup.alpha = 0f;
+        ticketCanvasGroup.blocksRaycasts = false;
+        ticketTransform.anchoredPosition = ticketHome;
+        ticketTransform.localRotation = Quaternion.identity;
+        ticketTransform.localScale = Vector3.one * TicketDisplayScale;
     }
 
     public void ContinueAfterResult() => LeaveResult(ResultAction.Choose);
@@ -79,8 +147,7 @@ public sealed partial class ScratchFlowPresentation
         if (game.DemoFinished)
         {
             phase = Phase.Idle;
-            ticketCanvasGroup.alpha = 0f;
-            ticketCanvasGroup.blocksRaycasts = false;
+            ResetDepartedTicket();
             game.ShowDemoEnding();
             return;
         }
@@ -164,7 +231,7 @@ public sealed partial class ScratchFlowPresentation
 
     private void CompleteTicketDeparture(ResultAction action, ScratchGameManager.TicketKind kind)
     {
-        ticketCanvasGroup.alpha = 0f;
+        ResetDepartedTicket();
         motion = null;
         if (game.WaitingForTicketChoice)
         {
