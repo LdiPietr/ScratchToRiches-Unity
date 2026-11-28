@@ -54,7 +54,7 @@ public sealed partial class ScratchSkillTreeUI : MonoBehaviour
     // All 90 authored nodes remain visible; this index is ONLY a navigation aid.
     private readonly List<string> purchasableIds = new List<string>(25);
     private int availableFocusIndex = -1;
-    private Button availableJumpButton;
+    [SerializeField] private Button availableJumpButton;
     private ScratchFlowPresentation flow;
 
     private static readonly Color[] BranchColors =
@@ -112,35 +112,16 @@ public sealed partial class ScratchSkillTreeUI : MonoBehaviour
 
         nucleusButton.onClick.AddListener(GoToCore);
         flow = game.GetComponent<ScratchFlowPresentation>();
-        // Reuse the already-authored top label as a CLICKABLE availability
-        // navigator. Adds no GameObject, no extra node and no new scene asset.
-        if (pageLabel != null)
+        // The availability navigator and typography are serialized in the scene.
+        if (availableJumpButton == null || pageLabel == null ||
+            availableJumpButton.gameObject != pageLabel.gameObject)
         {
-            pageLabel.gameObject.SetActive(true);
-            pageLabel.rectTransform.anchoredPosition = new Vector2(0f, 375f);
-            pageLabel.rectTransform.sizeDelta = new Vector2(1020f, 50f);
-            pageLabel.fontSize = 21f;
-            pageLabel.alignment = TextAlignmentOptions.Center;
-            pageLabel.raycastTarget = true;
-            pageLabel.color = new Color(0.12f, 0.36f, 0.23f, 1f);
-            availableJumpButton = pageLabel.GetComponent<Button>();
-            if (availableJumpButton == null)
-                availableJumpButton = pageLabel.gameObject.AddComponent<Button>();
-            availableJumpButton.transition = Selectable.Transition.None;
-            availableJumpButton.targetGraphic = pageLabel;
-            availableJumpButton.onClick.AddListener(JumpToNextPurchase);
+            Debug.LogError("Scratch radial map: missing authored availability button.", this);
+            nucleusButton.onClick.RemoveListener(GoToCore);
+            enabled = false;
+            return;
         }
-        // The original fixed info panel was too small in recorded human play.
-        // Adaptive sizing preserves the authored layout without replacing it.
-        selectedTitle.enableAutoSizing = true;
-        selectedTitle.fontSizeMax = 22f;
-        selectedTitle.fontSizeMin = 16f;
-        selectedDescription.enableAutoSizing = true;
-        selectedDescription.fontSizeMax = 18f;
-        selectedDescription.fontSizeMin = 13f;
-        statusLabel.enableAutoSizing = true;
-        statusLabel.fontSizeMax = 20f;
-        statusLabel.fontSizeMin = 14f;
+        availableJumpButton.onClick.AddListener(JumpToNextPurchase);
         skills.Changed += Refresh;
         economy.Changed += Refresh;
         game.Changed += Refresh;
