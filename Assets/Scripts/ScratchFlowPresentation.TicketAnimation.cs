@@ -69,7 +69,8 @@ public sealed partial class ScratchFlowPresentation
             ApplyRewardEntrance(0f);
             RefreshResultActions();
         }
-        ApplyRewardEntrance(Mathf.Clamp01((Time.unscaledTime - resultOpenedAt) / .32f));
+        float duration = rewardVisualRank == 0 ? .26f : .32f + .035f * (rewardVisualRank - 1);
+        ApplyRewardEntrance(Mathf.Clamp01((Time.unscaledTime - resultOpenedAt) / duration));
     }
 
     private void SetResultDimmer(float alpha)
@@ -101,7 +102,7 @@ public sealed partial class ScratchFlowPresentation
         UpdateRewardDecoration(value);
         if (rewardValueGroup != null)
         {
-            float pop = game.TicketPayout > 0 ? .035f * Mathf.Sin(Mathf.PI * value) : 0f;
+            float pop = rewardVisualRank > 0 ? (.02f + .018f * rewardVisualRank) * Mathf.Sin(Mathf.PI * value) : 0f;
             rewardValueGroup.transform.localScale = Vector3.one * (.96f + .04f * value + pop);
         }
         float actions = EaseOut(Mathf.Clamp01((t - .38f) / .62f));

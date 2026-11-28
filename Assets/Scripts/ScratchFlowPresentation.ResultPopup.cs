@@ -11,6 +11,7 @@ public sealed partial class ScratchFlowPresentation
     [SerializeField] private Image rewardGoldFrame, rewardGoldRays, rewardDivider;
     [SerializeField] private Image[] rewardCoinDecor = new Image[0];
     [SerializeField] private Image[] rewardSparks = new Image[0];
+    [SerializeField] private TMP_Text rewardAmountShadow;
     private int rewardVisualRank;
     private bool rewardShowCoins;
 
@@ -33,22 +34,31 @@ public sealed partial class ScratchFlowPresentation
     private void UpdateRewardDecoration(float entrance)
     {
         int rank = rewardVisualRank;
-        float strength = rank == 0 ? 0f : .25f + rank * .16f;
+        float strength = rank == 0 ? 0f : rank == 1 ? .48f : rank == 2 ? .65f : rank == 3 ? .83f : 1f;
         float appear = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(entrance));
-        float pulse = 1f + .22f * Mathf.Sin(Mathf.PI * appear);
+        float pulse = 1f + (.12f + rank * .09f) * Mathf.Sin(Mathf.PI * appear);
         RewardTint(rewardGoldFrame, strength * appear * pulse);
-        RewardTint(rewardGoldRays, strength * .78f * appear * pulse);
+        RewardTint(rewardGoldRays, strength * .90f * appear * pulse);
+        if (rewardGoldRays != null)
+            rewardGoldRays.rectTransform.localScale = Vector3.one * (.78f + .22f * appear + .04f * rank);
         RewardTint(rewardDivider, .48f + strength * .35f);
         for (int i = 0; i < rewardCoinDecor.Length; i++)
-            RewardTint(rewardCoinDecor[i], rewardShowCoins && i % 3 <= Mathf.Min(2, rank)
-                ? appear * (.77f + rank * .05f) : 0f);
+        {
+            float delay = (i % 3) * .10f;
+            float coinIn = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((entrance - delay) / (1f - delay)));
+            RewardTint(rewardCoinDecor[i], rewardShowCoins && i % 3 < Mathf.Min(3, rank)
+                ? coinIn : 0f);
+            if (rewardCoinDecor[i] != null)
+                rewardCoinDecor[i].rectTransform.localScale = Vector3.one * (.88f + .12f * coinIn);
+        }
         for (int i = 0; i < rewardSparks.Length; i++)
         {
             Image spark = rewardSparks[i];
             bool show = rank > 0 && i < rank * 2;
-            RewardTint(spark, show ? strength * appear * pulse : 0f);
+            float sparkle = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((entrance - (i / 2) * .10f) / (1f - (i / 2) * .10f)));
+            RewardTint(spark, show ? (.65f + .08f * rank) * sparkle * pulse : 0f);
             if (spark != null)
-                spark.rectTransform.localScale = Vector3.one * (.80f + .20f * appear);
+                spark.rectTransform.localScale = Vector3.one * (.65f + .35f * sparkle + .10f * rank * Mathf.Sin(Mathf.PI * sparkle));
         }
     }
 
@@ -153,7 +163,7 @@ public sealed partial class ScratchFlowPresentation
         int rank = winning ? Mathf.Clamp((int)tier, 1, 4) : 0;
         SetRewardStyle(rank, payout);
         float titleMax = rank == 0 ? 38f : 38f + (rank - 1) * 4f;
-        float amountMax = rank == 0 ? 92f : 112f + (rank - 1) * 8f;
+        float amountMax = rank == 0 ? 92f : 112f + (rank - 1) * 12f;
         if (resultPopupHeading != null)
             resultPopupHeading.text = "BIGLIETTO " + ScratchGameManager.TicketDisplayName(kind);
         if (resultOutcomeLabel != null)
@@ -166,20 +176,28 @@ public sealed partial class ScratchFlowPresentation
         if (resultPopupAmount != null)
         {
             resultPopupAmount.text = (payout > 0 ? "+" : "") + payout.ToString("N0");
-            resultPopupAmount.color = accent;
+            // White base avoids multiplying the gold vertex gradient twice.
+            resultPopupAmount.color = winning ? Color.white : accent;
             resultPopupAmount.enableVertexGradient = winning;
             if (winning)
                 resultPopupAmount.colorGradient = new VertexGradient(
-                    new Color32(255, 244, 194, 255), new Color32(255, 244, 194, 255),
-                    new Color32(235, 164, 54, 255), new Color32(235, 164, 54, 255));
+                    new Color32(255, 249, 210, 255), new Color32(255, 249, 210, 255),
+                    new Color32(244, 180, 60, 255), new Color32(244, 180, 60, 255));
             resultPopupAmount.fontSizeMax = amountMax;
-            SetPopupY(resultPopupAmount.rectTransform, winning ? -218f : -186f);
+            SetPopupY(resultPopupAmount.rectTransform, winning ? -214f : -186f);
+            if (rewardAmountShadow != null)
+            {
+                rewardAmountShadow.gameObject.SetActive(winning);
+                rewardAmountShadow.text = resultPopupAmount.text;
+                rewardAmountShadow.fontSizeMax = amountMax;
+                SetPopupY(rewardAmountShadow.rectTransform, -218f);
+            }
         }
         if (resultPopupUnit != null)
         {
             resultPopupUnit.text = "MONETE";
             resultPopupUnit.color = accent;
-            SetPopupY(resultPopupUnit.rectTransform, winning ? -333f : -305f);
+            SetPopupY(resultPopupUnit.rectTransform, winning ? -338f : -305f);
         }
         if (resultPopupNet != null) resultPopupNet.text = PopupNet(payout, cost, voided);
         if (resultMatchIcons == null) return;
@@ -218,8 +236,8 @@ public sealed partial class ScratchFlowPresentation
         resultPopup.SetActive(true);
         if (resultPopupPanel != null) resultPopupPanel.gameObject.SetActive(true);
         SetResultDimmer(.55f);
-        ApplyRewardEntrance(1f);
         ApplyPopupOutcome(kind, tier, payout, voided, sprites);
+        ApplyRewardEntrance(1f);
         RefreshResultButtons(kind, true, affordable, upgrades);
         ticketChooser.Refresh();
         return true;

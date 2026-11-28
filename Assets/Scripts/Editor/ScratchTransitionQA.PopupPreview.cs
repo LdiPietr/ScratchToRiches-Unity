@@ -138,7 +138,7 @@ internal static partial class ScratchTransitionQA
         if (b[1].y > a[0].y + .1f || Mathf.Abs(b[1].y - a[0].y) > .5f) return false;
         int rank = !voided && payout > 0 ? (int)tier : 0;
         float[] titleMax = { 38, 38, 42, 46, 50 };
-        float[] amountMax = { 92, 112, 120, 128, 136 };
+        float[] amountMax = { 92, 112, 124, 136, 148 };
         if (rank < 0 || rank > 4 || Mathf.Abs(outcome.fontSizeMax - titleMax[rank]) > .01f ||
             Mathf.Abs(amount.fontSizeMax - amountMax[rank]) > .01f) return false;
         var frame = so.FindProperty("rewardGoldFrame").objectReferenceValue as Image;
@@ -153,13 +153,16 @@ internal static partial class ScratchTransitionQA
         {
             var image = coins.GetArrayElementAtIndex(i).objectReferenceValue as Image;
             if (image == null || image.raycastTarget || image.gameObject.activeInHierarchy !=
-                (rank > 0 && payout < 10000 && i % 3 <= Mathf.Min(2, rank))) return false;
+                (rank > 0 && payout < 10000 && i % 3 < Mathf.Min(3, rank))) return false;
         }
         for (int i = 0; i < sparks.arraySize; i++)
         {
             var image = sparks.GetArrayElementAtIndex(i).objectReferenceValue as Image;
             if (image == null || image.raycastTarget || image.gameObject.activeInHierarchy != (rank > 0 && i < rank * 2)) return false;
         }
+        var shadow = so.FindProperty("rewardAmountShadow").objectReferenceValue as TMP_Text;
+        if (shadow == null || shadow.raycastTarget || shadow.gameObject.activeInHierarchy != (rank > 0) ||
+            (rank > 0 && (shadow.text != amount.text || amount.color != Color.white))) return false;
         Color expected = affordable ? new Color32(32,51,46,255) : new Color32(249,239,216,255);
         var disabled = button.colors.disabledColor;
         if (repeat.color != expected || button.interactable != affordable ||
