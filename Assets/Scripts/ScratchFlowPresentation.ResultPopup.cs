@@ -7,6 +7,57 @@ using UnityEngine.UI;
 public sealed partial class ScratchFlowPresentation
 {
     private bool previewingResult;
+    [Header("Scene-authored reward celebration")]
+    [SerializeField] private Image rewardGoldFrame, rewardGoldRays, rewardDivider;
+    [SerializeField] private Image[] rewardCoinDecor = new Image[0];
+    [SerializeField] private Image[] rewardSparks = new Image[0];
+    private int rewardVisualRank;
+    private bool rewardShowCoins;
+
+    private void SetRewardStyle(int rank, int payout)
+    {
+        rewardVisualRank = Mathf.Clamp(rank, 0, 4);
+        rewardShowCoins = rank > 0 && payout < 10000;
+        UpdateRewardDecoration(1f);
+    }
+
+    private static void RewardTint(Image image, float alpha)
+    {
+        if (image == null) return;
+        image.gameObject.SetActive(alpha > .001f);
+        Color tint = image.color;
+        tint.a = Mathf.Clamp01(alpha);
+        image.color = tint;
+    }
+
+    private void UpdateRewardDecoration(float entrance)
+    {
+        int rank = rewardVisualRank;
+        float strength = rank == 0 ? 0f : .25f + rank * .16f;
+        float appear = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(entrance));
+        float pulse = 1f + .22f * Mathf.Sin(Mathf.PI * appear);
+        RewardTint(rewardGoldFrame, strength * appear * pulse);
+        RewardTint(rewardGoldRays, strength * .78f * appear * pulse);
+        RewardTint(rewardDivider, .48f + strength * .35f);
+        for (int i = 0; i < rewardCoinDecor.Length; i++)
+            RewardTint(rewardCoinDecor[i], rewardShowCoins && i % 3 <= Mathf.Min(2, rank)
+                ? appear * (.77f + rank * .05f) : 0f);
+        for (int i = 0; i < rewardSparks.Length; i++)
+        {
+            Image spark = rewardSparks[i];
+            bool show = rank > 0 && i < rank * 2;
+            RewardTint(spark, show ? strength * appear * pulse : 0f);
+            if (spark != null)
+                spark.rectTransform.localScale = Vector3.one * (.80f + .20f * appear);
+        }
+    }
+
+    private void ResetRewardDecoration()
+    {
+        rewardVisualRank = 0;
+        rewardShowCoins = false;
+        UpdateRewardDecoration(0f);
+    }
 
     private void RefreshResultActions()
     {
@@ -100,8 +151,9 @@ public sealed partial class ScratchFlowPresentation
         bool winning = !voided && payout > 0 && tier != ScratchSymbolManager.MatchTier.None;
         Color accent = winning && payout > cost ? new Color32(234,194,92,255) : new Color32(192,205,195,255);
         int rank = winning ? Mathf.Clamp((int)tier, 1, 4) : 0;
-        float titleMax = rank == 0 ? 38f : 34f + (rank - 1) * 4f;
-        float amountMax = rank == 0 ? 92f : 100f + (rank - 1) * 8f;
+        SetRewardStyle(rank, payout);
+        float titleMax = rank == 0 ? 38f : 38f + (rank - 1) * 4f;
+        float amountMax = rank == 0 ? 92f : 112f + (rank - 1) * 8f;
         if (resultPopupHeading != null)
             resultPopupHeading.text = "BIGLIETTO " + ScratchGameManager.TicketDisplayName(kind);
         if (resultOutcomeLabel != null)
@@ -115,14 +167,19 @@ public sealed partial class ScratchFlowPresentation
         {
             resultPopupAmount.text = (payout > 0 ? "+" : "") + payout.ToString("N0");
             resultPopupAmount.color = accent;
+            resultPopupAmount.enableVertexGradient = winning;
+            if (winning)
+                resultPopupAmount.colorGradient = new VertexGradient(
+                    new Color32(255, 244, 194, 255), new Color32(255, 244, 194, 255),
+                    new Color32(235, 164, 54, 255), new Color32(235, 164, 54, 255));
             resultPopupAmount.fontSizeMax = amountMax;
-            SetPopupY(resultPopupAmount.rectTransform, winning ? -207f : -186f);
+            SetPopupY(resultPopupAmount.rectTransform, winning ? -218f : -186f);
         }
         if (resultPopupUnit != null)
         {
             resultPopupUnit.text = "MONETE";
             resultPopupUnit.color = accent;
-            SetPopupY(resultPopupUnit.rectTransform, winning ? -322f : -305f);
+            SetPopupY(resultPopupUnit.rectTransform, winning ? -333f : -305f);
         }
         if (resultPopupNet != null) resultPopupNet.text = PopupNet(payout, cost, voided);
         if (resultMatchIcons == null) return;
@@ -136,7 +193,7 @@ public sealed partial class ScratchFlowPresentation
             if (!show) continue;
             icon.sprite = sprites[i];
             icon.rectTransform.anchoredPosition =
-                new Vector2(420f - (count * 72f + (count - 1) * 8f) * .5f + i * 80f, -132f);
+                new Vector2(420f - (count * 84f + (count - 1) * 10f) * .5f + i * 94f, -134f);
         }
     }
 

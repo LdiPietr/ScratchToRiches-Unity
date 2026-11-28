@@ -137,10 +137,29 @@ internal static partial class ScratchTransitionQA
         dimmer.rectTransform.GetWorldCorners(b);
         if (b[1].y > a[0].y + .1f || Mathf.Abs(b[1].y - a[0].y) > .5f) return false;
         int rank = !voided && payout > 0 ? (int)tier : 0;
-        float[] titleMax = { 38, 34, 38, 42, 46 };
-        float[] amountMax = { 92, 100, 108, 116, 124 };
+        float[] titleMax = { 38, 38, 42, 46, 50 };
+        float[] amountMax = { 92, 112, 120, 128, 136 };
         if (rank < 0 || rank > 4 || Mathf.Abs(outcome.fontSizeMax - titleMax[rank]) > .01f ||
             Mathf.Abs(amount.fontSizeMax - amountMax[rank]) > .01f) return false;
+        var frame = so.FindProperty("rewardGoldFrame").objectReferenceValue as Image;
+        var rays = so.FindProperty("rewardGoldRays").objectReferenceValue as Image;
+        var divider = so.FindProperty("rewardDivider").objectReferenceValue as Image;
+        var coins = so.FindProperty("rewardCoinDecor");
+        var sparks = so.FindProperty("rewardSparks");
+        if (frame == null || rays == null || divider == null || coins.arraySize != 6 || sparks.arraySize != 8 ||
+            frame.gameObject.activeInHierarchy != (rank > 0) || rays.gameObject.activeInHierarchy != (rank > 0) ||
+            !divider.gameObject.activeInHierarchy || amount.enableVertexGradient != (rank > 0)) return false;
+        for (int i = 0; i < coins.arraySize; i++)
+        {
+            var image = coins.GetArrayElementAtIndex(i).objectReferenceValue as Image;
+            if (image == null || image.raycastTarget || image.gameObject.activeInHierarchy !=
+                (rank > 0 && payout < 10000 && i % 3 <= Mathf.Min(2, rank))) return false;
+        }
+        for (int i = 0; i < sparks.arraySize; i++)
+        {
+            var image = sparks.GetArrayElementAtIndex(i).objectReferenceValue as Image;
+            if (image == null || image.raycastTarget || image.gameObject.activeInHierarchy != (rank > 0 && i < rank * 2)) return false;
+        }
         Color expected = affordable ? new Color32(32,51,46,255) : new Color32(249,239,216,255);
         var disabled = button.colors.disabledColor;
         if (repeat.color != expected || button.interactable != affordable ||

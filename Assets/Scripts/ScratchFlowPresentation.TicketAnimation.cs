@@ -98,6 +98,7 @@ public sealed partial class ScratchFlowPresentation
         SetRewardGroup(rewardHeaderGroup, EaseOut(Mathf.Clamp01((t - .06f) / .55f)));
         float value = EaseOut(Mathf.Clamp01((t - .18f) / .58f));
         SetRewardGroup(rewardValueGroup, value);
+        UpdateRewardDecoration(value);
         if (rewardValueGroup != null)
         {
             float pop = game.TicketPayout > 0 ? .035f * Mathf.Sin(Mathf.PI * value) : 0f;
@@ -112,6 +113,7 @@ public sealed partial class ScratchFlowPresentation
     private void ResetRewardPresentation()
     {
         SetResultDimmer(0f);
+        ResetRewardDecoration();
         if (resultPopupPanel != null)
         {
             resultPopupPanel.gameObject.SetActive(false);
